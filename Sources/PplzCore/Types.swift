@@ -46,10 +46,12 @@ public enum NewParticipant: Equatable, Sendable {
 public struct ContactSummary: Codable, Equatable, Sendable {
     public var identifier: String
     public var name: String
+    public var nickname: String
 
-    public init(identifier: String, name: String) {
+    public init(identifier: String, name: String, nickname: String = "") {
         self.identifier = identifier
         self.name = name
+        self.nickname = nickname
     }
 }
 

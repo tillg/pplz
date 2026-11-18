@@ -1,8 +1,8 @@
-#if os(macOS)
 import Foundation
 
 /// Keeps the address book in step with pplz: related names for connections and the history block
-/// in contact notes. Shared by the CLI and the app.
+/// in contact notes. Shared by the CLI and the app. Planning works everywhere; writing goes through
+/// the Contacts app and therefore only happens on the Mac for now.
 ///
 /// Work is split in two so that a UI stays responsive: a *plan* is read from the store
 /// (cheap, on the store's thread), and *applying* it talks to the Contacts app (slow, any thread).
@@ -39,6 +39,7 @@ public enum ContactsSync {
 
     /// Writes link rows. Rows the journal already knows are skipped without asking Contacts, unless `recheck`.
     public static func applyLinks(_ rows: [ContactMirror.Row], journal: ContactJournal, recheck: Bool = false) -> [String] {
+        #if os(macOS)
         rows.compactMap { row in
             do {
                 if try !recheck && journal.pplzAdded(row, field: "url") { return nil }
@@ -49,6 +50,9 @@ public enum ContactsSync {
                 return "Contacts: could not add the pplz link — \(describe(error))"
             }
         }
+        #else
+        return []   // Contacts can only be scripted on the Mac
+        #endif
     }
 
     /// The related-name rows of a connection.
@@ -61,6 +65,7 @@ public enum ContactsSync {
     /// Writes the planned blocks into the notes. Returns one message per contact that changed or failed.
     /// A note is only replaced if it still reads as it did when it was read here.
     public static func apply(_ updates: [HistoryUpdate], journal: ContactJournal) -> [String] {
+        #if os(macOS)
         updates.compactMap { update in
             do {
                 let note = try ContactsApp.readNote(identifier: update.contactIdentifier)
@@ -80,6 +85,9 @@ public enum ContactsSync {
                 return "Contacts: could not update the note of \(update.name) — \(describe(error))"
             }
         }
+        #else
+        return []   // Contacts can only be scripted on the Mac
+        #endif
     }
 
     /// The plain-label rows older versions wrote for a connection (see `ContactMirror.legacyRows`).
@@ -91,6 +99,7 @@ public enum ContactsSync {
 
     /// Adds related-name rows. A failure is reported but does not undo what pplz stored.
     public static func mirror(_ rows: [ContactMirror.Row], journal: ContactJournal) -> [String] {
+        #if os(macOS)
         rows.map { row in
             do {
                 // a row pplz wrote earlier with the plain word is replaced by the one with Apple's label
@@ -110,10 +119,14 @@ public enum ContactsSync {
                 return "Contacts: could not add \"\(readable(row.label)): \(row.value)\" — \(describe(error))"
             }
         }
+        #else
+        return []   // Contacts can only be scripted on the Mac
+        #endif
     }
 
     /// Removes related-name rows, but only those the journal says pplz added.
     public static func unmirror(_ rows: [ContactMirror.Row], journal: ContactJournal) -> [String] {
+        #if os(macOS)
         rows.compactMap { row in
             do {
                 guard try journal.pplzAdded(row) else { return nil }
@@ -124,6 +137,9 @@ public enum ContactsSync {
                 return "Contacts: could not remove \"\(readable(row.label)): \(row.value)\" — \(describe(error))"
             }
         }
+        #else
+        return []   // Contacts can only be scripted on the Mac
+        #endif
     }
 
     /// The journal that belongs to a store: `contact-writes.jsonl` next to it.
@@ -141,4 +157,3 @@ public enum ContactsSync {
         (error as? PplzError)?.errorDescription ?? "\(error)"
     }
 }
-#endif

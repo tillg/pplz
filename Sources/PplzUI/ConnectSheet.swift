@@ -64,7 +64,7 @@ struct ConnectSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 440)
+        .sheetWidth(440)
         .tint(.pink)
     }
 

@@ -8,6 +8,7 @@ public struct PeopleView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var sheet: Sheet?
     @State private var isConfirmingDelete = false
+    private var opensEvents = false
 
     public enum Sheet: String, Identifiable, Sendable {
         case log, edit, editEvent, connect
@@ -18,6 +19,12 @@ public struct PeopleView: View {
     public init(model: PeopleModel, initialSheet: Sheet? = nil) {
         self.model = model
         _sheet = State(initialValue: initialSheet)
+    }
+
+    /// Reads the launch options `-show log|edit|editEvent|connect` and `-mode events`.
+    public init(model: PeopleModel, defaults: UserDefaults) {
+        self.init(model: model, initialSheet: defaults.string(forKey: "show").flatMap(Sheet.init))
+        opensEvents = defaults.string(forKey: "mode") == "events"
     }
 
     public var body: some View {
@@ -71,7 +78,13 @@ public struct PeopleView: View {
             Text("Its follow-ups are deleted too. This cannot be undone.")
         }
         .tint(.pink)
-        .task { await model.reload() }
+        .task {
+            await model.reload()
+            if opensEvents {
+                model.mode = .events
+                model.selectedEventID = model.events.first?.id
+            }
+        }
         #if os(macOS)
         // Reload whenever the app comes to the front, so changes made by the CLI show up.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -151,10 +164,12 @@ extension PeopleView {
                         .help("Log a meeting or call with \(card.entry.name)")
                     Button("Edit", systemImage: "pencil") { sheet = .edit }
                         .help("Edit tags, notes, how you met and the keep-in-touch rhythm")
+                    #if os(macOS)
                     if !card.entry.isPplzOnly {
                         Button("Open in Contacts", systemImage: "person.crop.square") { model.openInContacts() }
                             .help("Show this card in the Contacts app")
                     }
+                    #endif
                 }
         } else {
             ContentUnavailableView("No person selected", systemImage: "person.crop.circle")

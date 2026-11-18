@@ -19,3 +19,9 @@ xcuserdata/
 
 # editor session files
 .pilcrow
+
+# generated Xcode project and local signing settings
+App/pplz.xcodeproj/
+App/Local.xcconfig
+App/Mac/Info.plist
+App/iOS/Info.plist

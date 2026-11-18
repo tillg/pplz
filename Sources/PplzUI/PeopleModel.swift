@@ -13,6 +13,15 @@ public final class PeopleModel {
         /// Name or ID of a person to select after loading.
         public var initialSelection: String?
 
+        /// Launch options, given the Apple way as `-key value` pairs:
+        /// `-store <path>`, `-noContacts YES`, `-select <name or id>`.
+        public init(defaults: UserDefaults) {
+            self.init(storeURL: defaults.string(forKey: "store").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+                          ?? PplzStore.defaultURL(),
+                      usesContacts: !defaults.bool(forKey: "noContacts"),
+                      initialSelection: defaults.string(forKey: "select"))
+        }
+
         public init(storeURL: URL = PplzStore.defaultURL(), usesContacts: Bool = true, initialSelection: String? = nil) {
             self.storeURL = storeURL
             self.usesContacts = usesContacts
@@ -327,7 +336,6 @@ public final class PeopleModel {
     /// if switched on, the history block in the note.
     private func syncContacts(_ ids: [UUID], _ store: PplzStore,
                               mirror: [ContactMirror.Row] = [], unmirror: [ContactMirror.Row] = []) throws {
-        #if os(macOS)
         guard configuration.usesContacts else { return }
         let links = try ContactsSync.linkPlan(store, persons: ids)
         let history = try ContactsSync.historyPlan(store, persons: ids)
@@ -338,7 +346,6 @@ public final class PeopleModel {
             _ = ContactsSync.mirror(mirror, journal: journal)
             _ = ContactsSync.unmirror(unmirror, journal: journal)
         }
-        #endif
     }
 
     public func completeFollowUp(_ id: UUID) async {
@@ -365,8 +372,10 @@ public final class PeopleModel {
     }
 
     public func openInContacts() {
+        #if os(macOS)
         guard let identifier = card?.entry.contactIdentifier else { return }
         Task.detached { try? ContactsApp.open(identifier: identifier) }
+        #endif
     }
 
     private func loadCard() async {

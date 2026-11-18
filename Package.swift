@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v15), .iOS(.v18)],
     products: [
         .library(name: "PplzCore", targets: ["PplzCore"]),
+        .library(name: "PplzUI", targets: ["PplzUI"]),
         .executable(name: "pplz", targets: ["pplz"]),
     ],
     dependencies: [
@@ -20,10 +21,8 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
-        // SwiftUI views shared by the Mac app now and the iOS / iPadOS app later.
+        // SwiftUI views shared by the Mac and the iOS / iPadOS app (Xcode project in App/).
         .target(name: "PplzUI", dependencies: ["PplzCore"]),
-        // The Mac app; `scripts/make-app.sh` wraps it into pplz.app.
-        .executableTarget(name: "PplzApp", dependencies: ["PplzUI"]),
         .testTarget(name: "PplzCoreTests", dependencies: ["PplzCore"]),
         .testTarget(name: "PplzUITests", dependencies: ["PplzUI"]),
     ]

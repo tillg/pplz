@@ -12,12 +12,13 @@ public enum SystemContacts {
         let keys: [CNKeyDescriptor] = [
             CNContactFormatter.descriptorForRequiredKeys(for: .fullName),
             CNContactOrganizationNameKey as CNKeyDescriptor,
+            CNContactNicknameKey as CNKeyDescriptor,
         ]
         var result: [ContactSummary] = []
         try store.enumerateContacts(with: CNContactFetchRequest(keysToFetch: keys)) { contact, _ in
             let name = CNContactFormatter.string(from: contact, style: .fullName) ?? contact.organizationName
             if !name.trimmed.isEmpty {
-                result.append(ContactSummary(identifier: contact.identifier, name: name.trimmed))
+                result.append(ContactSummary(identifier: contact.identifier, name: name.trimmed, nickname: contact.nickname.trimmed))
             }
         }
         return result

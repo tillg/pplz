@@ -1,0 +1,100 @@
+# Xcode project for the pplz apps. The project file itself is generated and not committed:
+#   cd App && xcodegen generate
+name: pplz
+options:
+  deploymentTarget:
+    macOS: "15.0"
+    iOS: "18.0"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Local.xcconfig
+  Release: Local.xcconfig
+packages:
+  pplz:
+    path: ..
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: com.tillg.pplz
+    PRODUCT_NAME: pplz
+    MARKETING_VERSION: "0.1"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "6.0"
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+targets:
+  pplzMac:
+    type: application
+    platform: macOS
+    sources: [Mac, Shared]
+    dependencies:
+      - package: pplz
+        product: PplzUI
+    settings:
+      base:
+        # No sandbox and no hardened runtime yet: the app shares its store with the CLI and
+        # scripts the Contacts app. Both change when iCloud sync and the notes entitlement arrive.
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: Apple Development
+    info:
+      path: Mac/Info.plist
+      properties:
+        CFBundleDisplayName: pplz
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.productivity
+        NSContactsUsageDescription: "pplz shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and pplz does not share them with anyone."
+        NSAppleEventsUsageDescription: "pplz asks the Contacts app to show a person's card and to add what you record in pplz."
+        CFBundleURLTypes:
+          - CFBundleURLName: com.tillg.pplz
+            CFBundleURLSchemes: [pplz]
+  pplziOS:
+    type: application
+    platform: iOS
+    sources: [iOS, Shared]
+    dependencies:
+      - package: pplz
+        product: PplzUI
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: iOS/Info.plist
+      properties:
+        CFBundleDisplayName: pplz
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSContactsUsageDescription: "pplz shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and pplz does not share them with anyone."
+        CFBundleURLTypes:
+          - CFBundleURLName: com.tillg.pplz
+            CFBundleURLSchemes: [pplz]
+  # Clicks through the iOS app from the command line, see scripts/ui.sh.
+  pplzUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: pplziOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tillg.pplz.uitests
+        PRODUCT_NAME: pplzUITests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: pplziOS
+        CODE_SIGN_STYLE: Automatic
+schemes:
+  pplzMac:
+    build:
+      targets:
+        pplzMac: all
+  pplziOS:
+    build:
+      targets:
+        pplziOS: all
+    test:
+      targets: [pplzUITests]

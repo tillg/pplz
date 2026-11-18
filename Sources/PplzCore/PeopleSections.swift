@@ -9,12 +9,13 @@ public enum PeopleSections {
     }
 
     /// Sections A–Z by first letter (accents ignored), everything else under "#" at the end.
-    /// `search` matches names and tags, ignoring case and accents.
+    /// `search` matches names, nicknames and tags, ignoring case and accents.
     public static func make(_ entries: [PersonEntry], search: String = "") -> [Section] {
         let query = search.trimmed
         let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
         let matching = query.isEmpty ? entries : entries.filter { entry in
             entry.name.range(of: query, options: options) != nil
+                || entry.nickname.range(of: query, options: options) != nil
                 || entry.tags.contains { $0.range(of: query, options: options) != nil }
         }
         var groups: [String: [PersonEntry]] = [:]

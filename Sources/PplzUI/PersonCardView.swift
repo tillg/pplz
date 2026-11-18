@@ -30,9 +30,12 @@ struct PersonCardView: View {
     private var header: some View {
         ZStack(alignment: .bottom) {
             if let picture {
-                // a wide header crops a portrait picture: keep the top, where the face usually is
-                picture.resizable().scaledToFill()
-                    .frame(maxWidth: .infinity).frame(height: 400, alignment: .top)
+                // The picture fills a box of fixed height and the card's width; as an overlay it cannot
+                // widen the card (a landscape picture would otherwise push the content off screen).
+                // Cropping keeps the top, where the face usually is.
+                Color.clear
+                    .frame(maxWidth: .infinity).frame(height: 400)
+                    .overlay(alignment: .top) { picture.resizable().scaledToFill() }
                     .clipped()
                 LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
             } else {
@@ -294,5 +297,16 @@ struct EventRow: View {
         return ([event.title.isEmpty ? nil : event.format.displayName, event.place.isEmpty ? nil : event.place,
                  others.isEmpty ? nil : "with " + others.joined(separator: ", ")] as [String?])
             .compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
+extension View {
+    /// Sheets have a fixed width on the Mac; on iPhone and iPad the system sizes them.
+    func sheetWidth(_ width: CGFloat) -> some View {
+        #if os(macOS)
+        frame(width: width)
+        #else
+        frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        #endif
     }
 }

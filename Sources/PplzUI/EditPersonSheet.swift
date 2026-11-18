@@ -47,7 +47,7 @@ struct EditPersonSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 460)
+        .sheetWidth(460)
         .tint(.pink)
     }
 

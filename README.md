@@ -6,7 +6,7 @@
 
 pplz is a personal contact manager for Mac, iPhone and iPad. It enriches the contacts you already have with the history of your interactions: meetings, calls, events and photos.
 
-> **Status: early development.** The shared core, the `pplz` command line and a first Mac app exist and work on a local store. There is no iPhone / iPad app yet, connections and (if you switch it on) the meeting history are written to your contacts, Mac only, and there is no sync between devices yet. The design, the decisions taken so far and the results of the technical spikes are in [SPEC.md](SPEC.md).
+> **Status: early development.** The shared core, the `pplz` command line, a Mac app and a first iPhone / iPad app exist and work on a local store; connections and (if you switch it on) the meeting history are written to your contacts, Mac only, and there is no sync between devices yet. The design, the decisions taken so far and the results of the technical spikes are in [SPEC.md](SPEC.md).
 
 ## The idea
 
@@ -68,7 +68,7 @@ pplz due                                           # who is overdue
 pplz --help
 ```
 
-- People are found by name, part of a name, or ID. An unknown or ambiguous name stops the command with exit code 2 and lists the candidates.
+- People are found by name, nickname, part of either, or ID. An unknown or ambiguous name stops the command with exit code 2 and lists the candidates.
 - Every command takes `--json` for scripts and AI agents. Dates are ISO 8601 in UTC; fields without a value (`end`, `lastMet`, `id` of a contact pplz knows nothing about yet) are left out.
 - A date without a time means the whole day for `--end` and `--until`.
 - The store is `~/Library/Application Support/pplz/pplz.store`; set `PPLZ_STORE` or pass `--store` to use another file.
@@ -78,15 +78,27 @@ pplz --help
 
 Run the tests with `swift test`.
 
-## Mac app
+## Apps
 
-A first version of the Mac app shows your people and each person's card, laid out like Contacts with pink highlights. You can browse and search people and events; log an event with a person (+ on their card); edit their tags, notes, how you met and keep-in-touch rhythm (the pencil); add and remove connections; edit and delete events; and add and tick off follow-ups. Changing who took part in an event and adding a pplz-only person still go through the command line. Changes made with the CLI appear when the app comes to the front.
+The Mac app shows your people and each person's card, laid out like Contacts with pink highlights. You can browse and search people and events; log an event with a person (+ on their card); edit their tags, notes, how you met and keep-in-touch rhythm (the pencil); add and remove relationships; edit and delete events; and add and tick off follow-ups. Changes made with the CLI appear when the app comes to the front.
+
+The iPhone / iPad app uses the same screens. It is at an early stage: it has its own, separate data on each device until iCloud sync exists, and it does not write into Contacts yet.
+
+Both are built from the Xcode project in `App/`, which is generated with [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 
 ```sh
-scripts/make-app.sh --install     # builds pplz.app and copies it to /Applications
+brew install xcodegen
+cp App/Local.xcconfig.example App/Local.xcconfig    # then enter your Apple developer team ID
+scripts/build-app.sh mac                             # builds pplz.app and installs it in /Applications
+scripts/build-app.sh iphone "My iPhone"              # builds and installs on a connected, unlocked device
+scripts/build-app.sh simulator                       # builds for the iOS simulator
 ```
 
-Until there is an Xcode project, the app is built with SwiftPM and wrapped into an app bundle by that script.
+To click through the iOS app from the command line (useful for coding agents), `scripts/ui.sh` runs a list of steps in a simulator and saves screenshots and the accessibility tree to `tmp/ui/`:
+
+```sh
+scripts/ui.sh "-select|Anna Example" "tap:Log Event;screenshot:sheet;tree:sheet"
+```
 
 ## How it is built
 

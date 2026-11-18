@@ -37,3 +37,31 @@ import Testing
         #expect(PeopleSections.initials("") == "")
     }
 }
+
+@Suite struct NicknameSearchTests {
+    var entries: [PersonEntry] {
+        PeopleDirectory.merge(
+            contacts: [ContactSummary(identifier: "C-1", name: "Philip Example", nickname: "Pippo"),
+                       ContactSummary(identifier: "C-2", name: "Ben Sample")],
+            persons: [])
+    }
+
+    @Test func theListSearchFindsPeopleByNickname() {
+        #expect(PeopleSections.make(entries, search: "pippo").flatMap(\.entries).map(\.name) == ["Philip Example"])
+        #expect(PeopleSections.make(entries, search: "pip").flatMap(\.entries).map(\.name) == ["Philip Example"])
+        #expect(entries[1].nickname == "Pippo")
+    }
+
+    @Test func theCommandLineFindsPeopleByNickname() {
+        #expect(PeopleDirectory.resolve("Pippo", in: entries) == .one(entries[1]))
+        #expect(PeopleDirectory.resolve("pipp", in: entries) == .one(entries[1]))
+    }
+
+    @Test func aFullNameStillWinsOverSomeoneElsesNickname() {
+        let both = PeopleDirectory.merge(
+            contacts: [ContactSummary(identifier: "C-1", name: "Anna Example", nickname: "Ben"),
+                       ContactSummary(identifier: "C-2", name: "Ben")],
+            persons: [])
+        #expect(PeopleDirectory.resolve("ben", in: both) == .one(both[1]))
+    }
+}

@@ -9,6 +9,8 @@ public struct PersonEntry: Encodable, Equatable, Sendable {
     public var eventCount: Int
     public var lastMet: Date?
     public var tags: [String]
+    /// The contact's nickname; people can be found by it, as in Contacts.
+    public var nickname: String = ""
 
     /// A person that exists only in pplz, without a system contact.
     public var isPplzOnly: Bool { contactIdentifier == nil }
@@ -17,7 +19,7 @@ public struct PersonEntry: Encodable, Equatable, Sendable {
     public var key: String { contactIdentifier ?? id?.uuidString ?? name }
 
     private enum CodingKeys: String, CodingKey {
-        case id, contactIdentifier, name, eventCount, lastMet, tags, isPplzOnly
+        case id, contactIdentifier, name, nickname, eventCount, lastMet, tags, isPplzOnly
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -25,6 +27,7 @@ public struct PersonEntry: Encodable, Equatable, Sendable {
         try container.encodeIfPresent(id, forKey: .id)
         try container.encodeIfPresent(contactIdentifier, forKey: .contactIdentifier)
         try container.encode(name, forKey: .name)
+        if !nickname.isEmpty { try container.encode(nickname, forKey: .nickname) }
         try container.encode(eventCount, forKey: .eventCount)
         try container.encodeIfPresent(lastMet, forKey: .lastMet)
         try container.encode(tags, forKey: .tags)
@@ -58,7 +61,8 @@ public enum PeopleDirectory {
             let person = linked[contact.identifier]
             seen.insert(contact.identifier)
             entries.append(PersonEntry(id: person?.id, contactIdentifier: contact.identifier, name: contact.name,
-                                       eventCount: person?.eventCount ?? 0, lastMet: person?.lastMet, tags: person?.tags ?? []))
+                                       eventCount: person?.eventCount ?? 0, lastMet: person?.lastMet, tags: person?.tags ?? [],
+                                       nickname: contact.nickname))
         }
         for person in persons where person.contactIdentifier.map({ !seen.contains($0) }) ?? true {
             entries.append(PersonEntry(id: person.id, contactIdentifier: person.contactIdentifier, name: person.name,
@@ -94,7 +98,7 @@ public enum PeopleDirectory {
     }
 
     /// Finds a person by pplz ID (or a unique prefix of it), contact identifier, exact name,
-    /// or part of the name — in that order.
+    /// exact nickname, or part of the name or nickname — in that order.
     public static func resolve(_ query: String, in entries: [PersonEntry]) -> PersonMatch {
         let q = query.trimmed
         guard !q.isEmpty else { return .none }
@@ -110,7 +114,12 @@ public enum PeopleDirectory {
         if exact.count == 1 { return .one(exact[0]) }
         if exact.count > 1 { return .ambiguous(exact) }
 
-        let partial = entries.filter { $0.name.range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        let byNickname = entries.filter { $0.nickname.compare(q, options: options) == .orderedSame }
+        if byNickname.count == 1 { return .one(byNickname[0]) }
+        if byNickname.count > 1 { return .ambiguous(byNickname) }
+
+        let partial = entries.filter { $0.name.range(of: q, options: options) != nil || $0.nickname.range(of: q, options: options) != nil }
         switch partial.count {
         case 0: return .none
         case 1: return .one(partial[0])

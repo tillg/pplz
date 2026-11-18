@@ -153,7 +153,7 @@ Met 7× · last 2026-11-12
 
 ### 4.1 People
 
-- List / search of all persons: contacts plus pplz-only persons (visibly marked) **[A]**
+- List / search of all persons: contacts plus pplz-only persons (visibly marked) **[A]**. Search finds people by name, **nickname** **[S]** 2026-11-18 and tag.
 - Person detail: core contact data (read from Contacts), pplz-only data, **history timeline**, photos **[S]**
 - Contacts → pplz: via the `pplz` link row in the contact (§3.2) **[S]**
 - pplz → contact: a button on the person detail **[S]**
@@ -443,7 +443,7 @@ All questions from the first draft were answered on 2026-11-18.
 | Slice | Content | Proves |
 |---|---|---|
 | 0 | Notes entitlement requested from Apple on 2026-11-18 (pending, §8.4). Remaining spikes: tap on `pplz://` row opens the app (Mac + iPhone); can a development profile carry the notes entitlement before approval; link field survives iCloud sync as cross-device ID; does the app's CloudKit sync export CLI-written rows (signed build); what the LinkedIn share sheet / QR code delivers; `addressbook://` re-test. Mac Contacts spikes done, see §8.1. Storage spike done, see §8.3. | R1, R3, R7 |
-| 1 | *(in progress — core + CLI done 2026-11-18 for people, contact details, events with links, tags, follow-ups, history, connections, keep-in-touch (`pplz due`), open card in Contacts; first Mac app (people list with search, person card, log an event, edit pplz fields and connections from the card, events list by month with event detail, event editing / deleting and follow-ups, open in Contacts, `pplz://person/<id>` links) built with SwiftPM + `scripts/make-app.sh`; open: `ask`, custom formats, file attachments, changing an event's participants and adding pplz-only persons in the app, Xcode project, iOS / iPadOS app)* Shared core package + **Mac CLI** + Mac / iOS app in Contacts look with pink: people list from Contacts, pplz-only person data, manual events + quick log, history timeline (local only); CLI incl. natural-language search via OpenRouter | domain model, CLI |
+| 1 | *(in progress — core + CLI done 2026-11-18 for people, contact details, events with links, tags, follow-ups, history, connections, keep-in-touch (`pplz due`), open card in Contacts; first Mac app (people list with search, person card, log an event, edit pplz fields and connections from the card, events list by month with event detail, event editing / deleting and follow-ups, open in Contacts, `pplz://person/<id>` links) and a first iPhone / iPad app with the same screens (own local data, no Contacts writes yet); both built from the XcodeGen project in `App/` since 2026-11-18; open: `ask`, custom formats, file attachments, changing an event's participants and adding pplz-only persons in the app, polishing the iPhone layout)* Shared core package + **Mac CLI** + Mac / iOS app in Contacts look with pink: people list from Contacts, pplz-only person data, manual events + quick log, history timeline (local only); CLI incl. natural-language search via OpenRouter | domain model, CLI |
 | 2 | Contacts integration: `pplz` link, history block in notes, social links, both-way navigation (Mac scripting bridge until the entitlement arrives) | Contacts integration |
 | 3 | Device sync via CloudKit | storage |
 | 4 | LinkedIn capture | §4.4 |
