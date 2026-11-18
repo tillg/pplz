@@ -26,56 +26,111 @@ public enum ContactsApp {
         throw PplzError.invalid("Could not open the contact in Contacts.")
     }
 
-    public enum WriteResult: String, Sendable { case added, alreadyThere, removed, notThere }
+    public enum WriteResult: String, Sendable { case added, alreadyThere, removed, notThere, written, conflict }
 
-    static func relatedNameScriptArguments(add: Bool, row: ContactMirror.Row) -> [String] {
-        let body = add
-            ? [
-                "repeat with r in (get related names of p)",
-                "if ((label of r) as text) is (item 2 of argv) and ((value of r) as text) is (item 3 of argv) then return \"alreadyThere\"",
-                "end repeat",
-                "make new related name at end of related names of p with properties {label:(item 2 of argv), value:(item 3 of argv)}",
-                "save",
-                "return \"added\"",
-            ]
-            : [
-                "set found to (every related name of p whose label is (item 2 of argv) and value is (item 3 of argv))",
-                "if (count of found) is 0 then return \"notThere\"",
-                "delete (every related name of p whose label is (item 2 of argv) and value is (item 3 of argv))",
-                "save",
-                "return \"removed\"",
-            ]
-        let lines = ["on run argv", "tell application \"Contacts\"", "set p to person id (item 1 of argv)"] + body + ["end tell", "end run"]
-        return lines.flatMap { ["-e", $0] } + [row.contactIdentifier, row.label, row.value]
+    /// Runs an AppleScript with text arguments available as `a1`, `a2`, ….
+    ///
+    /// Text travels through UTF-8 files, not through the command line: command-line arguments get
+    /// re-encoded on the way (accented letters are decomposed), which would silently alter notes and names.
+    static func runScript(_ body: [String], text: [String]) throws -> String {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("pplz-script-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+
+        var paths: [String] = []
+        for (index, value) in text.enumerated() {
+            guard !value.isEmpty else { paths.append(""); continue }   // an empty file cannot be read back
+            let file = folder.appendingPathComponent("a\(index + 1).txt")
+            try Data(value.utf8).write(to: file)
+            paths.append(file.path)
+        }
+        let prelude = ["on txt(p)", "if p is \"\" then return \"\"", "return read (POSIX file p) as «class utf8»", "end txt", "on run argv"]
+            + text.indices.map { "set a\($0 + 1) to my txt(item \($0 + 1) of argv)" }
+        let lines = prelude + body + ["end run"]
+
+        let process = Process()
+        let output = Pipe(), errors = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = lines.flatMap { ["-e", $0] } + paths
+        process.standardOutput = output
+        process.standardError = errors
+        try process.run()
+        let result = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        let reason = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmed
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw PplzError.invalid("Contacts did not accept the request: \(reason)")
+        }
+        return result
+    }
+
+    private static func write(_ body: [String], text: [String]) throws -> WriteResult {
+        let answer = try runScript(body, text: text).trimmed
+        guard let result = WriteResult(rawValue: answer) else {
+            throw PplzError.invalid("Contacts did not accept the change: \(answer)")
+        }
+        return result
     }
 
     /// Adds a related-name row to a contact through the Contacts app, unless the same row is already there.
     /// Scripting is used because a direct save fails for contacts that have a note until Apple grants
     /// the notes entitlement (SPEC §8.1 S4, S6).
     public static func addRelatedName(_ row: ContactMirror.Row) throws -> WriteResult {
-        try write(relatedNameScriptArguments(add: true, row: row))
+        try write([
+            "tell application \"Contacts\"",
+            "set p to person id a1",
+            "repeat with r in (get related names of p)",
+            "if ((label of r) as text) is a2 and ((value of r) as text) is a3 then return \"alreadyThere\"",
+            "end repeat",
+            "make new related name at end of related names of p with properties {label:a2, value:a3}",
+            "save",
+            "return \"added\"",
+            "end tell",
+        ], text: [row.contactIdentifier, row.label, row.value])
     }
 
     /// Removes exactly this related-name row from a contact.
     public static func removeRelatedName(_ row: ContactMirror.Row) throws -> WriteResult {
-        try write(relatedNameScriptArguments(add: false, row: row))
+        try write([
+            "tell application \"Contacts\"",
+            "set p to person id a1",
+            "if (count of (every related name of p whose label is a2 and value is a3)) is 0 then return \"notThere\"",
+            "delete (every related name of p whose label is a2 and value is a3)",
+            "save",
+            "return \"removed\"",
+            "end tell",
+        ], text: [row.contactIdentifier, row.label, row.value])
     }
 
-    private static func write(_ arguments: [String]) throws -> WriteResult {
-        let process = Process()
-        let output = Pipe(), errors = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = arguments
-        process.standardOutput = output
-        process.standardError = errors
-        try process.run()
-        process.waitUntilExit()
-        let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmed
-        guard process.terminationStatus == 0, let result = WriteResult(rawValue: text) else {
-            let reason = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmed
-            throw PplzError.invalid("Contacts did not accept the change: \(reason.isEmpty ? text : reason)")
-        }
-        return result
+    /// The contact's note, read through the Contacts app ("" if empty).
+    public static func readNote(identifier: String) throws -> String {
+        var text = try runScript([
+            "tell application \"Contacts\"",
+            "set n to note of person id a1",
+            "if n is missing value then return \"\"",
+            "return n",
+            "end tell",
+        ], text: [identifier])
+        if text.hasSuffix("\n") { text.removeLast() }   // osascript ends its output with one newline
+        return text
+    }
+
+    /// Replaces the note with `new`, but only if it still reads `expected` — so a change made in
+    /// the meantime is never overwritten.
+    public static func writeNote(identifier: String, expected: String, new: String) throws -> WriteResult {
+        try write([
+            "tell application \"Contacts\"",
+            "set p to person id a1",
+            "set n to note of p",
+            "if n is missing value then set n to \"\"",
+            "considering case, diacriticals and white space",
+            "if (n as text) is not a2 then return \"conflict\"",
+            "end considering",
+            "set note of p to a3",
+            "save",
+            "return \"written\"",
+            "end tell",
+        ], text: [identifier, expected, new])
     }
 
     private static func run(_ tool: String, _ arguments: [String]) -> Bool {

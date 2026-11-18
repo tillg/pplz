@@ -70,6 +70,35 @@ struct Common: ParsableArguments {
         }
     }
 
+    /// Brings pplz's history block in the notes of these persons' contacts up to date.
+    /// Does nothing unless "Show history in Contacts" is on; `remove` takes the blocks out instead.
+    func syncHistory(_ ids: [UUID], _ store: PplzStore, remove: Bool = false) -> [String] {
+        guard usesContacts, (try? store.showsHistoryInContacts()) == true || remove else { return [] }
+        var seen: Set<UUID> = []
+        return ids.filter { seen.insert($0).inserted }.compactMap { id in
+            guard let person = try? store.person(id), let identifier = person.contactIdentifier else { return nil }
+            do {
+                let block = remove ? nil : NotesBlock.render(history: try store.history(of: id))
+                let note = try ContactsApp.readNote(identifier: identifier)
+                let merged = NotesBlock.merge(note: note, block: block)
+                guard merged != note else { return nil }
+                guard try ContactsApp.writeNote(identifier: identifier, expected: note, new: merged) == .written else {
+                    return "Contacts: the note of \(person.name) changed while pplz was updating it — nothing written; run `pplz contacts sync`"
+                }
+                let summary = block?.split(separator: "\n").dropFirst().first.map(String.init) ?? "block removed"
+                try journal.record(block == nil ? .removed : .added,
+                                   ContactMirror.Row(contactIdentifier: identifier, label: "history", value: summary), field: "note")
+                return block == nil ? "Contacts: removed history from the note of \(person.name)" : "Contacts: updated history in the note of \(person.name)"
+            } catch {
+                return "Contacts: could not update the note of \(person.name) — \((error as? PplzError)?.errorDescription ?? "\(error)")"
+            }
+        }
+    }
+
+    func report(_ messages: [String]) {
+        messages.forEach { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
+    }
+
     /// Removes rows from Contacts, but only those the journal says pplz added.
     func unmirror(_ rows: [ContactMirror.Row]) -> [String] {
         guard usesContacts else { return [] }
@@ -487,6 +516,7 @@ struct Log: ParsableCommand {
                 place: place, notes: notes, participants: plan.existing, tags: tag,
                 additionalParticipants: plan.additional, links: link))
             let event = try store.event(id)
+            common.report(common.syncHistory(event.participants.map(\.id), store))
             try common.emit(event) { "Logged  " + line(event) }
         }
     }
@@ -571,6 +601,7 @@ struct EventCommand: ParsableCommand {
             try attempt {
                 let store = try common.open()
                 let eventID = try resolveID(id, among: try store.events().map(\.id), what: "event")
+                let before = try store.event(eventID).participants.map(\.id)
                 let plan = person.isEmpty ? nil
                     : try PeopleDirectory.participants(person, in: try common.directory(store), createMissing: false)
                 try store.updateEvent(eventID, EventChange(
@@ -579,6 +610,7 @@ struct EventCommand: ParsableCommand {
                     participants: plan?.existing, tags: tag.isEmpty ? nil : tag,
                     additionalParticipants: plan?.additional ?? [], links: link.isEmpty ? nil : link))
                 let event = try store.event(eventID)
+                common.report(common.syncHistory(before + event.participants.map(\.id), store))
                 try common.emit(event) { "Updated  " + EventCommand.detail(event) }
             }
         }
@@ -595,6 +627,7 @@ struct EventCommand: ParsableCommand {
                 let eventID = try resolveID(id, among: try store.events().map(\.id), what: "event")
                 let event = try store.event(eventID)
                 try store.deleteEvent(eventID)
+                common.report(common.syncHistory(event.participants.map(\.id), store))
                 try common.emit(event) { "Deleted  " + line(event) }
             }
         }
@@ -664,18 +697,55 @@ struct FollowUpCommand: ParsableCommand {
 struct ContactsCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "contacts", abstract: "What pplz writes into your address book.",
-        subcommands: [Sync.self, Journal.self], defaultSubcommand: Journal.self)
+        subcommands: [Sync.self, History.self, Journal.self], defaultSubcommand: Journal.self)
 
     struct Sync: ParsableCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Write all pplz connections into Contacts as related names. Safe to repeat.")
+            abstract: "Bring Contacts up to date: connections as related names and, if switched on, the history in the notes. Safe to repeat.")
         @OptionGroup var common: Common
 
         func run() throws {
             try attempt {
                 guard common.usesContacts else { throw Failure("Nothing to do with --no-contacts.") }
-                let results = try common.open().allConnections().flatMap { common.mirror(Common.rows($0)) }
-                try common.emit(results) { results.isEmpty ? "No connections to write." : results.joined(separator: "\n") }
+                let store = try common.open()
+                let results = try store.allConnections().flatMap { common.mirror(Common.rows($0)) }
+                    + common.syncHistory(try store.persons().map(\.id), store)
+                try common.emit(results) { results.isEmpty ? "Contacts are up to date." : results.joined(separator: "\n") }
+            }
+        }
+    }
+
+    struct History: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Show history in Contacts: write the meeting history into each contact's note.",
+            discussion: """
+                pplz keeps one block between "\(NotesBlock.startMarker)" and "\(NotesBlock.endMarker)" in the note and never \
+                changes your own text around it. "on" writes the block for everyone you have events with; \
+                "off" removes all blocks again.
+                """)
+        enum Mode: String, ExpressibleByArgument, CaseIterable { case on, off, status }
+        @Argument(help: "on, off or status.") var mode: Mode = .status
+        @OptionGroup var common: Common
+
+        func run() throws {
+            try attempt {
+                let store = try common.open()
+                var results: [String] = []
+                switch mode {
+                case .status:
+                    break
+                case .on:
+                    guard common.usesContacts else { throw Failure("Cannot switch this on with --no-contacts.") }
+                    try store.setShowsHistoryInContacts(true)
+                    results = common.syncHistory(try store.persons().map(\.id), store)
+                case .off:
+                    results = common.syncHistory(try store.persons().map(\.id), store, remove: true)
+                    try store.setShowsHistoryInContacts(false)
+                }
+                let on = try store.showsHistoryInContacts()
+                try common.emit(["showHistoryInContacts": on]) {
+                    (results + ["Show history in Contacts: \(on ? "on" : "off")"]).joined(separator: "\n")
+                }
             }
         }
     }

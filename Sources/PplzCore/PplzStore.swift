@@ -9,7 +9,7 @@ public final class PplzStore {
     public init(url: URL) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let config = ModelConfiguration(url: url, cloudKitDatabase: .none)
-        let container = try ModelContainer(for: Person.self, Event.self, Tag.self, FollowUp.self, Connection.self, configurations: config)
+        let container = try ModelContainer(for: Person.self, Event.self, Tag.self, FollowUp.self, Connection.self, Setting.self, configurations: config)
         context = ModelContext(container)
         context.autosaveEnabled = false
     }
@@ -20,6 +20,31 @@ public final class PplzStore {
             return URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
         }
         return URL.applicationSupportDirectory.appendingPathComponent("pplz/pplz.store")
+    }
+
+    // MARK: Settings
+
+    /// "Show history in Contacts": whether pplz writes its history block into contact notes.
+    /// Off until the user turns it on (SPEC §8.4).
+    public func showsHistoryInContacts() throws -> Bool {
+        try setting("showHistoryInContacts") == "true"
+    }
+
+    public func setShowsHistoryInContacts(_ on: Bool) throws {
+        try setSetting("showHistoryInContacts", on ? "true" : "false")
+    }
+
+    private func setting(_ key: String) throws -> String? {
+        try context.fetch(FetchDescriptor<Setting>(predicate: #Predicate { $0.key == key })).first?.value
+    }
+
+    private func setSetting(_ key: String, _ value: String) throws {
+        if let existing = try context.fetch(FetchDescriptor<Setting>(predicate: #Predicate { $0.key == key })).first {
+            existing.value = value
+        } else {
+            context.insert(Setting(key: key, value: value))
+        }
+        try context.save()
     }
 
     // MARK: Persons

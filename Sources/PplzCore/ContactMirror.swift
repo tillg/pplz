@@ -70,11 +70,11 @@ public struct ContactJournal: Sendable {
 
     public init(url: URL) { self.url = url }
 
-    public func record(_ action: Action, _ row: ContactMirror.Row, at date: Date = Date()) throws {
+    public func record(_ action: Action, _ row: ContactMirror.Row, field: String = "related name", at date: Date = Date()) throws {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        var line = try encoder.encode(Entry(date: date, action: action, field: "related name", row: row))
+        var line = try encoder.encode(Entry(date: date, action: action, field: field, row: row))
         line.append(0x0A)
         if !FileManager.default.fileExists(atPath: url.path) {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -97,6 +97,6 @@ public struct ContactJournal: Sendable {
 
     /// Whether the row is currently in the address book because pplz put it there.
     public func pplzAdded(_ row: ContactMirror.Row) throws -> Bool {
-        try entries().last { $0.row == row }?.action == .added
+        try entries().last { $0.row == row && $0.field == "related name" }?.action == .added
     }
 }

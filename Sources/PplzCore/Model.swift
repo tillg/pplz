@@ -75,6 +75,18 @@ final class Connection {
     init(kind: String) { self.kind = kind }
 }
 
+/// A synced app setting.
+@Model
+final class Setting {
+    var key: String = ""
+    var value: String = ""
+
+    init(key: String, value: String) {
+        self.key = key
+        self.value = value
+    }
+}
+
 @Model
 final class FollowUp {
     var uuid: UUID = UUID()

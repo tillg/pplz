@@ -115,7 +115,7 @@ Not stored separately — it is the per-person view over events (and their photo
 
 | Enrichment | Where in the contact | Status |
 |---|---|---|
-| Contact history (events I met the person at) | Notes ("comment") field | **[S]** |
+| Contact history (events I met the person at) | Notes ("comment") field, see §3.3 | **[S]** built for the Mac CLI 2026-11-18 |
 | Deep link back to the person in pplz | URL field with custom label `pplz` → `pplz://person/<id>`; Contacts shows it as a tappable row that opens the person in pplz. Also serves as the cross-device identity link (R3). | **[S]** decided 2026-11-18 |
 | Contact photo | contact image — for contacts without a picture pplz offers the best recognised face crop (or the LinkedIn picture, §4.4); set only after I confirm | **[S]** decided 2026-11-18 |
 | LinkedIn / other social-media links | the contact's social-profile fields; kept in sync both ways: a profile added in Contacts shows in pplz, one added in pplz is written to the contact | **[S]** decided 2026-11-18 |
@@ -143,7 +143,8 @@ Met 7× · last 2026-11-12
 - Direction is **one-way** pplz → Contacts for this block. Manual edits inside the block are overwritten on next sync. **[S]** decided 2026-11-18
 - Length: summary line + the 10 most recent events; full history lives in pplz. **[S]**
 - Language: follows the device language. **[S]** To stop two devices with different languages from rewriting each other's block, the language is fixed by the first device and kept as a synced setting that I can change. **[A]**
-- Line format as in the example above. **[S]**
+- Line format as in the example above. **[S]** Only date, format, title and place are written, never event notes. **[A]**
+- **Built 2026-11-18 for the Mac CLI** (`pplz contacts history on|off|status`), off by default. Written through Contacts scripting (§8.1 S6) until the notes entitlement arrives; a note is only replaced if it still reads as it did when pplz read it, and every write is in the journal. The block text is English only for now; the device-language rule is not built yet.
 - Writing to Contacts is an explicit setting ("Show history in Contacts"), and only confirmed events are written — as declared to Apple, §8.4. **[S]**
 
 ---
