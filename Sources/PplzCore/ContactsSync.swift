@@ -82,19 +82,32 @@ public enum ContactsSync {
         }
     }
 
+    /// The plain-label rows older versions wrote for a connection (see `ContactMirror.legacyRows`).
+    public static func legacyRows(_ connection: ConnectionRecord) -> [ContactMirror.Row] {
+        ContactMirror.legacyRows(from: .init(name: connection.from.name, contactIdentifier: connection.from.contactIdentifier),
+                                 kind: connection.kind,
+                                 to: .init(name: connection.to.name, contactIdentifier: connection.to.contactIdentifier))
+    }
+
     /// Adds related-name rows. A failure is reported but does not undo what pplz stored.
     public static func mirror(_ rows: [ContactMirror.Row], journal: ContactJournal) -> [String] {
         rows.map { row in
             do {
+                // a row pplz wrote earlier with the plain word is replaced by the one with Apple's label
+                let legacy = ContactMirror.Row(contactIdentifier: row.contactIdentifier, label: readable(row.label), value: row.value)
+                if legacy != row, try journal.pplzAdded(legacy) {
+                    _ = try ContactsApp.removeRelatedName(legacy)
+                    try journal.record(.removed, legacy)
+                }
                 switch try ContactsApp.addRelatedName(row) {
                 case .added:
                     try journal.record(.added, row)
-                    return "Contacts: added \"\(row.label): \(row.value)\""
+                    return "Contacts: added \"\(readable(row.label)): \(row.value)\""
                 default:
-                    return "Contacts: \"\(row.label): \(row.value)\" was already there"
+                    return "Contacts: \"\(readable(row.label)): \(row.value)\" was already there"
                 }
             } catch {
-                return "Contacts: could not add \"\(row.label): \(row.value)\" — \(describe(error))"
+                return "Contacts: could not add \"\(readable(row.label)): \(row.value)\" — \(describe(error))"
             }
         }
     }
@@ -106,9 +119,9 @@ public enum ContactsSync {
                 guard try journal.pplzAdded(row) else { return nil }
                 let removed = try ContactsApp.removeRelatedName(row) == .removed
                 try journal.record(.removed, row)
-                return removed ? "Contacts: removed \"\(row.label): \(row.value)\"" : nil
+                return removed ? "Contacts: removed \"\(readable(row.label)): \(row.value)\"" : nil
             } catch {
-                return "Contacts: could not remove \"\(row.label): \(row.value)\" — \(describe(error))"
+                return "Contacts: could not remove \"\(readable(row.label)): \(row.value)\" — \(describe(error))"
             }
         }
     }
@@ -116,6 +129,12 @@ public enum ContactsSync {
     /// The journal that belongs to a store: `contact-writes.jsonl` next to it.
     public static func journal(forStoreAt url: URL) -> ContactJournal {
         ContactJournal(url: url.deletingLastPathComponent().appendingPathComponent("contact-writes.jsonl"))
+    }
+
+    /// "_$!<Mother>!$_" → "mother", for messages.
+    public static func readable(_ label: String) -> String {
+        guard label.hasPrefix("_$!<"), label.hasSuffix(">!$_") else { return label }
+        return label.dropFirst(4).dropLast(4).lowercased()
     }
 
     private static func describe(_ error: Error) -> String {

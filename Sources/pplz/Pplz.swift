@@ -356,7 +356,12 @@ extension PersonCommand {
     struct Connect: ParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Connect two people.",
-            discussion: "Reads as a sentence: pplz person connect \"Anna\" \"colleague of\" \"Ben\"")
+            discussion: """
+                Reads as a sentence: pplz person connect "Anna" "manager of" "Ben" — Anna is Ben's manager, \
+                so Ben's card in Contacts gets "manager: Anna". Roles Contacts knows: \
+                \(ContactMirror.appleRoles.joined(separator: ", ")), colleague — each followed by "of". \
+                Anything else works too, e.g. "introduced by".
+                """)
         @Argument var person: String
         @Argument(help: "E.g. \"colleague of\", \"introduced by\", \"partner of\".") var kind: String
         @Argument var other: String
@@ -395,7 +400,7 @@ extension PersonCommand {
                 guard let from = a.id, let to = b.id else { return try common.emit([ConnectionSnapshot]()) { "Not connected." } }
                 let removed = try store.allConnections()
                     .filter { ($0.from.id == from && $0.to.id == to) || ($0.from.id == to && $0.to.id == from) }
-                    .flatMap { common.unmirror(ContactsSync.rows($0)) }
+                    .flatMap { common.unmirror(ContactsSync.rows($0) + ContactsSync.legacyRows($0)) }
                 removed.forEach { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
                 try store.disconnect(from, to)
                 try common.emit(try store.connections(of: from)) { "Disconnected \(a.name) and \(b.name)" }
@@ -717,7 +722,7 @@ struct ContactsCommand: ParsableCommand {
                 let entries = try common.journal.entries()
                 try common.emit(entries) {
                     entries.isEmpty ? "pplz has not changed any contact." : entries.map {
-                        "\(format($0.date))  \($0.action.rawValue)  \($0.field) \"\($0.row.label): \($0.row.value)\"  on contact \($0.row.contactIdentifier)"
+                        "\(format($0.date))  \($0.action.rawValue)  \($0.field) \"\(ContactsSync.readable($0.row.label)): \($0.row.value)\"  on contact \($0.row.contactIdentifier)"
                     }.joined(separator: "\n")
                 }
             }

@@ -27,30 +27,76 @@ public enum ContactMirror {
         }
     }
 
-    /// Kinds that hold in both directions and therefore appear on both cards.
-    static let symmetric: Set<String> = [
-        "colleague", "partner", "friend", "spouse", "sibling", "cousin", "neighbour", "neighbor",
-        "classmate", "roommate", "flatmate", "teammate", "co-founder", "cofounder",
+    /// The relationships the Contacts app offers in its menu, in its order.
+    public static let appleRoles = ["mother", "father", "parent", "son", "daughter", "brother", "sister", "child",
+                                    "friend", "spouse", "partner", "assistant", "manager", "other"]
+
+    /// Roles Apple has a built-in label for (its menu plus a few it knows but does not list).
+    private static let standardRoles = Set(appleRoles + ["sibling", "colleague"])
+
+    /// The role the *other* person has in return, where that is unambiguous.
+    /// A manager's counterpart is not necessarily an assistant, so "manager" has none.
+    private static let counterpart: [String: String] = [
+        "friend": "friend", "spouse": "spouse", "partner": "partner", "colleague": "colleague", "sibling": "sibling",
+        "cousin": "cousin", "neighbour": "neighbour", "neighbor": "neighbor", "classmate": "classmate",
+        "roommate": "roommate", "flatmate": "flatmate", "teammate": "teammate", "co-founder": "co-founder", "cofounder": "cofounder",
+        "mother": "child", "father": "child", "parent": "child",
+        "son": "parent", "daughter": "parent", "child": "parent",
+        "brother": "sibling", "sister": "sibling",
+        "assistant": "manager",
     ]
+
+    /// Apple's own label for a role ("_$!<Mother>!$_"), so Contacts shows and translates it like
+    /// one picked from its menu; any other role is used as written.
+    static func label(for role: String) -> String {
+        standardRoles.contains(role.lowercased()) ? "_$!<\(role.prefix(1).uppercased() + role.dropFirst().lowercased())>!$_" : role
+    }
 
     /// Rows for the connection "`from` is `kind` `to`".
     ///
     /// A related name describes the *other* person from the card owner's point of view:
-    /// - "Anna — colleague of — Ben": Ben's card gets `colleague: Anna`; symmetric, so Anna's card gets `colleague: Ben` too.
-    /// - "Anna — mother of — Ben": only Ben's card gets `mother: Anna`.
+    /// - "Anna — colleague of — Ben": Ben's card gets `colleague: Anna`, and Anna's card `colleague: Ben`.
+    /// - "Anna — mother of — Ben": Ben's card gets `mother: Anna`, and Anna's card `child: Ben`.
+    /// - "Anna — manager of — Ben": only Ben's card gets `manager: Anna`.
     /// - "Anna — introduced by — Ben" (no "… of"): Anna's card gets `introduced by: Ben`.
     public static func rows(from: Party, kind: String, to: Party) -> [Row] {
+        rows(from: from, kind: kind, to: to, label: label(for:))
+    }
+
+    /// The same rows with plain-word labels, as versions before Apple's labels were used wrote them.
+    /// Only needed to find and remove such older rows.
+    public static func legacyRows(from: Party, kind: String, to: Party) -> [Row] {
+        rows(from: from, kind: kind, to: to, label: { $0 })
+    }
+
+    private static func rows(from: Party, kind: String, to: Party, label: (String) -> String) -> [Row] {
         let text = kind.trimmed
-        func row(on owner: Party, label: String, naming other: Party) -> [Row] {
-            owner.contactIdentifier.map { [Row(contactIdentifier: $0, label: label, value: other.name)] } ?? []
+        func row(on owner: Party, role: String, naming other: Party) -> [Row] {
+            owner.contactIdentifier.map { [Row(contactIdentifier: $0, label: label(role), value: other.name)] } ?? []
         }
         guard text.lowercased().hasSuffix(" of") else {
-            return row(on: from, label: text, naming: to)
+            return row(on: from, role: text, naming: to)
         }
         let role = String(text.dropLast(3)).trimmed
-        var rows = row(on: to, label: role, naming: from)
-        if symmetric.contains(role.lowercased()) { rows += row(on: from, label: role, naming: to) }
+        var rows = row(on: to, role: role, naming: from)
+        if let back = counterpart[role.lowercased()] {
+            // keep the user's spelling for a symmetric role ("Partner"), use ours for a different one ("child")
+            rows += row(on: from, role: back == role.lowercased() ? role : back, naming: to)
+        }
         return rows
+    }
+}
+
+extension ConnectionSnapshot {
+    /// How the connection reads on this person's card. A role stored as "Ben — manager of — Anna"
+    /// shows on Anna's card as in Contacts: "manager", next to Ben's name.
+    public var displayLabel: String {
+        let isRole = kind.lowercased().hasSuffix(" of")
+        switch (direction, isRole) {
+        case (.incoming, true): return String(kind.dropLast(3)).trimmed
+        case (.incoming, false): return "\(kind) (from them)"
+        case (.outgoing, _): return kind
+        }
     }
 }
 

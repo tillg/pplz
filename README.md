@@ -60,7 +60,7 @@ pplz person "Anna Example"                         # contact details, notes, tag
 pplz person open "Anna Example"                    # show the card in the Contacts app
 pplz events --since 2026-11-01 --place frankfurt
 pplz followup add <event-id> "send the book title"
-pplz person connect "Anna Example" "colleague of" "Ben New"   # also written to both contact cards
+pplz person connect "Anna Example" "manager of" "Ben New"     # Ben's card in Contacts gets "manager: Anna Example"
 pplz contacts history on                           # write the meeting history into each contact's note
 pplz contacts journal                              # every change pplz made to your address book
 pplz person rhythm "Anna Example" 3m               # keep in touch every 3 months
@@ -80,7 +80,7 @@ Run the tests with `swift test`.
 
 ## Mac app
 
-A first version of the Mac app shows your people and each person's card, laid out like Contacts with pink highlights. You can browse and search people and events, log an event with a person (+ on their card), edit their tags, notes, how you met and keep-in-touch rhythm (the pencil), and tick off follow-ups. Connections, editing events and adding follow-ups still go through the command line. Changes made with the CLI appear when the app comes to the front.
+A first version of the Mac app shows your people and each person's card, laid out like Contacts with pink highlights. You can browse and search people and events; log an event with a person (+ on their card); edit their tags, notes, how you met and keep-in-touch rhythm (the pencil); add and remove connections; edit and delete events; and add and tick off follow-ups. Changing who took part in an event and adding a pplz-only person still go through the command line. Changes made with the CLI appear when the app comes to the front.
 
 ```sh
 scripts/make-app.sh --install     # builds pplz.app and copies it to /Applications

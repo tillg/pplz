@@ -144,3 +144,109 @@ import Testing
         #expect(model.card?.entry.name == "Ben Sample")
     }
 }
+
+@MainActor
+@Suite struct EventEditingTests {
+    func setUp() async throws -> (PeopleModel, PplzStore, UUID, UUID) {
+        let (model, store) = try PeopleModelTests().makeModel()
+        let anna = try store.createPerson(name: "Anna Example")
+        let event = try store.logEvent(EventDraft(title: "Call", format: .phoneCall, start: Date(timeIntervalSince1970: 1_800_000_000),
+                                                  place: "Köln", notes: "old", participants: [anna], tags: ["work"],
+                                                  links: ["https://example.com/a"]))
+        await model.reload()
+        model.mode = .events
+        model.selectedEventID = event
+        return (model, store, anna, event)
+    }
+
+    @Test func theEditFormStartsFromTheEvent() async throws {
+        let (model, _, _, _) = try await setUp()
+        #expect(model.eventEdit == PeopleModel.EventEdit(format: .phoneCall, title: "Call", start: Date(timeIntervalSince1970: 1_800_000_000),
+                                                         hasEnd: false, end: Date(timeIntervalSince1970: 1_800_000_000),
+                                                         place: "Köln", notes: "old", tags: "work", links: "https://example.com/a"))
+    }
+
+    @Test func savingAnEventEditStoresIt() async throws {
+        let (model, store, anna, event) = try await setUp()
+        var edit = model.eventEdit!
+        edit.title = "Long call"
+        edit.format = .webCall
+        edit.hasEnd = true
+        edit.end = edit.start.addingTimeInterval(3600)
+        edit.tags = "work, urgent"
+        edit.links = "https://example.com/a\nhttps://example.com/b"
+        edit.notes = "new"
+        await model.save(edit)
+
+        #expect(model.errorMessage == nil)
+        let saved = try store.event(event)
+        #expect(saved.title == "Long call")
+        #expect(saved.format == .webCall)
+        #expect(saved.end == saved.start.addingTimeInterval(3600))
+        #expect(saved.tags == ["urgent", "work"])
+        #expect(saved.links == ["https://example.com/a", "https://example.com/b"])
+        #expect(saved.participants.map(\.id) == [anna])   // untouched
+        #expect(model.selectedEvent?.title == "Long call")
+
+        edit.hasEnd = false
+        await model.save(edit)
+        #expect(try store.event(event).end == nil)
+    }
+
+    @Test func anInvalidEditIsReportedAndNothingChanges() async throws {
+        let (model, store, _, event) = try await setUp()
+        var edit = model.eventEdit!
+        edit.title = "Broken"
+        edit.links = "not a link"
+        await model.save(edit)
+        #expect(model.errorMessage != nil)
+        #expect(try store.event(event).title == "Call")
+    }
+
+    @Test func addsFollowUpsAndDeletesTheEvent() async throws {
+        let (model, store, anna, event) = try await setUp()
+        await model.addFollowUp("  send book title ")
+        await model.addFollowUp("   ")
+        #expect(model.selectedEvent?.followUps.map(\.text) == ["send book title"])
+
+        await model.deleteSelectedEvent()
+        #expect(model.selectedEvent == nil)
+        #expect(model.selectedEventID == nil)
+        #expect(try store.events().isEmpty)
+        #expect(try store.history(of: anna).isEmpty)
+        _ = event
+    }
+}
+
+@MainActor
+@Suite struct ConnectionEditingTests {
+    @Test func connectsAndDisconnectsTheSelectedPerson() async throws {
+        let (model, store) = try PeopleModelTests().makeModel(select: "Anna Example")
+        let anna = try store.createPerson(name: "Anna Example")
+        let ben = try store.createPerson(name: "Ben Sample")
+        await model.reload()
+
+        #expect(model.connectionCandidates.map(\.name) == ["Ben Sample"])   // not Anna herself
+        // "Ben is Anna's manager": shown on Anna's card as "manager · Ben Sample", like in Contacts
+        await model.connect(role: "manager", to: model.connectionCandidates[0])
+        #expect(model.errorMessage == nil)
+        #expect(model.card?.connections.map(\.displayLabel) == ["manager"])
+        #expect(model.card?.connections.map(\.other.name) == ["Ben Sample"])
+        #expect(try store.connections(of: ben).map(\.other.id) == [anna])
+        #expect(try store.connections(of: ben).map(\.displayLabel) == ["manager of"])
+
+        await model.disconnect(from: ben)
+        #expect(model.card?.connections.isEmpty == true)
+        #expect(try store.connections(of: anna).isEmpty)
+    }
+
+    @Test func anEmptyKindIsReported() async throws {
+        let (model, store) = try PeopleModelTests().makeModel(select: "Anna Example")
+        try store.createPerson(name: "Anna Example")
+        try store.createPerson(name: "Ben Sample")
+        await model.reload()
+        await model.connect(role: "  ", to: model.connectionCandidates[0])
+        #expect(model.errorMessage != nil)
+        #expect(model.card?.connections.isEmpty == true)
+    }
+}

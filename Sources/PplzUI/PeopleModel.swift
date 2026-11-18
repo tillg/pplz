@@ -200,9 +200,133 @@ public final class PeopleModel {
         }
     }
 
+    // MARK: Events
+
+    /// The editable fields of an event, as the edit sheet shows them.
+    public struct EventEdit: Equatable, Sendable {
+        public var format: EventFormat
+        public var title: String
+        public var start: Date
+        public var hasEnd: Bool
+        public var end: Date
+        public var place: String
+        public var notes: String
+        /// Comma-separated.
+        public var tags: String
+        /// One per line.
+        public var links: String
+
+        public init(format: EventFormat, title: String, start: Date, hasEnd: Bool, end: Date, place: String,
+                    notes: String, tags: String, links: String) {
+            self.format = format
+            self.title = title
+            self.start = start
+            self.hasEnd = hasEnd
+            self.end = end
+            self.place = place
+            self.notes = notes
+            self.tags = tags
+            self.links = links
+        }
+    }
+
+    /// The selected event's current values, to start an edit from.
+    public var eventEdit: EventEdit? {
+        selectedEvent.map {
+            EventEdit(format: $0.format, title: $0.title, start: $0.start, hasEnd: $0.end != nil, end: $0.end ?? $0.start,
+                      place: $0.place, notes: $0.notes, tags: $0.tags.joined(separator: ", "), links: $0.links.joined(separator: "\n"))
+        }
+    }
+
+    /// Saves the edited fields of the selected event; participants stay as they are.
+    public func save(_ edit: EventEdit) async {
+        guard let store, let event = selectedEvent else { return }
+        await perform {
+            try store.updateEvent(event.id, EventChange(
+                title: edit.title, format: edit.format, start: edit.start, end: edit.hasEnd ? edit.end : nil, clearEnd: !edit.hasEnd,
+                place: edit.place, notes: edit.notes.trimmingCharacters(in: .whitespacesAndNewlines),
+                tags: edit.tags.split(separator: ",").map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty },
+                links: edit.links.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }))
+            try self.syncContacts(event.participants.map(\.id), store)
+        }
+    }
+
+    public func addFollowUp(_ text: String) async {
+        guard let store, let event = selectedEvent, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        await perform { try store.addFollowUp(text, toEvent: event.id) }
+    }
+
+    public func deleteSelectedEvent() async {
+        guard let store, let event = selectedEvent else { return }
+        await perform {
+            try store.deleteEvent(event.id)
+            self.selectedEventID = nil
+            try self.syncContacts(event.participants.map(\.id), store)
+        }
+    }
+
+    // MARK: Connections
+
+    /// Everyone the selected person could be connected to.
+    public var connectionCandidates: [PersonEntry] {
+        entries.filter { $0.key != card?.entry.key }
+    }
+
+    /// Records that `other` is the selected person's `role` — "Ben is Anna's manager" — the way
+    /// Contacts phrases relationships, and mirrors it into Contacts.
+    public func connect(role: String, to other: PersonEntry) async {
+        guard let store, let entry = card?.entry else { return }
+        await perform {
+            let name = role.trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else { throw PplzError.invalid("Choose a relationship, e.g. friend or manager.") }
+            let label = name + " of"
+            // stored as the sentence "other — role of — selected person"
+            guard let to = try self.personID(entry, store), let from = try self.personID(other, store) else { return }
+            try store.connect(from, to: to, kind: label)
+            let rows = try store.allConnections()
+                .filter { $0.from.id == from && $0.to.id == to && $0.kind.caseInsensitiveCompare(label) == .orderedSame }
+                .flatMap(ContactsSync.rows)
+            try self.syncContacts([from, to], store, mirror: rows)
+        }
+    }
+
+    /// Removes every connection between the selected person and the other one.
+    public func disconnect(from other: UUID) async {
+        guard let store, let me = card?.entry.id else { return }
+        await perform {
+            let rows = try store.allConnections()
+                .filter { ($0.from.id == me && $0.to.id == other) || ($0.from.id == other && $0.to.id == me) }
+                .flatMap { ContactsSync.rows($0) + ContactsSync.legacyRows($0) }
+            try store.disconnect(me, other)
+            try self.syncContacts([], store, unmirror: rows)
+        }
+    }
+
+    /// The pplz ID of a row, creating the person record for a contact on first use.
+    private func personID(_ entry: PersonEntry, _ store: PplzStore) throws -> UUID? {
+        if let id = entry.id { return id }
+        guard let identifier = entry.contactIdentifier else { return nil }
+        return try store.ensurePerson(for: ContactSummary(identifier: identifier, name: entry.name))
+    }
+
+    /// Runs a write, reports a failure, and refreshes what is on screen.
+    private func perform(_ work: () throws -> Void) async {
+        do {
+            try work()
+            errorMessage = nil
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            return
+        }
+        await reload()
+    }
+
+    public func dismissError() { errorMessage = nil }
+
     /// Brings these persons' contacts up to date in the background: the `pplz` link and,
     /// if switched on, the history block in the note.
-    private func syncContacts(_ ids: [UUID], _ store: PplzStore) throws {
+    private func syncContacts(_ ids: [UUID], _ store: PplzStore,
+                              mirror: [ContactMirror.Row] = [], unmirror: [ContactMirror.Row] = []) throws {
         #if os(macOS)
         guard configuration.usesContacts else { return }
         let links = try ContactsSync.linkPlan(store, persons: ids)
@@ -211,6 +335,8 @@ public final class PeopleModel {
         Task.detached {
             _ = ContactsSync.applyLinks(links, journal: journal)
             _ = ContactsSync.apply(history, journal: journal)
+            _ = ContactsSync.mirror(mirror, journal: journal)
+            _ = ContactsSync.unmirror(unmirror, journal: journal)
         }
         #endif
     }

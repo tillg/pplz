@@ -6,14 +6,18 @@ import SwiftUI
 public struct PeopleView: View {
     @Bindable var model: PeopleModel
     @Environment(\.scenePhase) private var scenePhase
-    @State private var isLogging: Bool
-    @State private var isEditing: Bool
+    @State private var sheet: Sheet?
+    @State private var isConfirmingDelete = false
 
-    /// `showLogSheet` / `showEditSheet` open a sheet right away (used to check the sheets' layout).
-    public init(model: PeopleModel, showLogSheet: Bool = false, showEditSheet: Bool = false) {
+    public enum Sheet: String, Identifiable, Sendable {
+        case log, edit, editEvent, connect
+        public var id: String { rawValue }
+    }
+
+    /// `initialSheet` opens a sheet right away (used to check the sheets' layout).
+    public init(model: PeopleModel, initialSheet: Sheet? = nil) {
         self.model = model
-        _isLogging = State(initialValue: showLogSheet)
-        _isEditing = State(initialValue: showEditSheet)
+        _sheet = State(initialValue: initialSheet)
     }
 
     public var body: some View {
@@ -41,15 +45,30 @@ public struct PeopleView: View {
             }
         }
         .navigationTitle("pplz")
-        .sheet(isPresented: Binding(get: { isLogging && model.card != nil }, set: { isLogging = $0 })) {
-            LogEventSheet(personName: model.card?.entry.name ?? "") { input in
-                Task { await model.logEvent(input) }
+        .sheet(item: Binding(get: { sheetIfPossible }, set: { sheet = $0 })) { sheet in
+            switch sheet {
+            case .log:
+                LogEventSheet(personName: model.card?.entry.name ?? "") { input in
+                    Task { await model.logEvent(input) }
+                }
+            case .edit:
+                EditPersonSheet(personName: model.card?.entry.name ?? "", edit: model.personEdit) { edit in
+                    Task { await model.save(edit) }
+                }
+            case .editEvent:
+                if let edit = model.eventEdit {
+                    EditEventSheet(edit: edit) { edit in Task { await model.save(edit) } }
+                }
+            case .connect:
+                ConnectSheet(personName: model.card?.title ?? "", candidates: model.connectionCandidates) { role, other in
+                    Task { await model.connect(role: role, to: other) }
+                }
             }
         }
-        .sheet(isPresented: Binding(get: { isEditing && model.card != nil }, set: { isEditing = $0 })) {
-            EditPersonSheet(personName: model.card?.entry.name ?? "", edit: model.personEdit) { edit in
-                Task { await model.save(edit) }
-            }
+        .confirmationDialog("Delete this event?", isPresented: $isConfirmingDelete) {
+            Button("Delete Event", role: .destructive) { Task { await model.deleteSelectedEvent() } }
+        } message: {
+            Text("Its follow-ups are deleted too. This cannot be undone.")
         }
         .tint(.pink)
         .task { await model.reload() }
@@ -63,8 +82,11 @@ public struct PeopleView: View {
             if phase == .active { Task { await model.reload() } }
         }
         #endif
-        .alert("pplz", isPresented: .constant(model.errorMessage != nil)) {
-            Button("Try again") { Task { await model.reload() } }
+        .alert("pplz", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.dismissError() } })) {
+            Button("OK") { model.dismissError() }
+            if model.sections.isEmpty {
+                Button("Try again") { Task { await model.reload() } }
+            }
         } message: {
             Text(model.errorMessage ?? "")
         }
@@ -72,6 +94,15 @@ public struct PeopleView: View {
 }
 
 extension PeopleView {
+    /// A sheet only opens once the thing it edits is loaded.
+    private var sheetIfPossible: Sheet? {
+        switch sheet {
+        case .log, .edit, .connect: model.card == nil ? nil : sheet
+        case .editEvent: model.selectedEvent == nil ? nil : sheet
+        case nil: nil
+        }
+    }
+
     private var peopleList: some View {
         List(selection: $model.selection) {
             ForEach(model.sections) { section in
@@ -111,11 +142,14 @@ extension PeopleView {
 
     @ViewBuilder private var personDetail: some View {
         if let card = model.card {
-            PersonCardView(card: card)
+            PersonCardView(card: card,
+                           onConnect: { sheet = .connect },
+                           onDisconnect: { id in Task { await model.disconnect(from: id) } },
+                           onShowPerson: { id in Task { await model.showPerson(id) } })
                 .toolbar {
-                    Button("Log Event", systemImage: "plus") { isLogging = true }
+                    Button("Log Event", systemImage: "plus") { sheet = .log }
                         .help("Log a meeting or call with \(card.entry.name)")
-                    Button("Edit", systemImage: "pencil") { isEditing = true }
+                    Button("Edit", systemImage: "pencil") { sheet = .edit }
                         .help("Edit tags, notes, how you met and the keep-in-touch rhythm")
                     if !card.entry.isPplzOnly {
                         Button("Open in Contacts", systemImage: "person.crop.square") { model.openInContacts() }
@@ -131,7 +165,14 @@ extension PeopleView {
         if let event = model.selectedEvent {
             EventDetailView(event: event,
                             onShowPerson: { id in Task { await model.showPerson(id) } },
-                            onComplete: { id in Task { await model.completeFollowUp(id) } })
+                            onComplete: { id in Task { await model.completeFollowUp(id) } },
+                            onAddFollowUp: { text in Task { await model.addFollowUp(text) } })
+                .toolbar {
+                    Button("Edit", systemImage: "pencil") { sheet = .editEvent }
+                        .help("Edit this event")
+                    Button("Delete", systemImage: "trash") { isConfirmingDelete = true }
+                        .help("Delete this event")
+                }
         } else {
             ContentUnavailableView("No event selected", systemImage: "calendar")
         }

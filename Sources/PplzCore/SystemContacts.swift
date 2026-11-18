@@ -28,7 +28,8 @@ public enum SystemContacts {
         let store = CNContactStore()
         try requestAccessIfNeeded(store)
         let keys = [
-            CNContactGivenNameKey, CNContactFamilyNameKey, CNContactOrganizationNameKey, CNContactJobTitleKey,
+            CNContactGivenNameKey, CNContactFamilyNameKey, CNContactNicknameKey, CNContactOrganizationNameKey, CNContactJobTitleKey,
+            CNContactImageDataKey, CNContactThumbnailImageDataKey,
             CNContactPhoneNumbersKey, CNContactEmailAddressesKey, CNContactPostalAddressesKey, CNContactUrlAddressesKey,
             CNContactSocialProfilesKey, CNContactBirthdayKey,
         ] as [CNKeyDescriptor]
@@ -42,7 +43,7 @@ public enum SystemContacts {
         }
         return ContactDetails(
             identifier: contact.identifier, givenName: contact.givenName, familyName: contact.familyName,
-            organization: contact.organizationName, jobTitle: contact.jobTitle,
+            nickname: contact.nickname, organization: contact.organizationName, jobTitle: contact.jobTitle,
             phones: contact.phoneNumbers.map { LabeledValue(label: label($0.label), value: $0.value.stringValue) },
             emails: contact.emailAddresses.map { LabeledValue(label: label($0.label), value: $0.value as String) },
             addresses: contact.postalAddresses.map {
@@ -54,7 +55,7 @@ public enum SystemContacts {
             socialProfiles: contact.socialProfiles.map {
                 LabeledValue(label: $0.value.service, value: $0.value.urlString.isEmpty ? $0.value.username : $0.value.urlString)
             },
-            birthday: birthday)
+            birthday: birthday, imageData: contact.imageData ?? contact.thumbnailImageData)   // some contacts only carry the thumbnail
     }
 
     private static func requestAccessIfNeeded(_ store: CNContactStore) throws {

@@ -37,6 +37,9 @@ struct EventDetailView: View {
     let event: EventSnapshot
     let onShowPerson: (UUID) -> Void
     let onComplete: (UUID) -> Void
+    let onAddFollowUp: (String) -> Void
+
+    @State private var newFollowUp = ""
 
     var body: some View {
         ScrollView {
@@ -44,7 +47,7 @@ struct EventDetailView: View {
                 header
                 facts
                 if !event.participants.isEmpty { participants }
-                if !event.followUps.isEmpty { followUps }
+                followUps
             }
             .padding(24)
             .frame(maxWidth: 640, alignment: .leading)
@@ -130,7 +133,71 @@ struct EventDetailView: View {
                     }
                     .padding(.vertical, 8)
                 }
+                if !event.followUps.isEmpty { Divider() }
+                HStack(spacing: 10) {
+                    Image(systemName: "plus.circle").font(.title3).foregroundStyle(.secondary)
+                    TextField("Add a follow-up", text: $newFollowUp)
+                        .textFieldStyle(.plain)
+                        .onSubmit(addFollowUp)
+                    if !newFollowUp.trimmingCharacters(in: .whitespaces).isEmpty {
+                        Button("Add", action: addFollowUp).buttonStyle(.borderless)
+                    }
+                }
+                .padding(.vertical, 8)
             }
         }
+    }
+
+    private func addFollowUp() {
+        onAddFollowUp(newFollowUp)
+        newFollowUp = ""
+    }
+}
+
+/// Edits an event's own fields. Participants are not changed here.
+struct EditEventSheet: View {
+    let onSave: (PeopleModel.EventEdit) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var edit: PeopleModel.EventEdit
+
+    init(edit: PeopleModel.EventEdit, onSave: @escaping (PeopleModel.EventEdit) -> Void) {
+        self.onSave = onSave
+        _edit = State(initialValue: edit)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Edit event").font(.title3.weight(.semibold))
+            Form {
+                Picker("Format", selection: $edit.format) {
+                    ForEach(EventFormat.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                TextField("Title", text: $edit.title)
+                DatePicker("Start", selection: $edit.start)
+                Toggle("Has an end", isOn: $edit.hasEnd)
+                if edit.hasEnd {
+                    DatePicker("End", selection: $edit.end, in: edit.start...)
+                }
+                TextField("Place", text: $edit.place)
+                TextField("Tags", text: $edit.tags, prompt: Text("Separated by commas"))
+                TextField("Notes", text: $edit.notes, axis: .vertical).lineLimit(3...6)
+                TextField("Links", text: $edit.links, prompt: Text("One per line"), axis: .vertical).lineLimit(2...4)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Save") {
+                    onSave(edit)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+        .tint(.pink)
     }
 }

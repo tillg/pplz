@@ -4,6 +4,10 @@ import SwiftUI
 /// A person's card: the contact's own fields first, as in Contacts, then what pplz adds.
 struct PersonCardView: View {
     let card: PersonCard
+    @Environment(\.openURL) private var openURL
+    var onConnect: () -> Void = {}
+    var onDisconnect: (UUID) -> Void = { _ in }
+    var onShowPerson: (UUID) -> Void = { _ in }
 
     var body: some View {
         ScrollView {
@@ -11,6 +15,7 @@ struct PersonCardView: View {
                 header
                 if let contact = card.contact { contactFields(contact) }
                 pplzFields
+                connections
                 history
             }
             .padding(24)
@@ -20,43 +25,116 @@ struct PersonCardView: View {
         .background(.background)
     }
 
+    /// The big header, as in Contacts: picture (or initials on pink), the nickname or name,
+    /// full name / job / company below it, and the quick actions.
     private var header: some View {
-        HStack(spacing: 16) {
-            ZStack {
-                Circle().fill(LinearGradient(colors: [.pink.opacity(0.75), .pink], startPoint: .top, endPoint: .bottom))
-                Text(PeopleSections.initials(card.entry.name))
-                    .font(.system(size: 30, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white)
+        ZStack(alignment: .bottom) {
+            if let picture {
+                // a wide header crops a portrait picture: keep the top, where the face usually is
+                picture.resizable().scaledToFill()
+                    .frame(maxWidth: .infinity).frame(height: 400, alignment: .top)
+                    .clipped()
+                LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
+            } else {
+                LinearGradient(colors: [.pink.opacity(0.72), .pink], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 250)
             }
-            .frame(width: 76, height: 76)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(card.entry.name).font(.title.weight(.semibold)).textSelection(.enabled)
-                if let contact = card.contact {
-                    let line = [contact.jobTitle, contact.organization].filter { !$0.isEmpty }.joined(separator: " · ")
-                    if !line.isEmpty { Text(line).foregroundStyle(.secondary) }
+            VStack(spacing: 6) {
+                if picture == nil {
+                    Text(PeopleSections.initials(card.entry.name))
+                        .font(.system(size: 38, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white)
+                        .frame(width: 92, height: 92)
+                        .background(.white.opacity(0.22), in: Circle())
+                        .padding(.bottom, 6)
+                }
+                Text(card.title)
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .textSelection(.enabled)
+                if !card.subtitle.isEmpty {
+                    Text(card.subtitle)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .multilineTextAlignment(.center)
                 }
                 if card.entry.isPplzOnly {
-                    Text("Only in pplz — no card in Contacts").font(.callout).foregroundStyle(.pink)
+                    Text("Only in pplz — no card in Contacts")
+                        .font(.callout).foregroundStyle(.white.opacity(0.9))
+                }
+                if !quickActions.isEmpty {
+                    HStack(spacing: 12) {
+                        ForEach(quickActions, id: \.symbol) { action in
+                            Button { openURL(action.url) } label: {
+                                Image(systemName: action.symbol)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 38, height: 38)
+                                    .background(.white.opacity(0.24), in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .help(action.help)
+                        }
+                    }
+                    .padding(.top, 8)
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+        }
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var picture: Image? {
+        guard let data = card.contact?.imageData else { return nil }
+        #if os(macOS)
+        return NSImage(data: data).map(Image.init(nsImage:))
+        #else
+        return UIImage(data: data).map(Image.init(uiImage:))
+        #endif
+    }
+
+    private struct QuickAction {
+        var symbol: String
+        var help: String
+        var url: URL
+    }
+
+    /// Message, call, video and mail — for the first phone number and mail address.
+    private var quickActions: [QuickAction] {
+        guard let contact = card.contact else { return [] }
+        var actions: [QuickAction] = []
+        if let phone = contact.phones.first?.value {
+            if let url = ContactAction.message.url(for: phone) { actions.append(.init(symbol: "message.fill", help: "Message", url: url)) }
+            if let url = ContactAction.call.url(for: phone) { actions.append(.init(symbol: "phone.fill", help: "Call", url: url)) }
+            if let url = ContactAction.video.url(for: phone) { actions.append(.init(symbol: "video.fill", help: "FaceTime", url: url)) }
+        }
+        if let mail = contact.emails.first?.value, let url = ContactAction.mail.url(for: mail) {
+            actions.append(.init(symbol: "envelope.fill", help: "Mail", url: url))
+        }
+        return actions
+    }
+
+    /// One rounded group per kind of field, each row with its action on the right — as in Contacts.
+    @ViewBuilder private func contactFields(_ contact: ContactDetails) -> some View {
+        fieldGroup(contact.phones, fallbackLabel: "phone", symbol: "phone.fill", action: .call)
+        fieldGroup(contact.emails, fallbackLabel: "email", symbol: "envelope.fill", action: .mail)
+        fieldGroup(contact.addresses, fallbackLabel: "address", symbol: "mappin.and.ellipse", action: .map)
+        fieldGroup(contact.urls + contact.socialProfiles, fallbackLabel: "url", symbol: "safari.fill", action: .web)
+        if let birthday = contact.birthday {
+            FieldGroup { FieldRow(label: "birthday", value: birthday) }
         }
     }
 
-    private func contactFields(_ contact: ContactDetails) -> some View {
-        let rows: [(String, String)] =
-            contact.phones.map { ($0.label.isEmpty ? "phone" : $0.label, $0.value) }
-            + contact.emails.map { ($0.label.isEmpty ? "email" : $0.label, $0.value) }
-            + contact.addresses.map { ($0.label.isEmpty ? "address" : $0.label, $0.value) }
-            + contact.urls.map { ($0.label.isEmpty ? "url" : $0.label, $0.value) }
-            + contact.socialProfiles.map { ($0.label.isEmpty ? "social" : $0.label, $0.value) }
-            + (contact.birthday.map { [("birthday", $0)] } ?? [])
-        return Group {
-            if !rows.isEmpty {
-                FieldGroup {
-                    ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                        if index > 0 { Divider() }
-                        FieldRow(label: row.0, value: row.1)
-                    }
+    @ViewBuilder private func fieldGroup(_ values: [LabeledValue], fallbackLabel: String, symbol: String, action: ContactAction) -> some View {
+        if !values.isEmpty {
+            FieldGroup {
+                ForEach(Array(values.enumerated()), id: \.offset) { index, item in
+                    if index > 0 { Divider() }
+                    FieldRow(label: item.label.isEmpty ? fallbackLabel : item.label, value: item.value,
+                             symbol: symbol, url: action.url(for: item.value))
                 }
             }
         }
@@ -68,11 +146,6 @@ struct PersonCardView: View {
             (card.entry.tags.isEmpty ? [] : [("tags", card.entry.tags.joined(separator: ", "))])
             + ((stored?.howWeMet.isEmpty ?? true) ? [] : [("how we met", stored!.howWeMet)])
             + ((stored?.notes.isEmpty ?? true) ? [] : [("notes", stored!.notes)])
-            + card.connections.map { connection in
-                connection.direction == .outgoing
-                    ? (connection.kind, connection.other.name)
-                    : ("connection", "\(connection.other.name) is \(connection.kind) this person")
-            }
             + (stored?.keepInTouchDays.map { [("keep in touch", "every \($0) days")] } ?? [])
         if !rows.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
@@ -83,6 +156,43 @@ struct PersonCardView: View {
                         FieldRow(label: row.0, value: row.1)
                     }
                 }
+            }
+        }
+    }
+
+    private var connections: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionTitle("Connections")
+            FieldGroup {
+                ForEach(Array(card.connections.enumerated()), id: \.element.id) { index, connection in
+                    if index > 0 { Divider() }
+                    HStack(spacing: 8) {
+                        Button { onShowPerson(connection.other.id) } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(connection.displayLabel).font(.caption).foregroundStyle(.secondary)
+                                Text(connection.other.name)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Show \(connection.other.name)")
+                        Button { onDisconnect(connection.other.id) } label: {
+                            Image(systemName: "minus.circle").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Remove the connections with \(connection.other.name)")
+                    }
+                    .padding(.vertical, 8)
+                }
+                if !card.connections.isEmpty { Divider() }
+                Button(action: onConnect) {
+                    Label("Add connection", systemImage: "plus.circle").frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.pink)
+                .padding(.vertical, 9)
             }
         }
     }
@@ -133,11 +243,28 @@ struct FieldGroup<Content: View>: View {
 struct FieldRow: View {
     let label: String
     let value: String
+    /// Optional action on the right, e.g. call this number.
+    var symbol: String? = nil
+    var url: URL? = nil
+
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
-            Text(value).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label).font(.caption).foregroundStyle(.secondary)
+                Text(value).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if let symbol, let url {
+                Button { openURL(url) } label: {
+                    Image(systemName: symbol)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.pink)
+                        .frame(width: 28, height: 28)
+                        .background(.pink.opacity(0.14), in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(.vertical, 8)
     }

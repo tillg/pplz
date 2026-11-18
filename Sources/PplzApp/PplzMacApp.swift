@@ -10,8 +10,7 @@ struct PplzMacApp: App {
         // One window, like Contacts: a clicked pplz:// link shows the person in it
         // (a window group would open a new window for every link).
         Window("pplz", id: "main") {
-            PeopleView(model: model, showLogSheet: UserDefaults.standard.bool(forKey: "showLog"),
-                       showEditSheet: UserDefaults.standard.bool(forKey: "showEdit"))
+            PeopleView(model: model, initialSheet: UserDefaults.standard.string(forKey: "show").flatMap(PeopleView.Sheet.init))
                 .task {
                     // `-mode events` opens the events list with the newest event selected
                     if UserDefaults.standard.string(forKey: "mode") == "events" {
@@ -30,7 +29,8 @@ struct PplzMacApp: App {
     }
 
     /// Launch options, given the macOS way as `-key value` pairs (plain arguments would be taken
-    /// for documents to open): `-store <path>`, `-noContacts YES`, `-select <name or id>`, `-showLog YES`, `-showEdit YES`, `-mode events`.
+    /// for documents to open): `-store <path>`, `-noContacts YES`, `-select <name or id>`, `-mode events`,
+    /// `-show log|edit|editEvent|connect`.
     static func configuration(_ defaults: UserDefaults) -> PeopleModel.Configuration {
         PeopleModel.Configuration(
             storeURL: defaults.string(forKey: "store").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
