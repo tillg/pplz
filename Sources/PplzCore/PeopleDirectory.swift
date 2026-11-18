@@ -13,6 +13,9 @@ public struct PersonEntry: Encodable, Equatable, Sendable {
     /// A person that exists only in pplz, without a system contact.
     public var isPplzOnly: Bool { contactIdentifier == nil }
 
+    /// Stable identity of the row in a list: the contact, or the pplz ID for a pplz-only person.
+    public var key: String { contactIdentifier ?? id?.uuidString ?? name }
+
     private enum CodingKeys: String, CodingKey {
         case id, contactIdentifier, name, eventCount, lastMet, tags, isPplzOnly
     }

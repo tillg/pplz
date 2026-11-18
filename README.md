@@ -6,7 +6,7 @@
 
 pplz is a personal contact manager for Mac, iPhone and iPad. It enriches the contacts you already have with the history of your interactions: meetings, calls, events and photos.
 
-> **Status: early development.** The shared core and the `pplz` command line exist and work on a local store. There is no app yet, connections and (if you switch it on) the meeting history are written to your contacts, Mac only, and there is no sync between devices yet. The design, the decisions taken so far and the results of the technical spikes are in [SPEC.md](SPEC.md).
+> **Status: early development.** The shared core, the `pplz` command line and a first, read-only Mac app exist and work on a local store. There is no iPhone / iPad app yet, connections and (if you switch it on) the meeting history are written to your contacts, Mac only, and there is no sync between devices yet. The design, the decisions taken so far and the results of the technical spikes are in [SPEC.md](SPEC.md).
 
 ## The idea
 
@@ -77,6 +77,16 @@ pplz --help
 - Events can carry links (`--link`, repeatable), e.g. to a calendar entry or a document.
 
 Run the tests with `swift test`.
+
+## Mac app
+
+A first version of the Mac app shows your people and each person's card, laid out like Contacts with pink highlights. It is read-only for now: you browse and search, and record things with the command line. Changes made with the CLI appear when the app comes to the front.
+
+```sh
+scripts/make-app.sh --install     # builds pplz.app and copies it to /Applications
+```
+
+Until there is an Xcode project, the app is built with SwiftPM and wrapped into an app bundle by that script.
 
 ## How it is built
 

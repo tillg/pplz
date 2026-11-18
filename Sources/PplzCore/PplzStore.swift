@@ -22,6 +22,15 @@ public final class PplzStore {
         return URL.applicationSupportDirectory.appendingPathComponent("pplz/pplz.store")
     }
 
+    /// The card for one row of the people list.
+    public func card(for entry: PersonEntry, contact: ContactDetails?) throws -> PersonCard {
+        guard let id = entry.id else {
+            return PersonCard(entry: entry, contact: contact, stored: nil, connections: [], history: [])
+        }
+        return PersonCard(entry: entry, contact: contact, stored: try person(id),
+                          connections: try connections(of: id), history: try history(of: id))
+    }
+
     // MARK: Settings
 
     /// "Show history in Contacts": whether pplz writes its history block into contact notes.

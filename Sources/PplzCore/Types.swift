@@ -226,3 +226,14 @@ public struct EventFilter: Sendable {
         self.tag = tag
     }
 }
+
+/// Everything shown on a person's card: the contact's own data plus what pplz knows.
+public struct PersonCard: Equatable, Sendable {
+    public var entry: PersonEntry
+    /// Live from the address book; `nil` for a pplz-only person.
+    public var contact: ContactDetails?
+    /// `nil` for a contact pplz has stored nothing about yet.
+    public var stored: PersonSnapshot?
+    public var connections: [ConnectionSnapshot]
+    public var history: [EventSnapshot]
+}
