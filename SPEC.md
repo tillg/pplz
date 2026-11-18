@@ -142,6 +142,7 @@ Met 7× · last 2026-11-12
 - Length: summary line + the 10 most recent events; full history lives in pplz. **[S]**
 - Language: follows the device language. **[S]** To stop two devices with different languages from rewriting each other's block, the language is fixed by the first device and kept as a synced setting that I can change. **[A]**
 - Line format as in the example above. **[S]**
+- Writing to Contacts is an explicit setting ("Show history in Contacts"), and only confirmed events are written — as declared to Apple, §8.4. **[S]**
 
 ---
 
@@ -328,6 +329,18 @@ Credentials must not be embedded in the app → a small proxy (or temporary cred
 - **pplz → Contacts button on Mac:** not settled — see §4.1; needs a visual re-test of `addressbook://` and a decision between scripting and the in-app contact card.
 - Not testable on this Mac: whether tapping the `pplz://` row in Contacts opens pplz (needs a built app registering the scheme), and everything iOS (needs Xcode + device).
 
+### 8.4 Notes entitlement request (submitted 2026-11-18)
+
+Requested from Apple for bundle ID `com.tillg.pplz`; answer comes by email. Status: **pending**.
+
+What was declared to Apple, and therefore binds the product:
+
+- pplz is a **personal CRM**; use-case category "writes app-specific information to Contact Notes field".
+- pplz writes only its own delimited block (summary + up to 10 recent events); text outside the block is read solely to preserve it.
+- **No note text that pplz did not write is shared off the device with third parties** (§7).
+- **Writing is triggered by explicit user action:** I turn on "Show history in Contacts" in setup; afterwards a contact's block is updated only when I create, edit or confirm an event involving that contact. Unconfirmed proposals (photos, calendar) are never written.
+- Permission prompt text: "pplz shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and pplz does not share them with anyone."
+
 ### 8.2 Further doc findings (2026-11-18)
 
 - **In-app contact card:** `CNContactViewController` exists for iOS / iPadOS and macOS, with editing. No public way to open the iOS Contacts app at a specific contact (absence of an API).
@@ -426,7 +439,7 @@ All questions from the first draft were answered on 2026-11-18.
 
 | Slice | Content | Proves |
 |---|---|---|
-| 0 | **Request notes entitlement from Apple (first, long lead time).** Remaining spikes: tap on `pplz://` row opens the app (Mac + iPhone); can a development profile carry the notes entitlement before approval; link field survives iCloud sync as cross-device ID; does the app's CloudKit sync export CLI-written rows (signed build); what the LinkedIn share sheet / QR code delivers; `addressbook://` re-test. Mac Contacts spikes done, see §8.1. Storage spike done, see §8.3. | R1, R3, R7 |
+| 0 | Notes entitlement requested from Apple on 2026-11-18 (pending, §8.4). Remaining spikes: tap on `pplz://` row opens the app (Mac + iPhone); can a development profile carry the notes entitlement before approval; link field survives iCloud sync as cross-device ID; does the app's CloudKit sync export CLI-written rows (signed build); what the LinkedIn share sheet / QR code delivers; `addressbook://` re-test. Mac Contacts spikes done, see §8.1. Storage spike done, see §8.3. | R1, R3, R7 |
 | 1 | Shared core package + **Mac CLI** + Mac / iOS app in Contacts look with pink: people list from Contacts, pplz-only person data, manual events + quick log, history timeline (local only); CLI incl. natural-language search via OpenRouter | domain model, CLI |
 | 2 | Contacts integration: `pplz` link, history block in notes, social links, both-way navigation (Mac scripting bridge until the entitlement arrives) | Contacts integration |
 | 3 | Device sync via CloudKit | storage |

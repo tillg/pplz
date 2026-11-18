@@ -1,0 +1,21 @@
+# private notes (request IDs, account details) — never commit
+private/
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# scratch
+tmp/
+
+# Swift / Xcode
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+.DS_Store
+
+# editor session files
+.pilcrow

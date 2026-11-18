@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="pplz">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF6482"/>
+      <stop offset="1" stop-color="#FF2D55"/>
+    </linearGradient>
+    <clipPath id="shape">
+      <rect width="1024" height="1024" rx="228"/>
+    </clipPath>
+    <clipPath id="card">
+      <rect x="192" y="160" width="600" height="704" rx="72"/>
+    </clipPath>
+  </defs>
+
+  <!-- background: remove the clip-path for a full-bleed app-icon export -->
+  <g clip-path="url(#shape)">
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+  </g>
+
+  <g transform="translate(-24 0)">
+  <!-- index tabs -->
+  <rect x="740" y="232" width="140" height="116" rx="28" fill="#FFE3E9"/>
+  <rect x="740" y="372" width="140" height="116" rx="28" fill="#FFC9D4"/>
+  <rect x="740" y="512" width="140" height="116" rx="28" fill="#FFB0C0"/>
+  <rect x="740" y="652" width="140" height="116" rx="28" fill="#FF97AB"/>
+
+  <!-- card -->
+  <rect x="192" y="160" width="600" height="704" rx="72" fill="#FFFFFF"/>
+
+  <!-- person -->
+  <g clip-path="url(#card)" fill="#FF2D55">
+    <circle cx="492" cy="420" r="112"/>
+    <ellipse cx="492" cy="770" rx="220" ry="190"/>
+  </g>
+  </g>
+</svg>
