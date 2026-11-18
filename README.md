@@ -57,6 +57,7 @@ pplz people anna                                   # your contacts plus pplz-onl
 pplz log "Anna Example" --format phone-call --title "Catch-up" --at yesterday
 pplz log "Ben New" --create --title "Fair" --format gathering --at 2026-10-03 --end 2026-10-05 --place Frankfurt
 pplz person "Anna Example"                         # contact details, notes, tags and history
+pplz person open "Anna Example"                    # show the card in the Contacts app
 pplz events --since 2026-11-01 --place frankfurt
 pplz followup add <event-id> "send the book title"
 pplz --help

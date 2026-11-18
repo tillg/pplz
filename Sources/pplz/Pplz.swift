@@ -172,7 +172,7 @@ struct People: ParsableCommand {
 struct PersonCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "person", abstract: "Show or edit one person.",
-        subcommands: [Show.self, Add.self, Note.self, Met.self, TagAdd.self, TagRemove.self], defaultSubcommand: Show.self)
+        subcommands: [Show.self, Open.self, Add.self, Note.self, Met.self, TagAdd.self, TagRemove.self], defaultSubcommand: Show.self)
 
     struct Detail: Encodable {
         var person: PersonEntry
@@ -204,6 +204,24 @@ struct PersonCommand: ParsableCommand {
                     lines += history.map { "  " + line($0) }
                     return lines.joined(separator: "\n")
                 }
+            }
+        }
+    }
+
+    struct Open: ParsableCommand {
+        static let configuration = CommandConfiguration(abstract: "Open a person's card in the Contacts app.")
+        @Argument(help: "Name, part of a name, or ID.") var person: String
+        @OptionGroup var common: Common
+
+        func run() throws {
+            try attempt {
+                let store = try common.open()
+                let entry = try common.resolve(person, in: try common.directory(store))
+                guard let identifier = entry.contactIdentifier else {
+                    throw Failure("\(entry.name) exists only in pplz and has no card in Contacts.")
+                }
+                try ContactsApp.open(identifier: identifier)
+                try common.emit(entry) { "Opened \(entry.name) in Contacts" }
             }
         }
     }
