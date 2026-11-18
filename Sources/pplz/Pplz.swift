@@ -37,6 +37,13 @@ struct Common: ParsableArguments {
         return try SystemContacts.fetchAll()
     }
 
+    /// Live contact data for a linked person; `nil` for pplz-only persons or with --no-contacts.
+    func contactDetails(_ entry: PersonEntry) throws -> ContactDetails? {
+        guard let identifier = entry.contactIdentifier, !noContacts,
+              ProcessInfo.processInfo.environment["PPLZ_NO_CONTACTS"] != "1" else { return nil }
+        return try SystemContacts.details(identifier: identifier)
+    }
+
     func directory(_ store: PplzStore) throws -> [PersonEntry] {
         PeopleDirectory.merge(contacts: try contacts(), persons: try store.persons())
     }
@@ -169,6 +176,7 @@ struct PersonCommand: ParsableCommand {
 
     struct Detail: Encodable {
         var person: PersonEntry
+        var contact: ContactDetails?
         var howWeMet: String
         var notes: String
         var history: [EventSnapshot]
@@ -185,8 +193,10 @@ struct PersonCommand: ParsableCommand {
                 let entry = try common.resolve(person, in: try common.directory(store))
                 let stored = try entry.id.map(store.person)
                 let history = try entry.id.map(store.history(of:)) ?? []
-                try common.emit(Detail(person: entry, howWeMet: stored?.howWeMet ?? "", notes: stored?.notes ?? "", history: history)) {
+                let contact = try common.contactDetails(entry)
+                try common.emit(Detail(person: entry, contact: contact, howWeMet: stored?.howWeMet ?? "", notes: stored?.notes ?? "", history: history)) {
                     var lines = [entry.name + (entry.isPplzOnly ? "  (pplz only)" : "") + (entry.id.map { "  [\(short($0))]" } ?? "")]
+                    lines += contact?.lines ?? []
                     if !entry.tags.isEmpty { lines.append("Tags: " + entry.tags.joined(separator: ", ")) }
                     if let stored, !stored.howWeMet.isEmpty { lines.append("How we met: " + stored.howWeMet) }
                     if let stored, !stored.notes.isEmpty { lines.append("Notes: " + stored.notes) }

@@ -56,7 +56,7 @@ ln -s "$(swift build -c release --show-bin-path)/pplz" ~/.local/bin/pplz   # any
 pplz people anna                                   # your contacts plus pplz-only persons
 pplz log "Anna Example" --format phone-call --title "Catch-up" --at yesterday
 pplz log "Ben New" --create --title "Fair" --format gathering --at 2026-10-03 --end 2026-10-05 --place Frankfurt
-pplz person "Anna Example"                         # notes, tags and history
+pplz person "Anna Example"                         # contact details, notes, tags and history
 pplz events --since 2026-11-01 --place frankfurt
 pplz followup add <event-id> "send the book title"
 pplz --help

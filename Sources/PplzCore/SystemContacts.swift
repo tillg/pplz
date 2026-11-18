@@ -23,6 +23,40 @@ public enum SystemContacts {
         return result
     }
 
+    /// Everything pplz shows about one contact; `nil` if the contact no longer exists.
+    public static func details(identifier: String) throws -> ContactDetails? {
+        let store = CNContactStore()
+        try requestAccessIfNeeded(store)
+        let keys = [
+            CNContactGivenNameKey, CNContactFamilyNameKey, CNContactOrganizationNameKey, CNContactJobTitleKey,
+            CNContactPhoneNumbersKey, CNContactEmailAddressesKey, CNContactPostalAddressesKey, CNContactUrlAddressesKey,
+            CNContactSocialProfilesKey, CNContactBirthdayKey,
+        ] as [CNKeyDescriptor]
+        guard let contact = try store.unifiedContacts(matching: CNContact.predicateForContacts(withIdentifiers: [identifier]),
+                                                      keysToFetch: keys).first else { return nil }
+
+        func label(_ raw: String?) -> String { raw.map { CNLabeledValue<NSString>.localizedString(forLabel: $0) } ?? "" }
+        var birthday: String?
+        if let parts = contact.birthday, let month = parts.month, let day = parts.day {
+            birthday = (parts.year.map { String(format: "%04d", $0) } ?? "-") + String(format: "-%02d-%02d", month, day)
+        }
+        return ContactDetails(
+            identifier: contact.identifier, givenName: contact.givenName, familyName: contact.familyName,
+            organization: contact.organizationName, jobTitle: contact.jobTitle,
+            phones: contact.phoneNumbers.map { LabeledValue(label: label($0.label), value: $0.value.stringValue) },
+            emails: contact.emailAddresses.map { LabeledValue(label: label($0.label), value: $0.value as String) },
+            addresses: contact.postalAddresses.map {
+                LabeledValue(label: label($0.label),
+                             value: CNPostalAddressFormatter.string(from: $0.value, style: .mailingAddress)
+                                 .split(whereSeparator: \.isNewline).joined(separator: ", "))
+            },
+            urls: contact.urlAddresses.map { LabeledValue(label: label($0.label), value: $0.value as String) },
+            socialProfiles: contact.socialProfiles.map {
+                LabeledValue(label: $0.value.service, value: $0.value.urlString.isEmpty ? $0.value.username : $0.value.urlString)
+            },
+            birthday: birthday)
+    }
+
     private static func requestAccessIfNeeded(_ store: CNContactStore) throws {
         if CNContactStore.authorizationStatus(for: .contacts) == .notDetermined {
             let done = DispatchSemaphore(value: 0)
