@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" width="128" alt="pplz logo"></p>
+
 # pplz
 
 **Remember not just who people are, but when, where and how you met them.**
