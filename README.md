@@ -6,7 +6,7 @@
 
 pplz is a personal contact manager for Mac, iPhone and iPad. It enriches the contacts you already have with the history of your interactions: meetings, calls, events and photos.
 
-> **Status: early development.** The shared core and the `pplz` command line exist and work on a local store. There is no app yet, nothing is written to your contacts yet, and there is no sync. The design, the decisions taken so far and the results of the technical spikes are in [SPEC.md](SPEC.md).
+> **Status: early development.** The shared core and the `pplz` command line exist and work on a local store. There is no app yet, only connections are written to your contacts so far, and there is no sync. The design, the decisions taken so far and the results of the technical spikes are in [SPEC.md](SPEC.md).
 
 ## The idea
 
@@ -60,6 +60,10 @@ pplz person "Anna Example"                         # contact details, notes, tag
 pplz person open "Anna Example"                    # show the card in the Contacts app
 pplz events --since 2026-11-01 --place frankfurt
 pplz followup add <event-id> "send the book title"
+pplz person connect "Anna Example" "colleague of" "Ben New"   # also written to both contact cards
+pplz contacts journal                              # every change pplz made to your address book
+pplz person rhythm "Anna Example" 3m               # keep in touch every 3 months
+pplz due                                           # who is overdue
 pplz --help
 ```
 
@@ -67,8 +71,9 @@ pplz --help
 - Every command takes `--json` for scripts and AI agents. Dates are ISO 8601 in UTC; fields without a value (`end`, `lastMet`, `id` of a contact pplz knows nothing about yet) are left out.
 - A date without a time means the whole day for `--end` and `--until`.
 - The store is `~/Library/Application Support/pplz/pplz.store`; set `PPLZ_STORE` or pass `--store` to use another file.
-- Contacts are only read (macOS asks for access on first use). `--no-contacts` works with pplz data alone.
+- Contacts are read for names and details (macOS asks for access on first use). The only thing pplz writes into them so far is connections, as "related name" rows; `pplz contacts sync` writes any that are missing, and `person disconnect` removes the rows pplz added. `--no-contacts` neither reads nor writes the address book.
 - Event formats: `live-meeting`, `web-call`, `phone-call`, `gathering`, `written`.
+- Events can carry links (`--link`, repeatable), e.g. to a calendar entry or a document.
 
 Run the tests with `swift test`.
 

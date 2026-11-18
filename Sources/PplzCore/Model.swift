@@ -17,9 +17,13 @@ final class Person {
     var howWeMet: String = ""
     var notes: String = ""
     var createdAt: Date = Date()
+    /// Desired number of days between meetings; `nil` = no rhythm.
+    var keepInTouchDays: Int?
 
     @Relationship(inverse: \Event.participants) var events: [Event]? = []
     var tags: [Tag]? = []
+    @Relationship(deleteRule: .cascade, inverse: \Connection.from) var outgoingConnections: [Connection]? = []
+    @Relationship(deleteRule: .cascade, inverse: \Connection.to) var incomingConnections: [Connection]? = []
 
     init(name: String, localContactIdentifier: String? = nil) {
         self.name = name
@@ -36,6 +40,7 @@ final class Event {
     var end: Date?
     var place: String = ""
     var notes: String = ""
+    var links: [String] = []
     var createdAt: Date = Date()
 
     var participants: [Person]? = []
@@ -56,6 +61,18 @@ final class Tag {
     @Relationship(inverse: \Event.tags) var events: [Event]? = []
 
     init(name: String) { self.name = name }
+}
+
+/// "`from` is `kind` `to`", e.g. Anna — colleague of — Ben.
+@Model
+final class Connection {
+    var uuid: UUID = UUID()
+    var kind: String = ""
+    var createdAt: Date = Date()
+    var from: Person?
+    var to: Person?
+
+    init(kind: String) { self.kind = kind }
 }
 
 @Model

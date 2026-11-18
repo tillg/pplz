@@ -11,7 +11,8 @@ struct Pplz: ParsableCommand {
             People are found by name (or part of it), pplz ID or contact identifier. Events and follow-ups \
             are addressed by ID or a unique ID prefix. Every command accepts --json for machine-readable output.
             """,
-        subcommands: [People.self, PersonCommand.self, Log.self, Events.self, EventCommand.self, FollowUpCommand.self, Tags.self]
+        subcommands: [People.self, PersonCommand.self, Log.self, Events.self, EventCommand.self, FollowUpCommand.self, Due.self, Tags.self,
+                      ContactsCommand.self]
     )
 }
 
@@ -27,14 +28,64 @@ struct Common: ParsableArguments {
     @Flag(help: "Print JSON.")
     var json = false
 
-    func open() throws -> PplzStore {
-        if let store { return try PplzStore(url: URL(fileURLWithPath: (store as NSString).expandingTildeInPath)) }
-        return try PplzStore(url: PplzStore.defaultURL())
+    var storeURL: URL {
+        store.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) } ?? PplzStore.defaultURL()
     }
 
+    func open() throws -> PplzStore { try PplzStore(url: storeURL) }
+
+    /// False with --no-contacts: then the address book is neither read nor written.
+    var usesContacts: Bool { !noContacts && ProcessInfo.processInfo.environment["PPLZ_NO_CONTACTS"] != "1" }
+
     func contacts() throws -> [ContactSummary] {
-        if noContacts || ProcessInfo.processInfo.environment["PPLZ_NO_CONTACTS"] == "1" { return [] }
-        return try SystemContacts.fetchAll()
+        usesContacts ? try SystemContacts.fetchAll() : []
+    }
+
+    /// Everything pplz writes into the address book is recorded next to the store.
+    var journal: ContactJournal {
+        ContactJournal(url: storeURL.deletingLastPathComponent().appendingPathComponent("contact-writes.jsonl"))
+    }
+
+    static func rows(_ connection: ConnectionRecord) -> [ContactMirror.Row] {
+        ContactMirror.rows(from: .init(name: connection.from.name, contactIdentifier: connection.from.contactIdentifier),
+                           kind: connection.kind,
+                           to: .init(name: connection.to.name, contactIdentifier: connection.to.contactIdentifier))
+    }
+
+    /// Writes related-name rows into Contacts. A failure is reported but does not undo what pplz stored.
+    func mirror(_ rows: [ContactMirror.Row]) -> [String] {
+        guard usesContacts else { return [] }
+        return rows.map { row in
+            do {
+                switch try ContactsApp.addRelatedName(row) {
+                case .added:
+                    try journal.record(.added, row)
+                    return "Contacts: added \"\(row.label): \(row.value)\""
+                default:
+                    return "Contacts: \"\(row.label): \(row.value)\" was already there"
+                }
+            } catch {
+                return "Contacts: could not add \"\(row.label): \(row.value)\" — \((error as? PplzError)?.errorDescription ?? "\(error)")"
+            }
+        }
+    }
+
+    /// Removes rows from Contacts, but only those the journal says pplz added.
+    func unmirror(_ rows: [ContactMirror.Row]) -> [String] {
+        guard usesContacts else { return [] }
+        return rows.compactMap { row in
+            do {
+                guard try journal.pplzAdded(row) else { return nil }
+                if try ContactsApp.removeRelatedName(row) == .removed {
+                    try journal.record(.removed, row)
+                    return "Contacts: removed \"\(row.label): \(row.value)\""
+                }
+                try journal.record(.removed, row)
+                return nil
+            } catch {
+                return "Contacts: could not remove \"\(row.label): \(row.value)\" — \((error as? PplzError)?.errorDescription ?? "\(error)")"
+            }
+        }
     }
 
     /// Live contact data for a linked person; `nil` for pplz-only persons or with --no-contacts.
@@ -172,11 +223,14 @@ struct People: ParsableCommand {
 struct PersonCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "person", abstract: "Show or edit one person.",
-        subcommands: [Show.self, Open.self, Add.self, Note.self, Met.self, TagAdd.self, TagRemove.self], defaultSubcommand: Show.self)
+        subcommands: [Show.self, Open.self, Add.self, Note.self, Met.self, TagAdd.self, TagRemove.self, Connect.self, Disconnect.self, Rhythm.self],
+        defaultSubcommand: Show.self)
 
     struct Detail: Encodable {
         var person: PersonEntry
         var contact: ContactDetails?
+        var keepInTouchDays: Int?
+        var connections: [ConnectionSnapshot]
         var howWeMet: String
         var notes: String
         var history: [EventSnapshot]
@@ -194,12 +248,18 @@ struct PersonCommand: ParsableCommand {
                 let stored = try entry.id.map(store.person)
                 let history = try entry.id.map(store.history(of:)) ?? []
                 let contact = try common.contactDetails(entry)
-                try common.emit(Detail(person: entry, contact: contact, howWeMet: stored?.howWeMet ?? "", notes: stored?.notes ?? "", history: history)) {
+                let connections = try entry.id.map(store.connections(of:)) ?? []
+                try common.emit(Detail(person: entry, contact: contact, keepInTouchDays: stored?.keepInTouchDays, connections: connections,
+                                       howWeMet: stored?.howWeMet ?? "", notes: stored?.notes ?? "", history: history)) {
                     var lines = [entry.name + (entry.isPplzOnly ? "  (pplz only)" : "") + (entry.id.map { "  [\(short($0))]" } ?? "")]
                     lines += contact?.lines ?? []
                     if !entry.tags.isEmpty { lines.append("Tags: " + entry.tags.joined(separator: ", ")) }
                     if let stored, !stored.howWeMet.isEmpty { lines.append("How we met: " + stored.howWeMet) }
                     if let stored, !stored.notes.isEmpty { lines.append("Notes: " + stored.notes) }
+                    lines += connections.map {
+                        $0.direction == .outgoing ? "Connection: \($0.kind) \($0.other.name)" : "Connection: \($0.other.name) is \($0.kind) this person"
+                    }
+                    if let days = stored?.keepInTouchDays { lines.append("Keep in touch: every \(days) days") }
                     lines.append(summary(count: entry.eventCount, lastMet: entry.lastMet))
                     lines += history.map { "  " + line($0) }
                     return lines.joined(separator: "\n")
@@ -307,6 +367,91 @@ struct PersonCommand: ParsableCommand {
     }
 }
 
+extension PersonCommand {
+    struct Connect: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Connect two people.",
+            discussion: "Reads as a sentence: pplz person connect \"Anna\" \"colleague of\" \"Ben\"")
+        @Argument var person: String
+        @Argument(help: "E.g. \"colleague of\", \"introduced by\", \"partner of\".") var kind: String
+        @Argument var other: String
+        @OptionGroup var common: Common
+
+        func run() throws {
+            try attempt {
+                let store = try common.open()
+                let entries = try common.directory(store)
+                // resolve both before anything is written
+                let (a, b) = (try common.resolve(person, in: entries), try common.resolve(other, in: entries))
+                let from = try common.personID(a, store)
+                let to = try common.personID(b, store)
+                try store.connect(from, to: to, kind: kind)
+                let written = try store.allConnections()
+                    .filter { $0.from.id == from && $0.to.id == to && $0.kind.caseInsensitiveCompare(kind.trimmingCharacters(in: .whitespaces)) == .orderedSame }
+                    .flatMap { common.mirror(Common.rows($0)) }
+                written.forEach { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
+                try common.emit(try store.connections(of: from)) { "\(a.name) — \(kind) — \(b.name)" }
+            }
+        }
+    }
+
+    struct Disconnect: ParsableCommand {
+        static let configuration = CommandConfiguration(abstract: "Remove all connections between two people.")
+        @Argument var person: String
+        @Argument var other: String
+        @OptionGroup var common: Common
+
+        func run() throws {
+            try attempt {
+                let store = try common.open()
+                let entries = try common.directory(store)
+                let (a, b) = (try common.resolve(person, in: entries), try common.resolve(other, in: entries))
+                guard let from = a.id, let to = b.id else { return try common.emit([ConnectionSnapshot]()) { "Not connected." } }
+                let removed = try store.allConnections()
+                    .filter { ($0.from.id == from && $0.to.id == to) || ($0.from.id == to && $0.to.id == from) }
+                    .flatMap { common.unmirror(Common.rows($0)) }
+                removed.forEach { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
+                try store.disconnect(from, to)
+                try common.emit(try store.connections(of: from)) { "Disconnected \(a.name) and \(b.name)" }
+            }
+        }
+    }
+
+    struct Rhythm: ParsableCommand {
+        static let configuration = CommandConfiguration(abstract: "Set how often you want to meet a person; see `pplz due`.")
+        @Argument var person: String
+        @Argument(help: "Days (90), or 2w, 3m, 1y — or \"off\" to remove the rhythm.") var interval: String
+        @OptionGroup var common: Common
+
+        func run() throws {
+            try attempt {
+                let store = try common.open()
+                let days = interval.lowercased() == "off" ? nil : try KeepInTouch.days(interval)
+                let id = try common.personID(try common.resolve(person, in: try common.directory(store)), store)
+                try store.setKeepInTouch(days: days, for: id)
+                try common.emit(try store.person(id)) { days.map { "Keep in touch every \($0) days  [\(short(id))]" } ?? "Rhythm removed  [\(short(id))]" }
+            }
+        }
+    }
+}
+
+struct Due: ParsableCommand {
+    static let configuration = CommandConfiguration(abstract: "People you wanted to keep in touch with and haven't met for too long.")
+    @OptionGroup var common: Common
+
+    func run() throws {
+        try attempt {
+            let due = KeepInTouch.overdue(try common.open().persons())
+            try common.emit(due) {
+                due.isEmpty ? "Nobody is overdue." : due.map { item in
+                    let status = item.daysSinceLastMet.map { "last met \($0) days ago, \(item.daysOverdue ?? 0) overdue" } ?? "never met"
+                    return "\(item.person.name)  — every \(item.intervalDays) days, \(status)  [\(short(item.person.id))]"
+                }.joined(separator: "\n")
+            }
+        }
+    }
+}
+
 // MARK: - log
 
 struct Log: ParsableCommand {
@@ -322,6 +467,7 @@ struct Log: ParsableCommand {
     @Option var place: String = ""
     @Option var notes: String = ""
     @Option(help: "Tag for the event; repeatable.") var tag: [String] = []
+    @Option(help: "Link to a calendar entry, meeting or document; repeatable.") var link: [String] = []
     @Flag(help: "Create a pplz-only person for any name that matches nobody.") var create = false
     @OptionGroup var common: Common
 
@@ -339,7 +485,7 @@ struct Log: ParsableCommand {
                 title: title, format: format, start: try DateInput.parse(at),
                 end: try end.map { try DateInput.parse($0, endOfDay: true) },
                 place: place, notes: notes, participants: plan.existing, tags: tag,
-                additionalParticipants: plan.additional))
+                additionalParticipants: plan.additional, links: link))
             let event = try store.event(id)
             try common.emit(event) { "Logged  " + line(event) }
         }
@@ -387,6 +533,7 @@ struct EventCommand: ParsableCommand {
         if let end = event.end { lines.append("Ends: " + format(end)) }
         if !event.tags.isEmpty { lines.append("Tags: " + event.tags.joined(separator: ", ")) }
         if !event.notes.isEmpty { lines.append("Notes: " + event.notes) }
+        lines += event.links.map { "Link: " + $0 }
         lines += event.followUps.map { "  [\($0.done ? "x" : " ")] \($0.text)  [\(short($0.id))]" }
         return lines.joined(separator: "\n")
     }
@@ -417,6 +564,7 @@ struct EventCommand: ParsableCommand {
         @Option var notes: String?
         @Option(help: "Replace the participants; repeatable.") var person: [String] = []
         @Option(help: "Replace the tags; repeatable.") var tag: [String] = []
+        @Option(help: "Replace the links; repeatable.") var link: [String] = []
         @OptionGroup var common: Common
 
         func run() throws {
@@ -429,7 +577,7 @@ struct EventCommand: ParsableCommand {
                     title: title, format: format, start: try at.map { try DateInput.parse($0) },
                     end: try end.map { try DateInput.parse($0, endOfDay: true) }, clearEnd: noEnd, place: place, notes: notes,
                     participants: plan?.existing, tags: tag.isEmpty ? nil : tag,
-                    additionalParticipants: plan?.additional ?? []))
+                    additionalParticipants: plan?.additional ?? [], links: link.isEmpty ? nil : link))
                 let event = try store.event(eventID)
                 try common.emit(event) { "Updated  " + EventCommand.detail(event) }
             }
@@ -506,6 +654,44 @@ struct FollowUpCommand: ParsableCommand {
                 let followUpID = try resolveID(id, among: try store.openFollowUps().map(\.id), what: "follow-up")
                 try store.completeFollowUp(followUpID)
                 try common.emit(try store.openFollowUps()) { "Done  [\(short(followUpID))]" }
+            }
+        }
+    }
+}
+
+// MARK: - contacts
+
+struct ContactsCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "contacts", abstract: "What pplz writes into your address book.",
+        subcommands: [Sync.self, Journal.self], defaultSubcommand: Journal.self)
+
+    struct Sync: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Write all pplz connections into Contacts as related names. Safe to repeat.")
+        @OptionGroup var common: Common
+
+        func run() throws {
+            try attempt {
+                guard common.usesContacts else { throw Failure("Nothing to do with --no-contacts.") }
+                let results = try common.open().allConnections().flatMap { common.mirror(Common.rows($0)) }
+                try common.emit(results) { results.isEmpty ? "No connections to write." : results.joined(separator: "\n") }
+            }
+        }
+    }
+
+    struct Journal: ParsableCommand {
+        static let configuration = CommandConfiguration(abstract: "List every change pplz made to your address book.")
+        @OptionGroup var common: Common
+
+        func run() throws {
+            try attempt {
+                let entries = try common.journal.entries()
+                try common.emit(entries) {
+                    entries.isEmpty ? "pplz has not changed any contact." : entries.map {
+                        "\(format($0.date))  \($0.action.rawValue)  \($0.field) \"\($0.row.label): \($0.row.value)\"  on contact \($0.row.contactIdentifier)"
+                    }.joined(separator: "\n")
+                }
             }
         }
     }

@@ -9,7 +9,7 @@ public final class PplzStore {
     public init(url: URL) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let config = ModelConfiguration(url: url, cloudKitDatabase: .none)
-        let container = try ModelContainer(for: Person.self, Event.self, Tag.self, FollowUp.self, configurations: config)
+        let container = try ModelContainer(for: Person.self, Event.self, Tag.self, FollowUp.self, Connection.self, configurations: config)
         context = ModelContext(container)
         context.autosaveEnabled = false
     }
@@ -68,6 +68,67 @@ public final class PplzStore {
         try context.save()
     }
 
+    /// Sets the desired number of days between meetings; `nil` removes the rhythm.
+    public func setKeepInTouch(days: Int?, for id: UUID) throws {
+        if let days, days < 1 { throw PplzError.invalid("A keep-in-touch rhythm needs at least 1 day.") }
+        try fetchPerson(id).keepInTouchDays = days
+        try context.save()
+    }
+
+    // MARK: Connections
+
+    /// Records "`from` is `kind` `to`", e.g. "colleague of". Storing the same connection twice has no effect.
+    public func connect(_ from: UUID, to: UUID, kind: String) throws {
+        try atomically {
+            guard from != to else { throw PplzError.invalid("A person cannot be connected to themselves.") }
+            let label = try nonEmpty(kind, "A connection needs a kind, e.g. \"colleague of\".")
+            let a = try fetchPerson(from)
+            let b = try fetchPerson(to)
+            let exists = (a.outgoingConnections ?? []).contains {
+                $0.to?.uuid == to && $0.kind.caseInsensitiveCompare(label) == .orderedSame
+            }
+            if !exists {
+                let connection = Connection(kind: label)
+                context.insert(connection)
+                connection.from = a
+                connection.to = b
+            }
+        }
+    }
+
+    /// Removes every connection between the two people, in both directions.
+    public func disconnect(_ a: UUID, _ b: UUID) throws {
+        try atomically {
+            let first = try fetchPerson(a)
+            _ = try fetchPerson(b)
+            let between = (first.outgoingConnections ?? []).filter { $0.to?.uuid == b }
+                + (first.incomingConnections ?? []).filter { $0.from?.uuid == b }
+            between.forEach(context.delete)
+        }
+    }
+
+    /// Every connection in the store, oldest first.
+    public func allConnections() throws -> [ConnectionRecord] {
+        try context.fetch(FetchDescriptor<Connection>(sortBy: [SortDescriptor(\.createdAt)])).compactMap { connection in
+            guard let from = connection.from, let to = connection.to else { return nil }
+            return ConnectionRecord(id: connection.uuid, kind: connection.kind, from: snapshot(from), to: snapshot(to))
+        }
+    }
+
+    /// Outgoing first, then incoming; each group oldest first.
+    public func connections(of id: UUID) throws -> [ConnectionSnapshot] {
+        let person = try fetchPerson(id)
+        func snapshots(_ list: [Connection]?, _ direction: ConnectionSnapshot.Direction, _ other: (Connection) -> Person?) -> [ConnectionSnapshot] {
+            (list ?? []).sorted { $0.createdAt < $1.createdAt }.compactMap { connection in
+                other(connection).map {
+                    ConnectionSnapshot(id: connection.uuid, kind: connection.kind,
+                                       other: PersonRef(id: $0.uuid, name: $0.name), direction: direction)
+                }
+            }
+        }
+        return snapshots(person.outgoingConnections, .outgoing, \.to) + snapshots(person.incomingConnections, .incoming, \.from)
+    }
+
     // MARK: Tags
 
     public func addTag(_ name: String, toPerson id: UUID) throws {
@@ -103,11 +164,13 @@ public final class PplzStore {
                 throw PplzError.invalid("An event cannot end before it starts.")
             }
             try validate(tags: draft.tags, new: draft.additionalParticipants)
+            let links = try cleaned(links: draft.links)
             let participants = try draft.participants.map(fetchPerson) + draft.additionalParticipants.map(person(for:))
             let event = Event(title: draft.title.trimmed, format: draft.format, start: draft.start)
             event.end = draft.end
             event.place = draft.place.trimmed
             event.notes = draft.notes
+            event.links = links
             context.insert(event)
             event.participants = participants
             event.tags = try draft.tags.map(findOrCreateTag)
@@ -124,6 +187,7 @@ public final class PplzStore {
                 throw PplzError.invalid("An event cannot end before it starts.")
             }
             try validate(tags: change.tags ?? [], new: change.additionalParticipants)
+            let links = try change.links.map(cleaned(links:))
             var participants = try change.participants.map { try $0.map(fetchPerson) }
             if !change.additionalParticipants.isEmpty {
                 participants = try (participants ?? []) + change.additionalParticipants.map(person(for:))
@@ -138,6 +202,7 @@ public final class PplzStore {
             if let notes = change.notes { event.notes = notes }
             if let participants { event.participants = participants }
             if let tags { event.tags = tags }
+            if let links { event.links = links }
         }
     }
 
@@ -216,6 +281,16 @@ public final class PplzStore {
         }
     }
 
+    private func cleaned(links: [String]) throws -> [String] {
+        try links.map { link in
+            let text = link.trimmed
+            guard !text.contains(" "), let url = URL(string: text), url.scheme != nil else {
+                throw PplzError.invalid("\"\(link)\" is not a link. Use a full address such as https://example.com.")
+            }
+            return text
+        }
+    }
+
     private func validate(tags: [String], new: [NewParticipant]) throws {
         for tag in tags { _ = try nonEmpty(tag, "A tag needs a name.") }
         for case .named(let name) in new { _ = try nonEmpty(name, "A person needs a name.") }
@@ -290,14 +365,15 @@ public final class PplzStore {
         let events = person.events ?? []
         return PersonSnapshot(id: person.uuid, name: person.name, contactIdentifier: person.localContactIdentifier,
                               howWeMet: person.howWeMet, notes: person.notes, eventCount: events.count,
-                              lastMet: events.map(\.start).max(), tags: tagNames(person.tags))
+                              lastMet: events.map(\.start).max(), keepInTouchDays: person.keepInTouchDays,
+                              tags: tagNames(person.tags))
     }
 
     private func snapshot(_ event: Event) -> EventSnapshot {
         EventSnapshot(
             id: event.uuid, title: event.title, format: EventFormat(rawValue: event.formatRaw) ?? .liveMeeting,
             start: event.start, end: event.end, place: event.place, notes: event.notes,
-            participants: refs(event.participants), tags: tagNames(event.tags),
+            participants: refs(event.participants), tags: tagNames(event.tags), links: event.links,
             followUps: (event.followUps ?? []).sorted { $0.createdAt < $1.createdAt }
                 .map { FollowUpSnapshot(id: $0.uuid, text: $0.text, done: $0.done) })
     }

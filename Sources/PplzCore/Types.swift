@@ -67,10 +67,13 @@ public struct PersonSnapshot: Codable, Equatable, Sendable {
     public var notes: String
     public var eventCount: Int
     public var lastMet: Date?
+    /// Desired number of days between meetings; `nil` = no rhythm.
+    public var keepInTouchDays: Int?
     public var tags: [String]
 
     public init(id: UUID, name: String, contactIdentifier: String? = nil, howWeMet: String = "", notes: String = "",
-                eventCount: Int = 0, lastMet: Date? = nil, tags: [String] = []) {
+                eventCount: Int = 0, lastMet: Date? = nil, keepInTouchDays: Int? = nil, tags: [String] = []) {
+        self.keepInTouchDays = keepInTouchDays
         self.id = id
         self.name = name
         self.contactIdentifier = contactIdentifier
@@ -80,6 +83,28 @@ public struct PersonSnapshot: Codable, Equatable, Sendable {
         self.lastMet = lastMet
         self.tags = tags
     }
+}
+
+public struct ConnectionSnapshot: Codable, Equatable, Sendable {
+    public enum Direction: String, Codable, Sendable {
+        /// "this person is `kind` `other`"
+        case outgoing
+        /// "`other` is `kind` this person"
+        case incoming
+    }
+
+    public var id: UUID
+    public var kind: String
+    public var other: PersonRef
+    public var direction: Direction
+}
+
+/// A connection with both people, for mirroring into contacts.
+public struct ConnectionRecord: Codable, Equatable, Sendable {
+    public var id: UUID
+    public var kind: String
+    public var from: PersonSnapshot
+    public var to: PersonSnapshot
 }
 
 public struct FollowUpSnapshot: Codable, Equatable, Sendable {
@@ -107,6 +132,7 @@ public struct EventSnapshot: Codable, Equatable, Sendable {
     public var notes: String
     public var participants: [PersonRef]
     public var tags: [String]
+    public var links: [String]
     public var followUps: [FollowUpSnapshot]
 }
 
@@ -132,11 +158,13 @@ public struct EventDraft: Sendable {
     public var participants: [UUID]
     public var tags: [String]
     public var additionalParticipants: [NewParticipant]
+    public var links: [String]
 
     public init(title: String = "", format: EventFormat, start: Date, end: Date? = nil, place: String = "",
                 notes: String = "", participants: [UUID] = [], tags: [String] = [],
-                additionalParticipants: [NewParticipant] = []) {
+                additionalParticipants: [NewParticipant] = [], links: [String] = []) {
         self.additionalParticipants = additionalParticipants
+        self.links = links
         self.title = title
         self.format = format
         self.start = start
@@ -161,11 +189,13 @@ public struct EventChange: Sendable {
     public var participants: [UUID]?
     public var tags: [String]?
     public var additionalParticipants: [NewParticipant]
+    public var links: [String]?
 
     public init(title: String? = nil, format: EventFormat? = nil, start: Date? = nil, end: Date? = nil, clearEnd: Bool = false,
                 place: String? = nil, notes: String? = nil, participants: [UUID]? = nil, tags: [String]? = nil,
-                additionalParticipants: [NewParticipant] = []) {
+                additionalParticipants: [NewParticipant] = [], links: [String]? = nil) {
         self.additionalParticipants = additionalParticipants
+        self.links = links
         self.title = title
         self.format = format
         self.start = start

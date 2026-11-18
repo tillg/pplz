@@ -55,9 +55,9 @@ A person I know. Normally linked 1:1 to a contact in the system address book **[
 | How we met | where / when / through whom **[S]** decided 2026-11-18 |
 | Notes | free text, things to remember **[S]** |
 | Tags / groups | my own labels ("client", "sailing club") to filter and group **[S]** |
-| Connections | links between persons: "introduced by", "colleague of", "partner of" **[S]** |
-| Keep-in-touch rhythm | desired interval per person (e.g. every 3 months); pplz lists people I haven't met for too long **[S]** |
-| | These live in pplz only and are not mirrored into Contacts groups / related names for now **[A]** |
+| Connections | links between persons: "introduced by", "colleague of", "partner of" **[S]**. Stored as a directed sentence "A — kind — B" with free-text kind; shown on both persons **[A]** |
+| Keep-in-touch rhythm | desired interval per person (e.g. every 3 months); pplz lists people I haven't met for too long **[S]**. Stored in days (a month counts as 30); people with a rhythm but no event yet count as overdue **[A]** |
+| | Connections are mirrored into Contacts as related names (§3.2) **[S]** 2026-11-18. Tags and the rhythm live in pplz only **[A]** |
 | History | derived: all events this person participated in, newest first **[S]** |
 | Photos | derived: all photos this person was recognized in **[S]** |
 | Face reference data | for recognition, see §5 |
@@ -80,7 +80,7 @@ Anything where I could meet people. **[S]**
 | Notes | free text **[A]** |
 | Topics / follow-ups | what was discussed, and open follow-ups that can be ticked off **[S]** |
 | Tags | same tag system as for persons **[S]** |
-| Links / attachments | calendar entry, meeting link, documents **[S]** |
+| Links / attachments | calendar entry, meeting link, documents **[S]**. Links are built; file attachments are not yet **[A]** |
 | Photos | 0..n **[S]** |
 
 ### 2.3 Photo
@@ -119,6 +119,7 @@ Not stored separately — it is the per-person view over events (and their photo
 | Deep link back to the person in pplz | URL field with custom label `pplz` → `pplz://person/<id>`; Contacts shows it as a tappable row that opens the person in pplz. Also serves as the cross-device identity link (R3). | **[S]** decided 2026-11-18 |
 | Contact photo | contact image — for contacts without a picture pplz offers the best recognised face crop (or the LinkedIn picture, §4.4); set only after I confirm | **[S]** decided 2026-11-18 |
 | LinkedIn / other social-media links | the contact's social-profile fields; kept in sync both ways: a profile added in Contacts shows in pplz, one added in pplz is written to the contact | **[S]** decided 2026-11-18 |
+| Connections between people | the contact's **related names** (the field that holds e.g. "spouse"), as plain text `label: name`. "A — colleague of — B" puts `colleague: A` on B's card; symmetric kinds (colleague, partner, friend, …) also put `colleague: B` on A's card; kinds without "… of" ("introduced by") go on A's card only. pplz only removes rows it added itself: every write is recorded in a journal (`contact-writes.jsonl` next to the store, `pplz contacts journal`). Built 2026-11-18 on the Mac via Contacts scripting (§8.1 S6) until the notes entitlement arrives. | **[S]** 2026-11-18; the both-cards rule is **[A]** |
 | Not written | "last met" date field, tags as Contacts groups — offered but not selected on 2026-11-18, so left out for now | **[A]** |
 
 All my contacts live in **iCloud** — no Exchange / Google accounts to support. **[S]**
@@ -441,7 +442,7 @@ All questions from the first draft were answered on 2026-11-18.
 | Slice | Content | Proves |
 |---|---|---|
 | 0 | Notes entitlement requested from Apple on 2026-11-18 (pending, §8.4). Remaining spikes: tap on `pplz://` row opens the app (Mac + iPhone); can a development profile carry the notes entitlement before approval; link field survives iCloud sync as cross-device ID; does the app's CloudKit sync export CLI-written rows (signed build); what the LinkedIn share sheet / QR code delivers; `addressbook://` re-test. Mac Contacts spikes done, see §8.1. Storage spike done, see §8.3. | R1, R3, R7 |
-| 1 | *(in progress — core + CLI for people, events, tags, follow-ups, history done 2026-11-18; open: `ask`, connections, keep-in-touch, custom formats, attachments, app UI)* Shared core package + **Mac CLI** + Mac / iOS app in Contacts look with pink: people list from Contacts, pplz-only person data, manual events + quick log, history timeline (local only); CLI incl. natural-language search via OpenRouter | domain model, CLI |
+| 1 | *(in progress — core + CLI done 2026-11-18 for people, contact details, events with links, tags, follow-ups, history, connections, keep-in-touch (`pplz due`), open card in Contacts; open: `ask`, custom formats, file attachments, app UI)* Shared core package + **Mac CLI** + Mac / iOS app in Contacts look with pink: people list from Contacts, pplz-only person data, manual events + quick log, history timeline (local only); CLI incl. natural-language search via OpenRouter | domain model, CLI |
 | 2 | Contacts integration: `pplz` link, history block in notes, social links, both-way navigation (Mac scripting bridge until the entitlement arrives) | Contacts integration |
 | 3 | Device sync via CloudKit | storage |
 | 4 | LinkedIn capture | §4.4 |
