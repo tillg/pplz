@@ -1,0 +1,70 @@
+import Foundation
+import SwiftData
+
+// Persistent model. Shaped for CloudKit sync from day one (SPEC §8.3):
+// every attribute has a default or is optional, every relationship is optional
+// and has an inverse, and there are no unique constraints.
+
+@Model
+final class Person {
+    /// pplz's own identity for a person; becomes `pplz://person/<uuid>`.
+    var uuid: UUID = UUID()
+    /// Name of a pplz-only person, or the last known name of a linked contact.
+    var name: String = ""
+    /// `CNContact.identifier` — only valid on this device (SPEC R3).
+    /// Slice 2 replaces this with the `pplz` link field stored in the contact.
+    var localContactIdentifier: String?
+    var howWeMet: String = ""
+    var notes: String = ""
+    var createdAt: Date = Date()
+
+    @Relationship(inverse: \Event.participants) var events: [Event]? = []
+    var tags: [Tag]? = []
+
+    init(name: String, localContactIdentifier: String? = nil) {
+        self.name = name
+        self.localContactIdentifier = localContactIdentifier
+    }
+}
+
+@Model
+final class Event {
+    var uuid: UUID = UUID()
+    var title: String = ""
+    var formatRaw: String = EventFormat.liveMeeting.rawValue
+    var start: Date = Date()
+    var end: Date?
+    var place: String = ""
+    var notes: String = ""
+    var createdAt: Date = Date()
+
+    var participants: [Person]? = []
+    var tags: [Tag]? = []
+    @Relationship(deleteRule: .cascade, inverse: \FollowUp.event) var followUps: [FollowUp]? = []
+
+    init(title: String, format: EventFormat, start: Date) {
+        self.title = title
+        self.formatRaw = format.rawValue
+        self.start = start
+    }
+}
+
+@Model
+final class Tag {
+    var name: String = ""
+    @Relationship(inverse: \Person.tags) var persons: [Person]? = []
+    @Relationship(inverse: \Event.tags) var events: [Event]? = []
+
+    init(name: String) { self.name = name }
+}
+
+@Model
+final class FollowUp {
+    var uuid: UUID = UUID()
+    var text: String = ""
+    var done: Bool = false
+    var createdAt: Date = Date()
+    var event: Event?
+
+    init(text: String) { self.text = text }
+}

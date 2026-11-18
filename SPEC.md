@@ -49,7 +49,8 @@ A person I know. Normally linked 1:1 to a contact in the system address book **[
 
 | Field | Notes |
 |---|---|
-| Link to system contact | contact IDs are device-local — see R3 in §8 for how the link is kept stable |
+| pplz ID | pplz's own UUID per person; it is the `<id>` in `pplz://person/<id>` |
+| Link to system contact | contact IDs are device-local (R3). Slice 1 stores the local contact ID as a temporary link; slice 2 replaces it with the `pplz` link field in the contact. A person record is created only when pplz has something to store — contacts are never bulk-imported. The record keeps the contact's name as last seen (shown in event participant lists and when the contact is unavailable); it is refreshed when the person is next used and can be stale after a rename in Contacts. |
 | Core contact data (name, phone, mail, …) | owned by Contacts and not duplicated in pplz while a contact is linked; pplz-only persons carry their own minimal core data **[A]** |
 | How we met | where / when / through whom **[S]** decided 2026-11-18 |
 | Notes | free text, things to remember **[S]** |
@@ -440,7 +441,7 @@ All questions from the first draft were answered on 2026-11-18.
 | Slice | Content | Proves |
 |---|---|---|
 | 0 | Notes entitlement requested from Apple on 2026-11-18 (pending, §8.4). Remaining spikes: tap on `pplz://` row opens the app (Mac + iPhone); can a development profile carry the notes entitlement before approval; link field survives iCloud sync as cross-device ID; does the app's CloudKit sync export CLI-written rows (signed build); what the LinkedIn share sheet / QR code delivers; `addressbook://` re-test. Mac Contacts spikes done, see §8.1. Storage spike done, see §8.3. | R1, R3, R7 |
-| 1 | Shared core package + **Mac CLI** + Mac / iOS app in Contacts look with pink: people list from Contacts, pplz-only person data, manual events + quick log, history timeline (local only); CLI incl. natural-language search via OpenRouter | domain model, CLI |
+| 1 | *(in progress — core + CLI for people, events, tags, follow-ups, history done 2026-11-18; open: `ask`, connections, keep-in-touch, custom formats, attachments, app UI)* Shared core package + **Mac CLI** + Mac / iOS app in Contacts look with pink: people list from Contacts, pplz-only person data, manual events + quick log, history timeline (local only); CLI incl. natural-language search via OpenRouter | domain model, CLI |
 | 2 | Contacts integration: `pplz` link, history block in notes, social links, both-way navigation (Mac scripting bridge until the entitlement arrives) | Contacts integration |
 | 3 | Device sync via CloudKit | storage |
 | 4 | LinkedIn capture | §4.4 |

@@ -1,0 +1,198 @@
+import Foundation
+
+public enum EventFormat: String, Codable, CaseIterable, Sendable {
+    case liveMeeting = "live-meeting"
+    case webCall = "web-call"
+    case phoneCall = "phone-call"
+    case largerGathering = "gathering"
+    case writtenExchange = "written"
+
+    public var displayName: String {
+        switch self {
+        case .liveMeeting: "Live meeting"
+        case .webCall: "Web call"
+        case .phoneCall: "Phone call"
+        case .largerGathering: "Larger gathering"
+        case .writtenExchange: "Written exchange"
+        }
+    }
+}
+
+public enum PplzError: Error, Equatable, LocalizedError {
+    case notFound(String)
+    case invalid(String)
+    case ambiguousPerson(String, [PersonEntry])
+
+    public var errorDescription: String? {
+        switch self {
+        case .notFound(let what):
+            return "Not found: \(what)"
+        case .invalid(let why):
+            return why
+        case .ambiguousPerson(let query, let candidates):
+            let list = candidates.prefix(20).map { "  \($0.name)  [\($0.id?.uuidString ?? $0.contactIdentifier ?? "-")]" }
+            return (["\"\(query)\" matches \(candidates.count) people. Be more specific or use an ID:"] + list).joined(separator: "\n")
+        }
+    }
+}
+
+/// A participant who has no pplz person record yet; the record is created together with the event.
+public enum NewParticipant: Equatable, Sendable {
+    case contact(ContactSummary)
+    case named(String)
+}
+
+/// A contact as read from the system address book. Never contains the note.
+public struct ContactSummary: Codable, Equatable, Sendable {
+    public var identifier: String
+    public var name: String
+
+    public init(identifier: String, name: String) {
+        self.identifier = identifier
+        self.name = name
+    }
+}
+
+public struct PersonRef: Codable, Equatable, Sendable {
+    public var id: UUID
+    public var name: String
+}
+
+/// What pplz stores about a person.
+public struct PersonSnapshot: Codable, Equatable, Sendable {
+    public var id: UUID
+    public var name: String
+    public var contactIdentifier: String?
+    public var howWeMet: String
+    public var notes: String
+    public var eventCount: Int
+    public var lastMet: Date?
+    public var tags: [String]
+
+    public init(id: UUID, name: String, contactIdentifier: String? = nil, howWeMet: String = "", notes: String = "",
+                eventCount: Int = 0, lastMet: Date? = nil, tags: [String] = []) {
+        self.id = id
+        self.name = name
+        self.contactIdentifier = contactIdentifier
+        self.howWeMet = howWeMet
+        self.notes = notes
+        self.eventCount = eventCount
+        self.lastMet = lastMet
+        self.tags = tags
+    }
+}
+
+public struct FollowUpSnapshot: Codable, Equatable, Sendable {
+    public var id: UUID
+    public var text: String
+    public var done: Bool
+}
+
+public struct OpenFollowUp: Codable, Equatable, Sendable {
+    public var id: UUID
+    public var text: String
+    public var eventID: UUID
+    public var eventTitle: String
+    public var eventStart: Date
+    public var participants: [PersonRef]
+}
+
+public struct EventSnapshot: Codable, Equatable, Sendable {
+    public var id: UUID
+    public var title: String
+    public var format: EventFormat
+    public var start: Date
+    public var end: Date?
+    public var place: String
+    public var notes: String
+    public var participants: [PersonRef]
+    public var tags: [String]
+    public var followUps: [FollowUpSnapshot]
+}
+
+public struct TagSummary: Codable, Equatable, Sendable {
+    public var name: String
+    public var personCount: Int
+    public var eventCount: Int
+
+    public init(name: String, personCount: Int, eventCount: Int) {
+        self.name = name
+        self.personCount = personCount
+        self.eventCount = eventCount
+    }
+}
+
+public struct EventDraft: Sendable {
+    public var title: String
+    public var format: EventFormat
+    public var start: Date
+    public var end: Date?
+    public var place: String
+    public var notes: String
+    public var participants: [UUID]
+    public var tags: [String]
+    public var additionalParticipants: [NewParticipant]
+
+    public init(title: String = "", format: EventFormat, start: Date, end: Date? = nil, place: String = "",
+                notes: String = "", participants: [UUID] = [], tags: [String] = [],
+                additionalParticipants: [NewParticipant] = []) {
+        self.additionalParticipants = additionalParticipants
+        self.title = title
+        self.format = format
+        self.start = start
+        self.end = end
+        self.place = place
+        self.notes = notes
+        self.participants = participants
+        self.tags = tags
+    }
+}
+
+/// Fields left `nil` stay unchanged.
+public struct EventChange: Sendable {
+    public var title: String?
+    public var format: EventFormat?
+    public var start: Date?
+    public var end: Date?
+    public var clearEnd: Bool
+    public var place: String?
+    public var notes: String?
+    /// Replaces the participants (together with `additionalParticipants`).
+    public var participants: [UUID]?
+    public var tags: [String]?
+    public var additionalParticipants: [NewParticipant]
+
+    public init(title: String? = nil, format: EventFormat? = nil, start: Date? = nil, end: Date? = nil, clearEnd: Bool = false,
+                place: String? = nil, notes: String? = nil, participants: [UUID]? = nil, tags: [String]? = nil,
+                additionalParticipants: [NewParticipant] = []) {
+        self.additionalParticipants = additionalParticipants
+        self.title = title
+        self.format = format
+        self.start = start
+        self.end = end
+        self.clearEnd = clearEnd
+        self.place = place
+        self.notes = notes
+        self.participants = participants
+        self.tags = tags
+    }
+}
+
+public struct EventFilter: Sendable {
+    public var person: UUID?
+    public var format: EventFormat?
+    public var since: Date?
+    public var until: Date?
+    public var place: String?
+    public var tag: String?
+
+    public init(person: UUID? = nil, format: EventFormat? = nil, since: Date? = nil, until: Date? = nil,
+                place: String? = nil, tag: String? = nil) {
+        self.person = person
+        self.format = format
+        self.since = since
+        self.until = until
+        self.place = place
+        self.tag = tag
+    }
+}

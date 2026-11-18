@@ -6,7 +6,7 @@
 
 pplz is a personal contact manager for Mac, iPhone and iPad. It enriches the contacts you already have with the history of your interactions: meetings, calls, events and photos.
 
-> **Status: specification phase.** There is no app yet. The design, the decisions taken so far and the results of the first technical spikes are in [SPEC.md](SPEC.md).
+> **Status: early development.** The shared core and the `pplz` command line exist and work on a local store. There is no app yet, nothing is written to your contacts yet, and there is no sync. The design, the decisions taken so far and the results of the technical spikes are in [SPEC.md](SPEC.md).
 
 ## The idea
 
@@ -44,6 +44,32 @@ pplz has two faces:
 | **Keep in touch** | Smart lists and reminders for people you haven't seen in a while |
 | **Ask** | "Who did I meet in Frankfurt last week?" |
 | **Command line** | A `pplz` CLI on the Mac, so scripts and AI agents can read, write and search |
+
+## Command line
+
+Build and try it (macOS with full Xcode):
+
+```sh
+swift build -c release
+ln -s "$(swift build -c release --show-bin-path)/pplz" ~/.local/bin/pplz   # any folder on your PATH
+
+pplz people anna                                   # your contacts plus pplz-only persons
+pplz log "Anna Example" --format phone-call --title "Catch-up" --at yesterday
+pplz log "Ben New" --create --title "Fair" --format gathering --at 2026-10-03 --end 2026-10-05 --place Frankfurt
+pplz person "Anna Example"                         # notes, tags and history
+pplz events --since 2026-11-01 --place frankfurt
+pplz followup add <event-id> "send the book title"
+pplz --help
+```
+
+- People are found by name, part of a name, or ID. An unknown or ambiguous name stops the command with exit code 2 and lists the candidates.
+- Every command takes `--json` for scripts and AI agents. Dates are ISO 8601 in UTC; fields without a value (`end`, `lastMet`, `id` of a contact pplz knows nothing about yet) are left out.
+- A date without a time means the whole day for `--end` and `--until`.
+- The store is `~/Library/Application Support/pplz/pplz.store`; set `PPLZ_STORE` or pass `--store` to use another file.
+- Contacts are only read (macOS asks for access on first use). `--no-contacts` works with pplz data alone.
+- Event formats: `live-meeting`, `web-call`, `phone-call`, `gathering`, `written`.
+
+Run the tests with `swift test`.
 
 ## How it is built
 
