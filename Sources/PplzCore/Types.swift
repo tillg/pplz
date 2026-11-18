@@ -122,7 +122,7 @@ public struct OpenFollowUp: Codable, Equatable, Sendable {
     public var participants: [PersonRef]
 }
 
-public struct EventSnapshot: Codable, Equatable, Sendable {
+public struct EventSnapshot: Codable, Equatable, Identifiable, Sendable {
     public var id: UUID
     public var title: String
     public var format: EventFormat

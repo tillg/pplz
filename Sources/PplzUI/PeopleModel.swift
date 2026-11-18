@@ -20,7 +20,16 @@ public final class PeopleModel {
         }
     }
 
+    public enum Mode: String, CaseIterable, Sendable {
+        case people = "People"
+        case events = "Events"
+    }
+
+    /// What the sidebar lists.
+    public var mode: Mode = .people
     public var search = ""
+    public var selectedEventID: UUID?
+    public private(set) var events: [EventSnapshot] = []
     /// The selected row's key. Set by the list; the card then loads in the background.
     public var selection: String? {
         didSet { if selection != oldValue, !isSelectingProgrammatically { Task { await loadCard() } } }
@@ -32,6 +41,59 @@ public final class PeopleModel {
     public private(set) var isLoading = false
 
     public var sections: [PeopleSections.Section] { PeopleSections.make(entries, search: search) }
+
+    public struct EventSection: Identifiable, Equatable, Sendable {
+        /// E.g. "November 2026".
+        public var title: String
+        public var events: [EventSnapshot]
+        public var id: String { title }
+    }
+
+    /// All events, newest first, grouped by month; `search` matches title, place and participants.
+    public var eventSections: [EventSection] {
+        let query = search.trimmingCharacters(in: .whitespaces)
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        let matching = query.isEmpty ? events : events.filter { event in
+            ([event.title, event.place, event.format.displayName] + event.participants.map(\.name))
+                .contains { $0.range(of: query, options: options) != nil }
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        var sections: [EventSection] = []
+        for event in matching {
+            let title = formatter.string(from: event.start)
+            if sections.last?.title == title {
+                sections[sections.count - 1].events.append(event)
+            } else {
+                sections.append(EventSection(title: title, events: [event]))
+            }
+        }
+        return sections
+    }
+
+    public var selectedEvent: EventSnapshot? { events.first { $0.id == selectedEventID } }
+
+    /// The editable pplz fields of a person, as the edit sheet shows them.
+    public struct PersonEdit: Equatable, Sendable {
+        public var howWeMet: String
+        public var notes: String
+        /// Comma-separated.
+        public var tags: String
+        public var keepInTouchDays: Int?
+
+        public init(howWeMet: String = "", notes: String = "", tags: String = "", keepInTouchDays: Int? = nil) {
+            self.howWeMet = howWeMet
+            self.notes = notes
+            self.tags = tags
+            self.keepInTouchDays = keepInTouchDays
+        }
+    }
+
+    /// The selected person's current values, to start an edit from.
+    public var personEdit: PersonEdit {
+        PersonEdit(howWeMet: card?.stored?.howWeMet ?? "", notes: card?.stored?.notes ?? "",
+                   tags: (card?.entry.tags ?? []).joined(separator: ", "), keepInTouchDays: card?.stored?.keepInTouchDays)
+    }
 
     private let configuration: Configuration
     private var store: PplzStore?
@@ -53,6 +115,7 @@ public final class PeopleModel {
             let usesContacts = configuration.usesContacts
             let contacts = try await Task.detached { usesContacts ? try SystemContacts.fetchAll() : [] }.value
             entries = PeopleDirectory.merge(contacts: contacts, persons: try store.persons())
+            events = try store.events()
             errorMessage = nil
             if let wanted = pendingSelection {
                 pendingSelection = nil
@@ -117,6 +180,45 @@ public final class PeopleModel {
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
         }
+    }
+
+    /// Saves the edited pplz fields of the selected person.
+    public func save(_ edit: PersonEdit) async {
+        guard let store, let entry = card?.entry else { return }
+        do {
+            let id: UUID
+            if let existing = entry.id {
+                id = existing
+            } else if let identifier = entry.contactIdentifier {
+                id = try store.ensurePerson(for: ContactSummary(identifier: identifier, name: entry.name))
+            } else {
+                return
+            }
+            try store.setHowWeMet(edit.howWeMet.trimmingCharacters(in: .whitespacesAndNewlines), for: id)
+            try store.setNotes(edit.notes.trimmingCharacters(in: .whitespacesAndNewlines), for: id)
+            try store.setTags(edit.tags.split(separator: ",").map(String.init), forPerson: id)
+            try store.setKeepInTouch(days: edit.keepInTouchDays, for: id)
+            errorMessage = nil
+            await reload()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+        }
+    }
+
+    public func completeFollowUp(_ id: UUID) async {
+        guard let store else { return }
+        do {
+            try store.completeFollowUp(id)
+            await reload()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+        }
+    }
+
+    /// Switches to the people list and shows this person's card.
+    public func showPerson(_ id: UUID) async {
+        mode = .people
+        await select(matching: id.uuidString)
     }
 
     public func openInContacts() {

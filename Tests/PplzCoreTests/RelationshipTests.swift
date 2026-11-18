@@ -103,3 +103,16 @@ import Testing
         #expect(throws: PplzError.self) { try store.updateEvent(id, EventChange(links: ["not a link"])) }
     }
 }
+
+@Suite struct ReplaceTagsTests {
+    @Test func replacesAPersonsTags() throws {
+        let (store, _) = try makeStore()
+        let a = try store.createPerson(name: "A")
+        try store.addTag("old", toPerson: a)
+        try store.setTags([" Client ", "sailing", "client", ""], forPerson: a)
+        #expect(try store.person(a).tags == ["Client", "sailing"])
+        try store.setTags([], forPerson: a)
+        #expect(try store.person(a).tags == [])
+        #expect(try store.tags().isEmpty)
+    }
+}

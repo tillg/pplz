@@ -174,6 +174,15 @@ public final class PplzStore {
         try context.save()
     }
 
+    /// Replaces all tags of a person. Empty names are skipped; a name given twice counts once.
+    public func setTags(_ names: [String], forPerson id: UUID) throws {
+        try atomically {
+            let person = try fetchPerson(id)
+            var seen: Set<String> = []
+            person.tags = try names.filter { !$0.trimmed.isEmpty && seen.insert(tagKey($0)).inserted }.map(findOrCreateTag)
+        }
+    }
+
     public func removeTag(_ name: String, fromPerson id: UUID) throws {
         let person = try fetchPerson(id)
         let key = tagKey(name)

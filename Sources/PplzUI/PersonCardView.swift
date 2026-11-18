@@ -150,7 +150,7 @@ struct EventRow: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: symbol).foregroundStyle(.pink).frame(width: 22)
+            Image(systemName: event.format.symbol).foregroundStyle(.pink).frame(width: 22)
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title.isEmpty ? event.format.displayName : event.title)
                 if !details.isEmpty { Text(details).font(.caption).foregroundStyle(.secondary) }
@@ -167,15 +167,5 @@ struct EventRow: View {
         return ([event.title.isEmpty ? nil : event.format.displayName, event.place.isEmpty ? nil : event.place,
                  others.isEmpty ? nil : "with " + others.joined(separator: ", ")] as [String?])
             .compactMap { $0 }.joined(separator: " · ")
-    }
-
-    private var symbol: String {
-        switch event.format {
-        case .liveMeeting: "person.2.fill"
-        case .webCall: "video.fill"
-        case .phoneCall: "phone.fill"
-        case .largerGathering: "person.3.fill"
-        case .writtenExchange: "envelope.fill"
-        }
     }
 }

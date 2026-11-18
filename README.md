@@ -80,7 +80,7 @@ Run the tests with `swift test`.
 
 ## Mac app
 
-A first version of the Mac app shows your people and each person's card, laid out like Contacts with pink highlights. You can browse, search and log an event with a person (the + button on their card); everything else is recorded with the command line for now. Changes made with the CLI appear when the app comes to the front.
+A first version of the Mac app shows your people and each person's card, laid out like Contacts with pink highlights. You can browse and search people and events, log an event with a person (+ on their card), edit their tags, notes, how you met and keep-in-touch rhythm (the pencil), and tick off follow-ups. Connections, editing events and adding follow-ups still go through the command line. Changes made with the CLI appear when the app comes to the front.
 
 ```sh
 scripts/make-app.sh --install     # builds pplz.app and copies it to /Applications
