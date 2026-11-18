@@ -158,7 +158,6 @@ struct EventDetailView: View {
 struct EditEventSheet: View {
     let onSave: (PeopleModel.EventEdit) -> Void
 
-    @Environment(\.dismiss) private var dismiss
     @State private var edit: PeopleModel.EventEdit
 
     init(edit: PeopleModel.EventEdit, onSave: @escaping (PeopleModel.EventEdit) -> Void) {
@@ -167,37 +166,20 @@ struct EditEventSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Edit event").font(.title3.weight(.semibold))
-            Form {
-                Picker("Format", selection: $edit.format) {
-                    ForEach(EventFormat.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                }
-                TextField("Title", text: $edit.title)
-                DatePicker("Start", selection: $edit.start)
-                Toggle("Has an end", isOn: $edit.hasEnd)
-                if edit.hasEnd {
-                    DatePicker("End", selection: $edit.end, in: edit.start...)
-                }
-                TextField("Place", text: $edit.place)
-                TextField("Tags", text: $edit.tags, prompt: Text("Separated by commas"))
-                TextField("Notes", text: $edit.notes, axis: .vertical).lineLimit(3...6)
-                TextField("Links", text: $edit.links, prompt: Text("One per line"), axis: .vertical).lineLimit(2...4)
+        SheetScaffold(title: "Edit event", confirmTitle: "Save", onConfirm: { onSave(edit) }) {
+            Picker("Format", selection: $edit.format) {
+                ForEach(EventFormat.allCases, id: \.self) { Text($0.displayName).tag($0) }
             }
-            HStack {
-                Spacer()
-                Button("Cancel", role: .cancel) { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                Button("Save") {
-                    onSave(edit)
-                    dismiss()
-                }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
+            FormField(title: "Title", text: $edit.title)
+            DatePicker("Start", selection: $edit.start)
+            Toggle("Has an end", isOn: $edit.hasEnd)
+            if edit.hasEnd {
+                DatePicker("End", selection: $edit.end, in: edit.start...)
             }
+            FormField(title: "Place", text: $edit.place)
+            FormField(title: "Tags", text: $edit.tags, prompt: "Separated by commas")
+            FormField(title: "Notes", text: $edit.notes, lines: 3...6)
+            FormField(title: "Links", text: $edit.links, prompt: "One per line", lines: 2...4)
         }
-        .padding(20)
-        .sheetWidth(460)
-        .tint(.pink)
     }
 }

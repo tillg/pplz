@@ -21,8 +21,15 @@ final class ScriptRunnerTests: XCTestCase {
             let argument = parts.count > 1 ? parts[1] : ""
             switch parts[0] {
             case "tap":
-                let element = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ OR identifier == %@ OR placeholderValue == %@", argument, argument, argument)).firstMatch
-                XCTAssertTrue(element.waitForExistence(timeout: 5), "Nothing on screen is called \"\(argument)\"")
+                // controls first: a field and the caption above it can carry the same label
+                let predicate = NSPredicate(format: "label == %@ OR identifier == %@ OR placeholderValue == %@", argument, argument, argument)
+                let candidates = [app.buttons, app.textFields, app.textViews, app.searchFields, app.switches, app.descendants(matching: .any)]
+                    .map { $0.matching(predicate).firstMatch }
+                _ = candidates.last!.waitForExistence(timeout: 5)
+                guard let element = candidates.first(where: \.exists) else {
+                    XCTFail("Nothing on screen is called \"\(argument)\"")
+                    continue
+                }
                 element.tap()
             case "type":
                 app.typeText(argument)

@@ -29,6 +29,45 @@ struct ConnectSheet: View {
     }
 
     var body: some View {
+        #if os(macOS)
+        macBody
+        #else
+        SheetScaffold(title: "Relationship for \(personName)", confirmTitle: "Add",
+                      canConfirm: selected != nil && !chosenRole.isEmpty,
+                      onConfirm: { if let selected { onConnect(chosenRole, selected) } }) {
+            Section {
+                Picker("Relationship", selection: $role) {
+                    ForEach(Self.roles, id: \.self) { Text($0).tag($0) }
+                    Text(Self.custom).tag(Self.custom)
+                }
+                if role == Self.custom {
+                    FormField(title: "Custom relationship", text: $customRole, prompt: "e.g. mentor")
+                }
+            } footer: {
+                Text(sentence)
+            }
+            Section("Person") {
+                FormField(title: "Search people", text: $search)
+                // a long address book is cut off here; searching narrows it down
+                ForEach(matches.prefix(40), id: \.key) { entry in
+                    Button {
+                        selection = entry.key
+                    } label: {
+                        HStack {
+                            Text(entry.name).foregroundStyle(.primary)
+                            Spacer()
+                            if selection == entry.key { Image(systemName: "checkmark").foregroundStyle(.pink) }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        #endif
+    }
+
+    private var macBody: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Add a relationship for \(personName)").font(.title3.weight(.semibold))
             HStack {

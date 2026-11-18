@@ -6,7 +6,6 @@ struct EditPersonSheet: View {
     let personName: String
     let onSave: (PeopleModel.PersonEdit) -> Void
 
-    @Environment(\.dismiss) private var dismiss
     @State private var edit: PeopleModel.PersonEdit
 
     /// Common rhythms; any other stored value is offered as "Every N days".
@@ -22,33 +21,14 @@ struct EditPersonSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Edit \(personName)").font(.title3.weight(.semibold))
-            Form {
-                TextField("Tags", text: $edit.tags, prompt: Text("Separated by commas, e.g. client, sailing"))
-                TextField("How we met", text: $edit.howWeMet, prompt: Text("Where, when, through whom"), axis: .vertical)
-                    .lineLimit(2...4)
-                TextField("Notes", text: $edit.notes, prompt: Text("Things to remember"), axis: .vertical)
-                    .lineLimit(4...8)
-                Picker("Keep in touch", selection: $edit.keepInTouchDays) {
-                    ForEach(options, id: \.1) { Text($0.0).tag($0.1) }
-                }
-            }
-            HStack {
-                Spacer()
-                Button("Cancel", role: .cancel) { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                Button("Save") {
-                    onSave(edit)
-                    dismiss()
-                }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
+        SheetScaffold(title: "Edit \(personName)", confirmTitle: "Save", onConfirm: { onSave(edit) }) {
+            FormField(title: "Tags", text: $edit.tags, prompt: "Separated by commas, e.g. client, sailing")
+            FormField(title: "How we met", text: $edit.howWeMet, prompt: "Where, when, through whom", lines: 2...4)
+            FormField(title: "Notes", text: $edit.notes, prompt: "Things to remember", lines: 4...8)
+            Picker("Keep in touch", selection: $edit.keepInTouchDays) {
+                ForEach(options, id: \.1) { Text($0.0).tag($0.1) }
             }
         }
-        .padding(20)
-        .sheetWidth(460)
-        .tint(.pink)
     }
 
     private var options: [(String, Int?)] {
