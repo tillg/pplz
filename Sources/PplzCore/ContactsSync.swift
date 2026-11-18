@@ -27,6 +27,30 @@ public enum ContactsSync {
         }
     }
 
+    /// The `pplz` link row each of these persons' contacts should have (SPEC §3.2).
+    public static func linkPlan(_ store: PplzStore, persons: [UUID]) throws -> [ContactMirror.Row] {
+        var seen: Set<UUID> = []
+        return try persons.filter { seen.insert($0).inserted }.compactMap { id in
+            try store.person(id).contactIdentifier.map {
+                ContactMirror.Row(contactIdentifier: $0, label: PersonLink.label, value: PersonLink.url(for: id))
+            }
+        }
+    }
+
+    /// Writes link rows. Rows the journal already knows are skipped without asking Contacts, unless `recheck`.
+    public static func applyLinks(_ rows: [ContactMirror.Row], journal: ContactJournal, recheck: Bool = false) -> [String] {
+        rows.compactMap { row in
+            do {
+                if try !recheck && journal.pplzAdded(row, field: "url") { return nil }
+                guard try ContactsApp.addURL(row) == .added else { return nil }
+                try journal.record(.added, row, field: "url")
+                return "Contacts: added the pplz link"
+            } catch {
+                return "Contacts: could not add the pplz link — \(describe(error))"
+            }
+        }
+    }
+
     /// The related-name rows of a connection.
     public static func rows(_ connection: ConnectionRecord) -> [ContactMirror.Row] {
         ContactMirror.rows(from: .init(name: connection.from.name, contactIdentifier: connection.from.contactIdentifier),

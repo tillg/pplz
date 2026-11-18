@@ -19,8 +19,9 @@ IDENTITY="$(security find-identity -v -p codesigning | sed -n 's/.*"\(Apple Deve
 codesign --force --sign "${IDENTITY:--}" "$APP"
 
 if [ "${1:-}" = "--install" ]; then
+    # move, don't copy: two registered copies would compete for pplz:// links
     rm -rf /Applications/pplz.app
-    cp -R "$APP" /Applications/pplz.app
+    mv "$APP" /Applications/pplz.app
     echo "Installed /Applications/pplz.app"
 else
     echo "Built $APP"

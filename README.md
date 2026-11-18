@@ -72,7 +72,7 @@ pplz --help
 - Every command takes `--json` for scripts and AI agents. Dates are ISO 8601 in UTC; fields without a value (`end`, `lastMet`, `id` of a contact pplz knows nothing about yet) are left out.
 - A date without a time means the whole day for `--end` and `--until`.
 - The store is `~/Library/Application Support/pplz/pplz.store`; set `PPLZ_STORE` or pass `--store` to use another file.
-- Contacts are read for names and details (macOS asks for access on first use). pplz writes two things into them: connections, as "related name" rows, and — only after `pplz contacts history on` — a history block in the note, between `── pplz ──` and `── /pplz ──`; your own note text around it is never changed. `pplz contacts sync` brings everything up to date, `person disconnect` and `contacts history off` remove what pplz added. `--no-contacts` neither reads nor writes the address book.
+- Contacts are read for names and details (macOS asks for access on first use). pplz writes three things into them: a `pplz` link row that opens the person in the app, connections as "related name" rows, and — only after `pplz contacts history on` — a history block in the note, between `── pplz ──` and `── /pplz ──`; your own note text around it is never changed. `pplz contacts sync` brings everything up to date, `person disconnect` and `contacts history off` remove what pplz added. `--no-contacts` neither reads nor writes the address book.
 - Event formats: `live-meeting`, `web-call`, `phone-call`, `gathering`, `written`.
 - Events can carry links (`--link`, repeatable), e.g. to a calendar entry or a document.
 

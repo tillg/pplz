@@ -127,3 +127,20 @@ import Testing
         #expect(model.card?.entry.name == "Anna Example")
     }
 }
+
+@MainActor
+@Suite struct LinkOpeningTests {
+    @Test func openingAPersonLinkShowsThatPerson() async throws {
+        let (model, store) = try PeopleModelTests().makeModel()
+        try store.createPerson(name: "Anna Example")
+        let ben = try store.createPerson(name: "Ben Sample")
+        model.mode = .events
+
+        await model.open(URL(string: PersonLink.url(for: ben))!)   // before the first load, as at launch
+        #expect(model.mode == .people)
+        #expect(model.card?.entry.name == "Ben Sample")
+
+        await model.open(URL(string: "pplz://person/\(UUID().uuidString)")!)   // unknown person: stay
+        #expect(model.card?.entry.name == "Ben Sample")
+    }
+}

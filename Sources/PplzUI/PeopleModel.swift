@@ -169,13 +169,7 @@ public final class PeopleModel {
             }
             let event = try store.event(try store.logEvent(draft))
             errorMessage = nil
-            #if os(macOS)
-            if configuration.usesContacts {
-                let plan = try ContactsSync.historyPlan(store, persons: event.participants.map(\.id))
-                let journal = ContactsSync.journal(forStoreAt: configuration.storeURL)
-                Task.detached { _ = ContactsSync.apply(plan, journal: journal) }
-            }
-            #endif
+            try syncContacts(event.participants.map(\.id), store)
             await reload()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
@@ -198,11 +192,27 @@ public final class PeopleModel {
             try store.setNotes(edit.notes.trimmingCharacters(in: .whitespacesAndNewlines), for: id)
             try store.setTags(edit.tags.split(separator: ",").map(String.init), forPerson: id)
             try store.setKeepInTouch(days: edit.keepInTouchDays, for: id)
+            try syncContacts([id], store)
             errorMessage = nil
             await reload()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
         }
+    }
+
+    /// Brings these persons' contacts up to date in the background: the `pplz` link and,
+    /// if switched on, the history block in the note.
+    private func syncContacts(_ ids: [UUID], _ store: PplzStore) throws {
+        #if os(macOS)
+        guard configuration.usesContacts else { return }
+        let links = try ContactsSync.linkPlan(store, persons: ids)
+        let history = try ContactsSync.historyPlan(store, persons: ids)
+        let journal = ContactsSync.journal(forStoreAt: configuration.storeURL)
+        Task.detached {
+            _ = ContactsSync.applyLinks(links, journal: journal)
+            _ = ContactsSync.apply(history, journal: journal)
+        }
+        #endif
     }
 
     public func completeFollowUp(_ id: UUID) async {
@@ -213,6 +223,13 @@ public final class PeopleModel {
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
         }
+    }
+
+    /// Handles a `pplz://person/<id>` link, e.g. clicked in the Contacts app.
+    public func open(_ url: URL) async {
+        guard let id = PersonLink.personID(from: url) else { return }
+        if entries.isEmpty { await reload() }
+        await showPerson(id)
     }
 
     /// Switches to the people list and shows this person's card.

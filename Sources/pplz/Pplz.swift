@@ -54,14 +54,15 @@ struct Common: ParsableArguments {
         usesContacts ? ContactsSync.unmirror(rows, journal: journal) : []
     }
 
-    /// Brings pplz's history block in the notes of these persons' contacts up to date.
-    /// Does nothing unless "Show history in Contacts" is on; `remove` takes the blocks out instead.
-    func syncHistory(_ ids: [UUID], _ store: PplzStore, remove: Bool = false) -> [String] {
+    /// Brings the contacts of these persons up to date: the `pplz` link and — only if
+    /// "Show history in Contacts" is on — the history block in the note. `remove` takes the blocks out instead.
+    func syncHistory(_ ids: [UUID], _ store: PplzStore, remove: Bool = false, recheckLinks: Bool = false) -> [String] {
         guard usesContacts else { return [] }
         do {
-            return ContactsSync.apply(try ContactsSync.historyPlan(store, persons: ids, remove: remove), journal: journal)
+            let links = remove ? [] : ContactsSync.applyLinks(try ContactsSync.linkPlan(store, persons: ids), journal: journal, recheck: recheckLinks)
+            return links + ContactsSync.apply(try ContactsSync.historyPlan(store, persons: ids, remove: remove), journal: journal)
         } catch {
-            return ["Contacts: could not prepare the history update — \(error)"]
+            return ["Contacts: could not prepare the update — \(error)"]
         }
     }
 
@@ -292,6 +293,7 @@ struct PersonCommand: ParsableCommand {
                 let store = try common.open()
                 let id = try common.personID(try common.resolve(person, in: try common.directory(store)), store)
                 try store.setNotes(text, for: id)
+                common.report(common.syncHistory([id], store))
                 try common.emit(try store.person(id)) { "Notes saved  [\(short(id))]" }
             }
         }
@@ -308,6 +310,7 @@ struct PersonCommand: ParsableCommand {
                 let store = try common.open()
                 let id = try common.personID(try common.resolve(person, in: try common.directory(store)), store)
                 try store.setHowWeMet(text, for: id)
+                common.report(common.syncHistory([id], store))
                 try common.emit(try store.person(id)) { "Saved  [\(short(id))]" }
             }
         }
@@ -324,6 +327,7 @@ struct PersonCommand: ParsableCommand {
                 let store = try common.open()
                 let id = try common.personID(try common.resolve(person, in: try common.directory(store)), store)
                 for tag in tags { try store.addTag(tag, toPerson: id) }
+                common.report(common.syncHistory([id], store))
                 let saved = try store.person(id)
                 try common.emit(saved) { "Tags: " + saved.tags.joined(separator: ", ") }
             }
@@ -367,6 +371,7 @@ extension PersonCommand {
                 let from = try common.personID(a, store)
                 let to = try common.personID(b, store)
                 try store.connect(from, to: to, kind: kind)
+                common.report(common.syncHistory([from, to], store))
                 let written = try store.allConnections()
                     .filter { $0.from.id == from && $0.to.id == to && $0.kind.caseInsensitiveCompare(kind.trimmingCharacters(in: .whitespaces)) == .orderedSame }
                     .flatMap { common.mirror(ContactsSync.rows($0)) }
@@ -410,6 +415,7 @@ extension PersonCommand {
                 let days = interval.lowercased() == "off" ? nil : try KeepInTouch.days(interval)
                 let id = try common.personID(try common.resolve(person, in: try common.directory(store)), store)
                 try store.setKeepInTouch(days: days, for: id)
+                common.report(common.syncHistory([id], store))
                 try common.emit(try store.person(id)) { days.map { "Keep in touch every \($0) days  [\(short(id))]" } ?? "Rhythm removed  [\(short(id))]" }
             }
         }
@@ -661,7 +667,7 @@ struct ContactsCommand: ParsableCommand {
                 guard common.usesContacts else { throw Failure("Nothing to do with --no-contacts.") }
                 let store = try common.open()
                 let results = try store.allConnections().flatMap { common.mirror(ContactsSync.rows($0)) }
-                    + common.syncHistory(try store.persons().map(\.id), store)
+                    + common.syncHistory(try store.persons().map(\.id), store, recheckLinks: true)
                 try common.emit(results) { results.isEmpty ? "Contacts are up to date." : results.joined(separator: "\n") }
             }
         }

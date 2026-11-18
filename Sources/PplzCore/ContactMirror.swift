@@ -96,7 +96,7 @@ public struct ContactJournal: Sendable {
     }
 
     /// Whether the row is currently in the address book because pplz put it there.
-    public func pplzAdded(_ row: ContactMirror.Row) throws -> Bool {
-        try entries().last { $0.row == row && $0.field == "related name" }?.action == .added
+    public func pplzAdded(_ row: ContactMirror.Row, field: String = "related name") throws -> Bool {
+        try entries().last { $0.row == row && $0.field == field }?.action == .added
     }
 }
