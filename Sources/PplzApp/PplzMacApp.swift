@@ -8,18 +8,18 @@ struct PplzMacApp: App {
 
     var body: some Scene {
         WindowGroup("pplz") {
-            PeopleView(model: model)
+            PeopleView(model: model, showLogSheet: UserDefaults.standard.bool(forKey: "showLog"))
                 .frame(minWidth: 720, minHeight: 460)
                 .onOpenURL { url in
                     // pplz://person/<id> — the link pplz puts into contacts (SPEC §3.2)
-                    if url.scheme == "pplz", url.host() == "person" { model.select(matching: url.lastPathComponent) }
+                    if url.scheme == "pplz", url.host() == "person" { Task { await model.select(matching: url.lastPathComponent) } }
                 }
         }
         .defaultSize(width: 980, height: 660)
     }
 
     /// Launch options, given the macOS way as `-key value` pairs (plain arguments would be taken
-    /// for documents to open): `-store <path>`, `-noContacts YES`, `-select <name or id>`.
+    /// for documents to open): `-store <path>`, `-noContacts YES`, `-select <name or id>`, `-showLog YES`.
     static func configuration(_ defaults: UserDefaults) -> PeopleModel.Configuration {
         PeopleModel.Configuration(
             storeURL: defaults.string(forKey: "store").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }

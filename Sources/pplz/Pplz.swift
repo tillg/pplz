@@ -42,79 +42,31 @@ struct Common: ParsableArguments {
     }
 
     /// Everything pplz writes into the address book is recorded next to the store.
-    var journal: ContactJournal {
-        ContactJournal(url: storeURL.deletingLastPathComponent().appendingPathComponent("contact-writes.jsonl"))
-    }
+    var journal: ContactJournal { ContactsSync.journal(forStoreAt: storeURL) }
 
-    static func rows(_ connection: ConnectionRecord) -> [ContactMirror.Row] {
-        ContactMirror.rows(from: .init(name: connection.from.name, contactIdentifier: connection.from.contactIdentifier),
-                           kind: connection.kind,
-                           to: .init(name: connection.to.name, contactIdentifier: connection.to.contactIdentifier))
-    }
-
-    /// Writes related-name rows into Contacts. A failure is reported but does not undo what pplz stored.
+    /// Writes related-name rows into Contacts (not with --no-contacts).
     func mirror(_ rows: [ContactMirror.Row]) -> [String] {
-        guard usesContacts else { return [] }
-        return rows.map { row in
-            do {
-                switch try ContactsApp.addRelatedName(row) {
-                case .added:
-                    try journal.record(.added, row)
-                    return "Contacts: added \"\(row.label): \(row.value)\""
-                default:
-                    return "Contacts: \"\(row.label): \(row.value)\" was already there"
-                }
-            } catch {
-                return "Contacts: could not add \"\(row.label): \(row.value)\" — \((error as? PplzError)?.errorDescription ?? "\(error)")"
-            }
-        }
+        usesContacts ? ContactsSync.mirror(rows, journal: journal) : []
+    }
+
+    /// Removes rows from Contacts, but only those the journal says pplz added.
+    func unmirror(_ rows: [ContactMirror.Row]) -> [String] {
+        usesContacts ? ContactsSync.unmirror(rows, journal: journal) : []
     }
 
     /// Brings pplz's history block in the notes of these persons' contacts up to date.
     /// Does nothing unless "Show history in Contacts" is on; `remove` takes the blocks out instead.
     func syncHistory(_ ids: [UUID], _ store: PplzStore, remove: Bool = false) -> [String] {
-        guard usesContacts, (try? store.showsHistoryInContacts()) == true || remove else { return [] }
-        var seen: Set<UUID> = []
-        return ids.filter { seen.insert($0).inserted }.compactMap { id in
-            guard let person = try? store.person(id), let identifier = person.contactIdentifier else { return nil }
-            do {
-                let block = remove ? nil : NotesBlock.render(history: try store.history(of: id))
-                let note = try ContactsApp.readNote(identifier: identifier)
-                let merged = NotesBlock.merge(note: note, block: block)
-                guard merged != note else { return nil }
-                guard try ContactsApp.writeNote(identifier: identifier, expected: note, new: merged) == .written else {
-                    return "Contacts: the note of \(person.name) changed while pplz was updating it — nothing written; run `pplz contacts sync`"
-                }
-                let summary = block?.split(separator: "\n").dropFirst().first.map(String.init) ?? "block removed"
-                try journal.record(block == nil ? .removed : .added,
-                                   ContactMirror.Row(contactIdentifier: identifier, label: "history", value: summary), field: "note")
-                return block == nil ? "Contacts: removed history from the note of \(person.name)" : "Contacts: updated history in the note of \(person.name)"
-            } catch {
-                return "Contacts: could not update the note of \(person.name) — \((error as? PplzError)?.errorDescription ?? "\(error)")"
-            }
+        guard usesContacts else { return [] }
+        do {
+            return ContactsSync.apply(try ContactsSync.historyPlan(store, persons: ids, remove: remove), journal: journal)
+        } catch {
+            return ["Contacts: could not prepare the history update — \(error)"]
         }
     }
 
     func report(_ messages: [String]) {
         messages.forEach { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
-    }
-
-    /// Removes rows from Contacts, but only those the journal says pplz added.
-    func unmirror(_ rows: [ContactMirror.Row]) -> [String] {
-        guard usesContacts else { return [] }
-        return rows.compactMap { row in
-            do {
-                guard try journal.pplzAdded(row) else { return nil }
-                if try ContactsApp.removeRelatedName(row) == .removed {
-                    try journal.record(.removed, row)
-                    return "Contacts: removed \"\(row.label): \(row.value)\""
-                }
-                try journal.record(.removed, row)
-                return nil
-            } catch {
-                return "Contacts: could not remove \"\(row.label): \(row.value)\" — \((error as? PplzError)?.errorDescription ?? "\(error)")"
-            }
-        }
     }
 
     /// Live contact data for a linked person; `nil` for pplz-only persons or with --no-contacts.
@@ -417,7 +369,7 @@ extension PersonCommand {
                 try store.connect(from, to: to, kind: kind)
                 let written = try store.allConnections()
                     .filter { $0.from.id == from && $0.to.id == to && $0.kind.caseInsensitiveCompare(kind.trimmingCharacters(in: .whitespaces)) == .orderedSame }
-                    .flatMap { common.mirror(Common.rows($0)) }
+                    .flatMap { common.mirror(ContactsSync.rows($0)) }
                 written.forEach { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
                 try common.emit(try store.connections(of: from)) { "\(a.name) — \(kind) — \(b.name)" }
             }
@@ -438,7 +390,7 @@ extension PersonCommand {
                 guard let from = a.id, let to = b.id else { return try common.emit([ConnectionSnapshot]()) { "Not connected." } }
                 let removed = try store.allConnections()
                     .filter { ($0.from.id == from && $0.to.id == to) || ($0.from.id == to && $0.to.id == from) }
-                    .flatMap { common.unmirror(Common.rows($0)) }
+                    .flatMap { common.unmirror(ContactsSync.rows($0)) }
                 removed.forEach { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
                 try store.disconnect(from, to)
                 try common.emit(try store.connections(of: from)) { "Disconnected \(a.name) and \(b.name)" }
@@ -708,7 +660,7 @@ struct ContactsCommand: ParsableCommand {
             try attempt {
                 guard common.usesContacts else { throw Failure("Nothing to do with --no-contacts.") }
                 let store = try common.open()
-                let results = try store.allConnections().flatMap { common.mirror(Common.rows($0)) }
+                let results = try store.allConnections().flatMap { common.mirror(ContactsSync.rows($0)) }
                     + common.syncHistory(try store.persons().map(\.id), store)
                 try common.emit(results) { results.isEmpty ? "Contacts are up to date." : results.joined(separator: "\n") }
             }

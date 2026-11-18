@@ -6,8 +6,13 @@ import SwiftUI
 public struct PeopleView: View {
     @Bindable var model: PeopleModel
     @Environment(\.scenePhase) private var scenePhase
+    @State private var isLogging: Bool
 
-    public init(model: PeopleModel) { self.model = model }
+    /// `showLogSheet` opens the "Log event" sheet right away (used to check the sheet's layout).
+    public init(model: PeopleModel, showLogSheet: Bool = false) {
+        self.model = model
+        _isLogging = State(initialValue: showLogSheet)
+    }
 
     public var body: some View {
         NavigationSplitView {
@@ -33,6 +38,8 @@ public struct PeopleView: View {
             if let card = model.card {
                 PersonCardView(card: card)
                     .toolbar {
+                        Button("Log Event", systemImage: "plus") { isLogging = true }
+                            .help("Log a meeting or call with \(card.entry.name)")
                         if !card.entry.isPplzOnly {
                             Button("Open in Contacts", systemImage: "person.crop.square") { model.openInContacts() }
                                 .help("Show this card in the Contacts app")
@@ -43,6 +50,11 @@ public struct PeopleView: View {
             }
         }
         .navigationTitle("pplz")
+        .sheet(isPresented: Binding(get: { isLogging && model.card != nil }, set: { isLogging = $0 })) {
+            LogEventSheet(personName: model.card?.entry.name ?? "") { input in
+                Task { await model.logEvent(input) }
+            }
+        }
         .tint(.pink)
         .task { await model.reload() }
         #if os(macOS)
@@ -55,7 +67,7 @@ public struct PeopleView: View {
             if phase == .active { Task { await model.reload() } }
         }
         #endif
-        .alert("pplz", isPresented: .constant(model.errorMessage != nil && model.sections.isEmpty)) {
+        .alert("pplz", isPresented: .constant(model.errorMessage != nil)) {
             Button("Try again") { Task { await model.reload() } }
         } message: {
             Text(model.errorMessage ?? "")

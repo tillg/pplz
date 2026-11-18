@@ -21,9 +21,11 @@ public final class PeopleModel {
     }
 
     public var search = ""
+    /// The selected row's key. Set by the list; the card then loads in the background.
     public var selection: String? {
-        didSet { if selection != oldValue { Task { await loadCard() } } }
+        didSet { if selection != oldValue, !isSelectingProgrammatically { Task { await loadCard() } } }
     }
+    private var isSelectingProgrammatically = false
     public private(set) var entries: [PersonEntry] = []
     public private(set) var card: PersonCard?
     public private(set) var errorMessage: String?
@@ -54,7 +56,7 @@ public final class PeopleModel {
             errorMessage = nil
             if let wanted = pendingSelection {
                 pendingSelection = nil
-                select(matching: wanted)
+                await select(matching: wanted)
             } else {
                 await loadCard()
             }
@@ -64,10 +66,56 @@ public final class PeopleModel {
     }
 
     /// Selects a person by name, part of a name, or ID — used for `pplz://person/<id>` links.
-    public func select(matching query: String) {
-        if case .one(let entry) = PeopleDirectory.resolve(query, in: entries) {
-            search = ""
-            selection = entry.key
+    /// Returns once the person's card is loaded.
+    public func select(matching query: String) async {
+        guard case .one(let entry) = PeopleDirectory.resolve(query, in: entries) else { return }
+        search = ""
+        isSelectingProgrammatically = true
+        selection = entry.key
+        isSelectingProgrammatically = false
+        await loadCard()
+    }
+
+    /// What the "Log event" sheet collects.
+    public struct LogInput: Sendable {
+        public var format: EventFormat
+        public var title: String
+        public var start: Date
+        public var place: String
+        public var notes: String
+
+        public init(format: EventFormat = .liveMeeting, title: String = "", start: Date = Date(), place: String = "", notes: String = "") {
+            self.format = format
+            self.title = title
+            self.start = start
+            self.place = place
+            self.notes = notes
+        }
+    }
+
+    /// Logs an event with the selected person, then refreshes the card and — if switched on —
+    /// the history in the person's contact note.
+    public func logEvent(_ input: LogInput) async {
+        guard let store, let entry = card?.entry else { return }
+        do {
+            var draft = EventDraft(title: input.title, format: input.format, start: input.start, place: input.place, notes: input.notes)
+            if let id = entry.id {
+                draft.participants = [id]
+            } else if let identifier = entry.contactIdentifier {
+                draft.additionalParticipants = [.contact(ContactSummary(identifier: identifier, name: entry.name))]
+            }
+            let event = try store.event(try store.logEvent(draft))
+            errorMessage = nil
+            #if os(macOS)
+            if configuration.usesContacts {
+                let plan = try ContactsSync.historyPlan(store, persons: event.participants.map(\.id))
+                let journal = ContactsSync.journal(forStoreAt: configuration.storeURL)
+                Task.detached { _ = ContactsSync.apply(plan, journal: journal) }
+            }
+            #endif
+            await reload()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
         }
     }
 

@@ -25,5 +25,6 @@ let package = Package(
         // The Mac app; `scripts/make-app.sh` wraps it into pplz.app.
         .executableTarget(name: "PplzApp", dependencies: ["PplzUI"]),
         .testTarget(name: "PplzCoreTests", dependencies: ["PplzCore"]),
+        .testTarget(name: "PplzUITests", dependencies: ["PplzUI"]),
     ]
 )
