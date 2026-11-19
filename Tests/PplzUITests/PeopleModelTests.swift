@@ -650,3 +650,30 @@ import Testing
         #expect(!model.canUseAsContactPicture)
     }
 }
+
+@MainActor
+@Suite struct ContactEditModelTests {
+    @Test func withoutContactsThereIsNothingToLoadAndNothingToSave() async throws {
+        let (model, store) = try PeopleModelTests().makeModel(select: "Anna Example")
+        try store.createPerson(name: "Anna Example")
+        await model.reload()
+
+        #expect(await model.loadContactEdit() == nil)
+        var edit = ContactEdit(givenName: "Anna", familyName: "Example")
+        #expect(await model.saveContactEdit(edit, original: edit) == nil)   // no change: nothing to do, nothing to refuse
+        let original = edit
+        edit.nickname = "Anni"
+        #expect(await model.saveContactEdit(edit, original: original) == "pplz is not using Contacts.")
+        #expect(await model.createContact(edit) == "pplz is not using Contacts.")
+        // the list is as it was
+        #expect(model.sections.flatMap(\.entries).map(\.name) == ["Anna Example"])
+    }
+
+    @Test func aContactNeedsANameOrACompany() async throws {
+        let (model, _) = try PeopleModelTests().makeModel()
+        await model.reload()
+        #expect(await model.createContact(ContactEdit(nickname: "Anni")) == "A contact needs a name or a company.")
+        let original = ContactEdit(givenName: "Anna")
+        #expect(await model.saveContactEdit(ContactEdit(givenName: " "), original: original) == "A contact needs a name or a company.")
+    }
+}

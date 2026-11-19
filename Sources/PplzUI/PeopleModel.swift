@@ -768,6 +768,57 @@ public final class PeopleModel {
         }
     }
 
+    // MARK: Editing and creating contacts
+
+    /// The selected person's contact fields, read fresh, to start an edit from; `nil` if the person has no contact.
+    public func loadContactEdit() async -> ContactEdit? {
+        guard configuration.usesContacts, let identifier = card?.entry.contactIdentifier else { return nil }
+        do {
+            return try await Task.detached { try SystemContacts.contactEdit(identifier: identifier) }.value
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            return nil
+        }
+    }
+
+    /// Writes what the user changed in the selected person's contact (`original` is what the form loaded)
+    /// and refreshes the card and the list. Returns the reason if nothing was saved, `nil` on success.
+    public func saveContactEdit(_ edit: ContactEdit, original: ContactEdit) async -> String? {
+        let changes = ContactEdit.changes(from: original, to: edit)
+        guard !changes.isEmpty else { return nil }
+        guard edit.hasName else { return "A contact needs a name or a company." }
+        guard configuration.usesContacts, let identifier = card?.entry.contactIdentifier else { return "pplz is not using Contacts." }
+        do {
+            try await Task.detached { try SystemContacts.apply(changes, toContact: identifier) }.value
+        } catch {
+            return (error as? LocalizedError)?.errorDescription ?? "\(error)"
+        }
+        errorMessage = nil
+        await reload()
+        return nil
+    }
+
+    /// Creates a contact with these fields and shows it. Returns the reason if nothing was created, `nil` on success.
+    public func createContact(_ edit: ContactEdit) async -> String? {
+        guard edit.hasName else { return "A contact needs a name or a company." }
+        guard configuration.usesContacts else { return "pplz is not using Contacts." }
+        let identifier: String
+        do {
+            identifier = try await Task.detached { try SystemContacts.createContact(edit) }.value
+        } catch {
+            return (error as? LocalizedError)?.errorDescription ?? "\(error)"
+        }
+        errorMessage = nil
+        await reload()
+        mode = .people
+        search = ""
+        isSelectingProgrammatically = true
+        selection = identifier
+        isSelectingProgrammatically = false
+        await loadCard()
+        return nil
+    }
+
     public func openInContacts() {
         #if os(macOS)
         guard let identifier = card?.entry.contactIdentifier else { return }

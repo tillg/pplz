@@ -121,6 +121,133 @@ public enum ContactsApp {
         ], text: [row.contactIdentifier, row.label, row.value])
     }
 
+    /// Applies the user's edits through the Contacts app, which accepts them for contacts with a note too.
+    /// Changes only what the changes name: rows are found by their identifier (the address book's own, which
+    /// scripting reports as `id`) or, failing that, by label and value. If a row to change or remove cannot be
+    /// found, nothing is changed.
+    public static func apply(_ changes: [ContactChange], identifier: String) throws {
+        if let reason = unsupported(changes) { throw PplzError.invalid(reason) }
+        let (body, text) = editScript(for: changes, identifier: identifier)
+        let answer = try runScript(body, text: text).trimmed
+        if answer == "ok" { return }
+        if answer.hasPrefix("missing") {
+            throw PplzError.invalid("This contact was changed in Contacts in the meantime (\(answer.dropFirst("missing ".count))). Nothing was saved. Close this form and open it again.")
+        }
+        throw PplzError.invalid("Contacts did not accept the change: \(answer)")
+    }
+
+    /// Why the Contacts app cannot be asked to make these changes, `nil` if it can. Checked before anything is changed.
+    /// (Contacts refuses to delete a social profile by script: AppleEvent error -10000, verified 2026-11-20.)
+    static func unsupported(_ changes: [ContactChange]) -> String? {
+        for case .removeItem(.socialProfile, let item) in changes {
+            return "The Contacts app cannot remove the social profile \(item.value.trimmed) by script. Remove it in the Contacts app or on an iPhone or iPad."
+        }
+        return nil
+    }
+
+    private struct ScriptKind {
+        var single: String
+        var plural: String
+    }
+
+    private static func scriptKind(_ kind: ContactChange.ItemKind) -> ScriptKind {
+        switch kind {
+        case .phone: ScriptKind(single: "phone", plural: "phones")
+        case .email: ScriptKind(single: "email", plural: "emails")
+        case .url: ScriptKind(single: "url", plural: "urls")
+        case .socialProfile: ScriptKind(single: "social profile", plural: "social profiles")
+        }
+    }
+
+    /// The script for `apply`, and the text it reads as `a1`, `a2`, … (`a1` is the contact). Values only ever travel
+    /// as arguments, never as script text. First every row to change or remove is looked up and the script stops
+    /// if one is missing, then the changes are made and saved once.
+    static func editScript(for changes: [ContactChange], identifier: String) -> (body: [String], text: [String]) {
+        var text = [identifier]
+        func arg(_ value: String) -> String {
+            text.append(value)
+            return "a\(text.count)"
+        }
+        /// `{label:a2, value:a3}`; a missing label is left out.
+        func properties(_ pairs: [(String, String)]) -> String {
+            "{" + pairs.map { "\($0.0):\($0.1)" }.joined(separator: ", ") + "}"
+        }
+        func find(_ n: Int, _ singular: String, id: String, label: String, valueProperty: String = "value", value: String,
+                  description: String) -> [String] {
+            let (i, l, v, d) = (arg(id), arg(label), arg(value), arg(description))
+            return [
+                "set m\(n) to (every \(singular) of p whose id is \(i))",
+                "if (count of m\(n)) is 0 then set m\(n) to (every \(singular) of p whose label is \(l) and \(valueProperty) is \(v))",
+                "if (count of m\(n)) is 0 then return \"missing \" & \(d)",
+            ]
+        }
+        var lookups: [String] = [], edits: [String] = []
+        for (index, change) in changes.enumerated() {
+            let n = index + 1
+            switch change {
+            case .text(let field, _, let value):
+                edits.append("set \(field.scriptProperty) of p to \(arg(value))")
+            case .addItem(let kind, let item):
+                let k = scriptKind(kind)
+                if kind == .socialProfile {
+                    let (url, user) = socialParts(item.value)
+                    edits.append("make new social profile at end of social profiles of p with properties \(properties([("service name", arg(item.label)), ("user name", arg(user)), ("url", arg(url))]))")
+                } else {
+                    let label = item.label.isEmpty ? [] : [("label", arg(item.label))]
+                    edits.append("make new \(k.single) at end of \(k.plural) of p with properties \(properties(label + [("value", arg(item.value))]))")
+                }
+            case .updateItem(let kind, let from, let to):
+                let k = scriptKind(kind)
+                lookups += find(n, k.single, id: from.id, label: from.label, value: from.value, description: "\(from.value)")
+                if kind == .socialProfile {
+                    if from.label != to.label { edits.append("set service name of item 1 of m\(n) to \(arg(to.label))") }
+                    if from.value.trimmed != to.value {
+                        let (url, user) = socialParts(to.value)
+                        edits.append("set user name of item 1 of m\(n) to \(arg(user))")
+                        edits.append("set url of item 1 of m\(n) to \(arg(url))")
+                    }
+                } else {
+                    if from.value.trimmed != to.value { edits.append("set value of item 1 of m\(n) to \(arg(to.value))") }
+                    if from.label != to.label { edits.append("set label of item 1 of m\(n) to \(arg(to.label))") }
+                }
+            case .removeItem(let kind, let item):
+                let k = scriptKind(kind)
+                lookups += find(n, k.single, id: item.id, label: item.label, value: item.value, description: item.value)
+                edits.append("delete item 1 of m\(n)")
+            case .addAddress(let address):
+                let label = address.label.isEmpty ? [] : [("label", arg(address.label))]
+                edits.append("make new address at end of addresses of p with properties \(properties(label + [("street", arg(address.street)), ("zip", arg(address.postalCode)), ("city", arg(address.city)), ("country", arg(address.country))]))")
+            case .updateAddress(let from, let to):
+                lookups += find(n, "address", id: from.id, label: from.label, valueProperty: "street", value: from.street, description: from.summary)
+                for (property, old, new) in [("label", from.label, to.label), ("street", from.street, to.street), ("zip", from.postalCode, to.postalCode),
+                                             ("city", from.city, to.city), ("country", from.country, to.country)] where old.trimmed != new {
+                    edits.append("set \(property) of item 1 of m\(n) to \(arg(new))")
+                }
+            case .removeAddress(let address):
+                lookups += find(n, "address", id: address.id, label: address.label, valueProperty: "street", value: address.street, description: address.summary)
+                edits.append("delete item 1 of m\(n)")
+            case .birthday(_, let new):
+                if let new {
+                    // Contacts takes a full date; the year 1604 is how it stores a birthday without a year
+                    edits += ["set d to current date", "set day of d to 1", "set year of d to \(new.year ?? 1604)", "set month of d to \(new.month)",
+                              "set day of d to \(new.day)", "set time of d to 43200", "set birth date of p to d"]
+                } else {
+                    edits.append("set birth date of p to missing value")
+                }
+            }
+        }
+        let body = ["tell application \"Contacts\"", "set p to person id a1"] + lookups + edits + ["save", "return \"ok\"", "end tell"]
+        return (body, text)
+    }
+
+    /// The address and user name a social profile gets from what was typed: an address (kept as it is, its last
+    /// part is the user name), or a plain user name.
+    private static func socialParts(_ value: String) -> (url: String, user: String) {
+        let value = value.trimmed
+        guard value.contains("/") else { return ("", value) }
+        return (value, URL(string: value)?.lastPathComponent ?? "")
+    }
+
     /// Sets the contact's picture through the Contacts app, which accepts it for contacts with a note too.
     public static func setImage(_ image: Data, identifier: String) throws {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("pplz-picture-\(UUID().uuidString).jpg")

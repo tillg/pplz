@@ -41,7 +41,7 @@ public struct PeopleView: View {
     #endif
 
     public enum Sheet: String, Identifiable, Sendable {
-        case log, quickLog, edit, editEvent, connect
+        case log, quickLog, edit, editEvent, connect, editContact, newContact
         public var id: String { rawValue }
     }
 
@@ -51,7 +51,7 @@ public struct PeopleView: View {
         _sheet = State(initialValue: initialSheet)
     }
 
-    /// Reads the launch options `-show log|quickLog|edit|editEvent|connect`, `-mode events|map` and `-capture <image file>`.
+    /// Reads the launch options `-show log|quickLog|edit|editEvent|connect|editContact|newContact`, `-mode events|map` and `-capture <image file>`.
     public init(model: PeopleModel, defaults: UserDefaults) {
         self.init(model: model, initialSheet: defaults.string(forKey: "show").flatMap(Sheet.init))
         opensEvents = defaults.string(forKey: "mode") == "events"
@@ -84,6 +84,12 @@ public struct PeopleView: View {
                 ToolbarItem {
                     Button("New Event", systemImage: "calendar.badge.plus") { sheet = .quickLog }
                         .help("Log a meeting or call you just had")
+                }
+                if model.usesContacts {
+                    ToolbarItem {
+                        Button("New Contact", systemImage: "person.badge.plus") { sheet = .newContact }
+                            .help("Create a contact in Contacts")
+                    }
                 }
                 ToolbarItem {
                     #if os(iOS)
@@ -182,6 +188,10 @@ public struct PeopleView: View {
                 ConnectSheet(personName: model.card?.title ?? "", candidates: model.connectionCandidates) { role, other in
                     Task { await model.connect(role: role, to: other) }
                 }
+            case .editContact:
+                ContactEditSheet(model: model, isEditing: true)
+            case .newContact:
+                ContactEditSheet(model: model, isEditing: false)
             }
         }
         .sheet(item: Binding(get: { model.faceChoice }, set: { if $0 == nil { Task { await model.chooseFace(nil) } } })) { choice in
@@ -260,6 +270,8 @@ extension PeopleView {
     private var sheetIfPossible: Sheet? {
         switch sheet {
         case .log, .edit, .connect: model.card == nil ? nil : sheet
+        case .editContact: model.card?.contact == nil ? nil : sheet
+        case .newContact: model.usesContacts ? sheet : nil
         case .editEvent: model.selectedEvent == nil ? nil : sheet
         case .quickLog: model.entries.isEmpty ? nil : sheet
         case nil: nil
@@ -346,8 +358,16 @@ extension PeopleView {
                 .toolbar {
                     Button("Log Event", systemImage: "calendar.badge.plus") { sheet = .log }
                         .help("Log a meeting or call with \(card.entry.name)")
-                    Button("Edit", systemImage: "pencil") { sheet = .edit }
-                        .help("Edit tags, notes, how you met and the keep-in-touch rhythm")
+                    if card.contact != nil {
+                        Menu("Edit", systemImage: "pencil") {
+                            Button("Edit Contact…") { sheet = .editContact }
+                            Button("Edit pplz Details…") { sheet = .edit }
+                        }
+                        .help("Edit the contact's fields, or what pplz keeps about \(card.entry.name)")
+                    } else {
+                        Button("Edit", systemImage: "pencil") { sheet = .edit }
+                            .help("Edit tags, notes, how you met and the keep-in-touch rhythm")
+                    }
                     #if os(macOS)
                     if !card.entry.isPplzOnly {
                         Button("Open in Contacts", systemImage: "person.crop.square") { model.openInContacts() }

@@ -2,7 +2,8 @@
 import Contacts
 import Foundation
 
-/// Read-only access to the system address book.
+/// Access to the system address book: mostly reading; writing is limited to the pplz link, what a capture fills in, the picture
+/// and what the user edits (`SystemContactsEdit.swift`).
 /// Never requests the note field: without Apple's notes entitlement that access fails (SPEC §8.1).
 public enum SystemContacts {
     public static func fetchAll() throws -> [ContactSummary] {
@@ -199,7 +200,7 @@ public enum SystemContacts {
             birthday: birthday, imageData: contact.imageData ?? contact.thumbnailImageData)   // some contacts only carry the thumbnail
     }
 
-    private static func requestAccessIfNeeded(_ store: CNContactStore) throws {
+    static func requestAccessIfNeeded(_ store: CNContactStore) throws {
         if CNContactStore.authorizationStatus(for: .contacts) == .notDetermined {
             let done = DispatchSemaphore(value: 0)
             store.requestAccess(for: .contacts) { _, _ in done.signal() }

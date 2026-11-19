@@ -25,6 +25,7 @@ edited: 2026-11-19
   - [23:29 — At most 300 addresses an hour go to Apple's map service](#run-2026-11-19-2324-2)
   - [23:45 — Issue 4 is closed although the map background and clicking were not seen](#run-2026-11-19-2324-3)
   - [23:47 — A picture without a face is refused; photos sync as a new record type](#run-2026-11-19-2324-4)
+  - [00:03 — One edit screen for contacts on all devices; an edit writes only what changed](#run-2026-11-19-2324-5)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -223,4 +224,19 @@ edited: 2026-11-19
 - **Decision:** such a picture is refused with a message. The data model gets one new type (a photo belonging to a person, the image stored as an external file); nothing existing is changed. A store written before the change is kept as a test file, and a test opens it with the new model.
 - **Why:** the user wants only face crops, for later recognition; a picture without a face would be of no use there. An addition without changes to existing types is the only kind of change the iCloud sync accepts without a migration.
 - **Alternatives:** keep the whole picture when no face is found (nothing is lost, but it breaks "only the face"); let the user draw the face area by hand (more screen work).
-- **Consequences:** the first start of the new version on each device extends the local store, and the first device also adds the new type to the iCloud data (development environment). This cannot be taken back in iCloud once it is in the production environment; so far pplz only uses the development one. "Only the newest 20 are used for recognition" is not built: there is no recognition yet (issue 3).
+- **Consequences:** the first start of the new version on each device extends the local store, and the first device also adds the new type to the iCloud data (development environment). This cannot be taken back in iCloud once it is in the production environment; so far pplz only uses the development one. "Only the newest 20 are used for recognition" is not built: there is no recognition yet (issue 3). Later in the run: the real store on the Mac was copied to a folder `backup-before-photos-…` next to it and then opened with the new version; people and events were the same before and after.
+
+## 00:03 — One edit screen for contacts on all devices; an edit writes only what changed {#run-2026-11-19-2324-5}
+
+- **Status:** open
+- **Context:** issue 1. The user asked for "edit all the fields (except notes)" and "creating a contact", and did not answer whether iPhone / iPad keep the system's contact card only or get pplz's own edit screen, nor how the Mac should save a contact that has a note.
+- **Question:** where is the edit screen offered, how does saving work, and what is left out?
+- **Decision:**
+  - One edit screen, shared by Mac, iPhone and iPad; the system's contact card on iPhone / iPad stays as well. This replaces the default named in decision 1 of this run ("own edit screen on the Mac only").
+  - Saving reads the contact again and writes only the fields the user changed. If one of those fields was changed elsewhere in the meantime, pplz refuses and says so.
+  - On the Mac the Contacts framework is tried first; for a contact with a note, where that fails, the same changes go through the Contacts app.
+  - The `pplz` link row, the note and the related names are never part of an edit.
+  - No command for the command line and no journal entry for these edits.
+- **Why:** the screen is shared code, so offering it everywhere costs nothing extra and the user asked for the functions "in pplz". Writing only changes keeps a mistake in pplz from damaging fields the user did not touch. The journal lists what pplz writes on its own, not what the user types.
+- **Alternatives:** the Mac only (as first proposed); replace all values of a contact on save (simpler, but rewrites everything on every save).
+- **Consequences:** editing through the Contacts app needs the user's permission for pplz to control Contacts, as the link and the history already do, and goes away when Apple grants the notes permission. The command line cannot edit contact fields yet.

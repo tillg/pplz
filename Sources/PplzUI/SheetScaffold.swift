@@ -7,6 +7,8 @@ struct SheetScaffold<Content: View>: View {
     let confirmTitle: String
     var canConfirm = true
     var width: CGFloat = 460
+    /// Fixed height on the Mac, for a form that is longer than the screen; the form then scrolls.
+    var height: CGFloat? = nil
     /// False for a sheet with more than one step: confirming then leaves it open.
     var dismissesOnConfirm = true
     let onConfirm: () -> Void
@@ -18,7 +20,11 @@ struct SheetScaffold<Content: View>: View {
         #if os(macOS)
         VStack(alignment: .leading, spacing: 16) {
             Text(title).font(.title3.weight(.semibold))
-            Form { content }
+            if height == nil {
+                Form { content }
+            } else {
+                Form { content }.formStyle(.grouped)   // the plain form does not scroll
+            }
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }
@@ -30,7 +36,7 @@ struct SheetScaffold<Content: View>: View {
             }
         }
         .padding(20)
-        .frame(width: width)
+        .frame(width: width, height: height)
         .tint(.pink)
         #else
         NavigationStack {

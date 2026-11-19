@@ -1,7 +1,7 @@
 import PplzCore
 import SwiftUI
 
-/// Edits what pplz stores about a person. The contact's own fields are edited in Contacts.
+/// Edits what pplz stores about a person. The contact's own fields are edited in `ContactEditSheet`.
 struct EditPersonSheet: View {
     let personName: String
     let knownTags: [String]
