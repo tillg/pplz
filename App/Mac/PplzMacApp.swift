@@ -20,7 +20,7 @@ struct PplzMacApp: App {
         .commands {
             // ⌘V does the same while no text field has the focus
             CommandGroup(after: .pasteboard) {
-                Button("Paste Profile Screenshot") { model.offerCaptureFromClipboard() }
+                Button("Paste Screenshot or Business Card") { model.offerCaptureFromClipboard() }
                     .keyboardShortcut("v", modifiers: [.command, .shift])
             }
         }

@@ -91,6 +91,7 @@ targets:
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         NSContactsUsageDescription: "pplz shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and pplz does not share them with anyone."
         NSCalendarsFullAccessUsageDescription: "pplz offers your current and recent calendar entries when you record whom you met."
+        NSCameraUsageDescription: "pplz takes a picture of a business card and reads the contact details from it on this device."
         CFBundleURLTypes:
           - CFBundleURLName: com.tillg.pplz
             CFBundleURLSchemes: [pplz]

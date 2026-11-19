@@ -20,6 +20,9 @@ public struct PeopleView: View {
     @State private var logsAfterCapture = false
     #if os(iOS)
     @State private var pickedPhoto: PhotosPickerItem?
+    @State private var isScanningCard = false
+    /// The card that was just photographed; captured once the camera has closed.
+    @State private var scannedCard: Data?
     #endif
     private struct CapturedImage: Identifiable {
         let id = UUID()
@@ -77,8 +80,17 @@ public struct PeopleView: View {
                         .help("Log a meeting or call you just had")
                 }
                 ToolbarItem {
+                    #if os(iOS)
+                    Menu("Capture Profile", systemImage: "person.crop.rectangle.badge.plus") {
+                        if CardCamera.isAvailable {
+                            Button("Scan Business Card", systemImage: "camera") { isScanningCard = true }
+                        }
+                        Button("Choose Photo", systemImage: "photo") { isChoosingCapture = true }
+                    }
+                    #else
                     Button("Capture Profile", systemImage: "person.crop.rectangle.badge.plus") { isChoosingCapture = true }
-                        .help("Read a screenshot of someone's profile, e.g. from LinkedIn")
+                        .help("Read a screenshot of someone's profile or a photo of a business card")
+                    #endif
                 }
             }
             .navigationSplitViewColumnWidth(min: 230, ideal: 290)
@@ -104,6 +116,15 @@ public struct PeopleView: View {
             Task {
                 if let data = try? await item.loadTransferable(type: Data.self) { capture = CapturedImage(data: data) }
             }
+        }
+        // the capture sheet opens only after the camera has closed: two covers at once lose one
+        .fullScreenCover(isPresented: $isScanningCard, onDismiss: {
+            if let card = scannedCard {
+                scannedCard = nil
+                model.offerCapture(card)
+            }
+        }) {
+            CardCamera { scannedCard = $0 }.ignoresSafeArea()
         }
         #endif
         // a screenshot dragged onto the window, or pasted, is captured like one that was shared

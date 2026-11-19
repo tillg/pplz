@@ -11,6 +11,8 @@ public struct PersonEntry: Encodable, Equatable, Sendable {
     public var tags: [String]
     /// The contact's nickname; people can be found by it, as in Contacts.
     public var nickname: String = ""
+    /// The contact's company and place, for telling people of the same name apart: "Firm · City · Country".
+    public var context: String = ""
 
     /// Someone typed in by name who is neither a contact nor a person in pplz yet.
     public static func new(named name: String) -> PersonEntry {
@@ -78,7 +80,8 @@ public enum PeopleDirectory {
             let person = matches[contact.identifier]
             return PersonEntry(id: person?.id, contactIdentifier: contact.identifier, name: contact.name,
                                eventCount: person?.eventCount ?? 0, lastMet: person?.lastMet, tags: person?.tags ?? [],
-                               nickname: contact.nickname)
+                               nickname: contact.nickname,
+                               context: [contact.organization, contact.city, contact.country].filter { !$0.isEmpty }.joined(separator: " · "))
         }
         for person in persons where !claimed.contains(person.id) {
             entries.append(PersonEntry(id: person.id, contactIdentifier: person.contactIdentifier, name: person.name,

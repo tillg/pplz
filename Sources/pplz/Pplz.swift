@@ -762,6 +762,8 @@ struct Capture: ParsableCommand {
         }
         let profile = reading.profile
         let rows = [("First name", profile.givenName), ("Last name", profile.familyName), ("Title", profile.namePrefix), ("Job", profile.jobTitle), ("Company", profile.company),
+                    ("Email", profile.email), ("Phone", profile.phone), ("Mobile", profile.mobile), ("Website", profile.website),
+                    ("Street", profile.street), ("Postal code", profile.postalCode),
                     ("City", profile.city), ("Country", profile.country),
                     ("LinkedIn", profile.linkedInID.isEmpty ? "" : LinkedInLink.url(forProfileID: profile.linkedInID)),
                     ("Picture", profile.picture == nil ? "" : "found")]

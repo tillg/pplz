@@ -14,6 +14,7 @@ public enum SystemContacts {
             CNContactOrganizationNameKey as CNKeyDescriptor,
             CNContactNicknameKey as CNKeyDescriptor,
             CNContactUrlAddressesKey as CNKeyDescriptor,
+            CNContactPostalAddressesKey as CNKeyDescriptor,
         ]
         var result: [ContactSummary] = []
         try store.enumerateContacts(with: CNContactFetchRequest(keysToFetch: keys)) { contact, _ in
@@ -21,7 +22,9 @@ public enum SystemContacts {
             if !name.trimmed.isEmpty {
                 let link = contact.urlAddresses.lazy.compactMap { URL(string: $0.value as String) }.compactMap(PersonLink.personID).first
                 result.append(ContactSummary(identifier: contact.identifier, name: name.trimmed, nickname: contact.nickname.trimmed,
-                                             pplzPersonID: link))
+                                             pplzPersonID: link, organization: contact.organizationName.trimmed,
+                                             city: contact.postalAddresses.first?.value.city.trimmed ?? "",
+                                             country: contact.postalAddresses.first?.value.country.trimmed ?? ""))
             }
         }
         return result
@@ -83,7 +86,8 @@ public enum SystemContacts {
         let store = CNContactStore()
         try requestAccessIfNeeded(store)
         let keys = [CNContactNamePrefixKey, CNContactJobTitleKey, CNContactOrganizationNameKey, CNContactPostalAddressesKey,
-                    CNContactSocialProfilesKey, CNContactImageDataKey] as [CNKeyDescriptor]
+                    CNContactSocialProfilesKey, CNContactImageDataKey, CNContactEmailAddressesKey, CNContactPhoneNumbersKey,
+                    CNContactUrlAddressesKey] as [CNKeyDescriptor]
         guard let contact = try store.unifiedContact(withIdentifier: identifier, keysToFetch: keys).mutableCopy() as? CNMutableContact else { return }
         apply(fill, to: contact)
         let request = CNSaveRequest()
@@ -103,8 +107,17 @@ public enum SystemContacts {
         if let prefix = fill.namePrefix { contact.namePrefix = prefix }
         if let jobTitle = fill.jobTitle { contact.jobTitle = jobTitle }
         if let organization = fill.organization { contact.organizationName = organization }
-        if fill.city != nil || fill.country != nil {
+        if let email = fill.email { contact.emailAddresses.append(CNLabeledValue(label: CNLabelWork, value: email as NSString)) }
+        if let phone = fill.phone { contact.phoneNumbers.append(CNLabeledValue(label: CNLabelWork, value: CNPhoneNumber(stringValue: phone))) }
+        if let mobile = fill.mobile {
+            contact.phoneNumbers.append(CNLabeledValue(label: CNLabelPhoneNumberMobile, value: CNPhoneNumber(stringValue: mobile)))
+        }
+        // added to the other addresses: the pplz link is one of them
+        if let website = fill.website { contact.urlAddresses.append(CNLabeledValue(label: CNLabelURLAddressHomePage, value: website as NSString)) }
+        if fill.city != nil || fill.country != nil || fill.street != nil || fill.postalCode != nil {
             let address = CNMutablePostalAddress()
+            address.street = fill.street ?? ""
+            address.postalCode = fill.postalCode ?? ""
             address.city = fill.city ?? ""
             address.country = fill.country ?? ""
             contact.postalAddresses.append(CNLabeledValue(label: CNLabelWork, value: address))

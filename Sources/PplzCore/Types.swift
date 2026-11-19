@@ -49,8 +49,16 @@ public struct ContactSummary: Codable, Equatable, Sendable {
     public var nickname: String
     /// The person the contact's `pplz://person/<id>` link points to, if it has one.
     public var pplzPersonID: UUID?
+    /// For telling people of the same name apart.
+    public var organization: String
+    public var city: String
+    public var country: String
 
-    public init(identifier: String, name: String, nickname: String = "", pplzPersonID: UUID? = nil) {
+    public init(identifier: String, name: String, nickname: String = "", pplzPersonID: UUID? = nil, organization: String = "",
+                city: String = "", country: String = "") {
+        self.organization = organization
+        self.city = city
+        self.country = country
         self.identifier = identifier
         self.name = name
         self.nickname = nickname

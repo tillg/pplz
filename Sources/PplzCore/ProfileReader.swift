@@ -29,6 +29,8 @@ public enum ProfileReader {
         public var profile: CapturedProfile
         /// Why fields are empty although a model is there (e.g. it refused or the text was too long); `nil` if all went well.
         public var problem: String?
+        /// A business card rather than a profile screenshot: mail, phone and address are worth showing.
+        public var isCard = false
     }
 
     /// Reads what it can; never fails — whatever could not be read stays empty.
@@ -40,6 +42,11 @@ public enum ProfileReader {
             reading.profile = try await fields(from: lines)
         } catch {
             reading.problem = "The fields could not be read automatically (\(error.localizedDescription))."
+            reading.profile = fieldsByRule(lines)
+        }
+        if BusinessCard.isCard(lines) {
+            reading.isCard = true
+            BusinessCard.fill(&reading.profile, from: lines)       // by rule: there even without a model
         }
         reading.profile.linkedInID = LinkedInLink.profileID(in: lines.joined(separator: "\n")) ?? ""
         let nameLine = nameLineIndex(in: lines).map { found[$0].box }
@@ -78,6 +85,21 @@ public enum ProfileReader {
         guard let marker = lines.firstIndex(where: { $0.firstMatch(of: /(?:^|[\s•·])(?:1st|2nd|3rd)\+?\s*$/) != nil }) else { return nil }
         let standsAlone = lines[marker].wholeMatch(of: /\W*(?:1st|2nd|3rd)\+?\s*/) != nil
         return standsAlone && marker > 0 ? marker - 1 : marker
+    }
+
+    /// What can be read from a profile page without the model — the name from the name line, the
+    /// place from its line — for when the model refuses or fails. Empty for anything else.
+    static func fieldsByRule(_ lines: [String]) -> CapturedProfile {
+        guard let index = nameLineIndex(in: lines) else { return CapturedProfile() }
+        // without the degree, and without a badge that was read as a stray letter
+        var words = lines[index].replacing(/[\s•·]*(?:1st|2nd|3rd)\+?\s*$/, with: "").split(whereSeparator: \.isWhitespace).map(String.init)
+        while let last = words.last, last.count == 1 { words.removeLast() }
+        let full = words.joined(separator: " ")
+        let parts = SystemContacts.nameParts(PeopleDirectory.nameWithoutTitles(full))
+        let prefix = words.prefix { $0.hasSuffix(".") }.joined(separator: " ")
+        let place = place(locationLine(in: lines))
+        return CapturedProfile(givenName: parts.given, familyName: parts.family, namePrefix: title(prefix, nameLine: full),
+                               city: place.city, country: place.country)
     }
 
     /// What the model gave as academic title, kept only if it stands in the name line and is not
@@ -139,6 +161,7 @@ public enum ProfileReader {
     static func fields(from lines: [String]) async throws -> CapturedProfile {
         #if canImport(FoundationModels)
         if #available(macOS 26.0, iOS 26.0, *), SystemLanguageModel.default.isAvailable, !lines.isEmpty {
+            if BusinessCard.isCard(lines) { return try await cardFields(from: lines) }
             let session = LanguageModelSession(instructions: """
                 You extract a person's contact details from the text of a screenshot of their profile page, \
                 usually LinkedIn. The text shows, from top to bottom: the owner's name (possibly with a title, \
@@ -151,13 +174,38 @@ public enum ProfileReader {
                 generating: ProfileFields.self, options: GenerationOptions(sampling: .greedy)).content
             let place = place(locationLine(in: lines))
             let company = found.company.trimmed
-            return CapturedProfile(givenName: found.firstName.trimmed, familyName: found.lastName.trimmed, namePrefix: title(found.namePrefix, nameLine: header(of: lines).first ?? ""),
+            return CapturedProfile(givenName: BusinessCard.onlyWhatIsWritten(found.firstName, in: lines),
+                                   familyName: BusinessCard.onlyWhatIsWritten(found.lastName, in: lines),
+                                   namePrefix: title(found.namePrefix, nameLine: header(of: lines).first ?? ""),
                                    jobTitle: role(at: company, in: header(of: lines)) ?? found.jobTitle.trimmed,
                                    company: company, city: place.city, country: place.country)
         }
         #endif
         return CapturedProfile()
     }
+
+    #if canImport(FoundationModels)
+    /// Name, title, role and company from a business card. Everything must be written on the card:
+    /// the company is often only in the logo, and then stays empty.
+    @available(macOS 26.0, iOS 26.0, *)
+    private static func cardFields(from lines: [String]) async throws -> CapturedProfile {
+        let session = LanguageModelSession(instructions: """
+            You extract a person's details from the text of a photo of their business card. The card names \
+            one person, usually with their role, and the company they work for; the rest is address, phone \
+            numbers, mail and web addresses, which you ignore. \
+            Use only what the text says. Leave a field empty rather than guessing.
+            """)
+        let found = try await session.respond(
+            to: "Text recognised on the card:\n" + lines.prefix(40).joined(separator: "\n"),
+            generating: ProfileFields.self, options: GenerationOptions(sampling: .greedy)).content
+        let given = BusinessCard.onlyWhatIsWritten(found.firstName, in: lines)
+        let family = BusinessCard.onlyWhatIsWritten(found.lastName, in: lines)
+        let nameLine = lines.first { !family.isEmpty && $0.range(of: family, options: [.caseInsensitive, .diacriticInsensitive]) != nil } ?? ""
+        return CapturedProfile(givenName: given, familyName: family, namePrefix: title(found.namePrefix, nameLine: nameLine),
+                               jobTitle: BusinessCard.onlyWhatIsWritten(found.jobTitle, in: lines),
+                               company: BusinessCard.onlyWhatIsWritten(found.company, in: lines))
+    }
+    #endif
 
     static func png(_ image: CGImage) -> Data? {
         let data = NSMutableData()

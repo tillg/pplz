@@ -24,6 +24,8 @@ struct CaptureSheet: View {
     @State private var hasChosen = false
     /// The screenshot itself, shown for comparing with what was read.
     @State private var screenshot: Image?
+    /// A business card: mail, phone and address are shown as fields.
+    @State private var isCard = false
     /// Looking for someone pplz did not propose.
     @State private var search = ""
     @State private var searched: PersonEntry?
@@ -50,6 +52,7 @@ struct CaptureSheet: View {
             if let imageData, let reading = await ProfileReader.read(imageData: imageData) {
                 profile = reading.profile
                 readingProblem = reading.problem
+                isCard = reading.isCard
             }
             // the address read from the screenshot is about this person for sure; a shared link only fills the gap
             if profile.linkedInID.isEmpty, let shared = link.flatMap(LinkedInLink.profileID(in:)) { profile.linkedInID = shared }
@@ -67,10 +70,9 @@ struct CaptureSheet: View {
             // the screenshot beside the fields, to check them against it
             HStack(alignment: .top, spacing: 0) {
                 if let screenshot {
-                    screenshot.resizable().scaledToFit().frame(width: 400).frame(maxHeight: 640, alignment: .top)
+                    ZoomableImage(image: screenshot).frame(width: 400).frame(maxHeight: 640)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .padding([.leading, .vertical], 20)
-                        .accessibilityLabel("Screenshot")
                 }
                 reviewForm(proxy)
             }
@@ -95,7 +97,7 @@ struct CaptureSheet: View {
                 }
                 #if !os(macOS)
                 if let screenshot {
-                    DisclosureGroup("Screenshot") { screenshot.resizable().scaledToFit().accessibilityLabel("Screenshot") }
+                    DisclosureGroup("Screenshot") { ZoomableImage(image: screenshot).aspectRatio(1, contentMode: .fit) }
                 }
                 #endif
                 if imageData == nil {
@@ -114,6 +116,14 @@ struct CaptureSheet: View {
                 FormField(title: "Title", text: $profile.namePrefix, prompt: "e.g. Dr.")
                 FormField(title: "Job title", text: $profile.jobTitle)
                 FormField(title: "Company", text: $profile.company)
+                if isCard {
+                    FormField(title: "Email", text: $profile.email)
+                    FormField(title: "Phone", text: $profile.phone)
+                    FormField(title: "Mobile", text: $profile.mobile)
+                    FormField(title: "Website", text: $profile.website)
+                    FormField(title: "Street", text: $profile.street)
+                    FormField(title: "Postal code", text: $profile.postalCode)
+                }
                 FormField(title: "City", text: $profile.city)
                 FormField(title: "Country", text: $profile.country)
                 FormField(title: "LinkedIn", text: $linkedIn, prompt: "Profile link or ID")
@@ -125,7 +135,7 @@ struct CaptureSheet: View {
     private func who(_ proxy: ScrollViewProxy) -> some View {
         Section("Who is this?") {
             ForEach(candidates, id: \.key) { entry in
-                choiceRow(entry.key, title: entry.name, detail: entry.eventCount > 0 ? "met \(entry.eventCount)×" : "in your contacts",
+                choiceRow(entry.key, title: entry.name, detail: detail(of: entry),
                           label: "Existing person \(entry.name)")
             }
             choiceRow(Self.newPerson, title: "New person", detail: "", label: "New person")
@@ -134,6 +144,7 @@ struct CaptureSheet: View {
                     HStack {
                         Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                         Text(entry.name)
+                        Text(detail(of: entry)).foregroundStyle(.secondary).lineLimit(1)
                         Spacer(minLength: 0)
                     }
                     .contentShape(Rectangle())
@@ -149,6 +160,12 @@ struct CaptureSheet: View {
                 // the results push the field down, behind the keyboard: bring it back
                 .onChange(of: searchResults.count) { Task { @MainActor in withAnimation { proxy.scrollTo("search", anchor: .bottom) } } }
         }
+    }
+
+    /// Company, place and how often met — what tells two people of the same name apart.
+    private func detail(of entry: PersonEntry) -> String {
+        let parts = [entry.context, entry.eventCount > 0 ? "met \(entry.eventCount)×" : ""].filter { !$0.isEmpty }
+        return parts.isEmpty ? (entry.isPplzOnly ? "in pplz" : "in your contacts") : parts.joined(separator: " · ")
     }
 
     private func choiceRow(_ key: String, title: String, detail: String, label: String) -> some View {
