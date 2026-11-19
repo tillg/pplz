@@ -17,9 +17,9 @@ edited: 2026-11-19
   - [12:10 — The extension opens pplz through the Objective-C runtime](#run-2026-11-19-1154-8)
   - [12:16 — Leave the share extension in the project although it cannot be signed from this session](#run-2026-11-19-1154-9)
 - [2026-11-19 21:14 — Work through the open GitHub issues](#run-2026-11-19-2114)
-  - [21:20 — Commit, push to main and write to the issue tracker without asking](#run-2026-11-19-2114-1)
-  - [21:22 — Build only issue 7; the other six get questions](#run-2026-11-19-2114-2)
-  - [21:30 — The age is counted by month and day, and shown in the app only](#run-2026-11-19-2114-3)
+  - [21:15 — Commit, push to main and write to the issue tracker without asking](#run-2026-11-19-2114-1)
+  - [21:16 — Build only issue 7; the other six get questions](#run-2026-11-19-2114-2)
+  - [21:18 — The age is counted by month and day, and shown in the app only](#run-2026-11-19-2114-3)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -126,7 +126,7 @@ edited: 2026-11-19
 
   > Look at the gh issues and do the ones where u are sure how to implement them. For the others write the questions in comments.
 
-## 21:20 — Commit, push to main and write to the issue tracker without asking {#run-2026-11-19-2114-1}
+## 21:15 — Commit, push to main and write to the issue tracker without asking {#run-2026-11-19-2114-1}
 
 - **Status:** open
 - **Overrides:** the user's standing practice in this project (commit and push only when they say "commit & push"). "Never create or switch branches" from `~/.claude/CLAUDE.md` is kept.
@@ -135,9 +135,9 @@ edited: 2026-11-19
 - **Decision:** commit each green unit to `main`, push it, close an issue once its fix is on `main`, and post the questions as issue comments. Each comment starts with the note that Claude wrote it.
 - **Why:** the task asks for both, and the user is away. `/autonomous` allows it.
 - **Alternatives:** leave the commits and the comment drafts for the user (nothing is published, but the task is not done).
-- **Consequences:** `Package.resolved` was already changed before the run and `assets/social-preview.png` was untracked; neither is committed. Nothing from `private/` and no real person's data goes into commits or comments.
+- **Consequences:** `Package.resolved` was already changed before the run and `assets/social-preview.png` was untracked; neither is committed. Nothing from `private/` and no real person's data goes into commits or comments. Correction, 21:25: `assets/social-preview.png` is tracked and unchanged; only `Package.resolved` was dirty. The three decision times of this run were first written ahead of the clock and corrected to the times before the commit (21:21). Later in the run: commit `b88eabc` pushed to `main`, issue 7 closed, one comment on each of the issues 1–7.
 
-## 21:22 — Build only issue 7; the other six get questions {#run-2026-11-19-2114-2}
+## 21:16 — Build only issue 7; the other six get questions {#run-2026-11-19-2114-2}
 
 - **Status:** open
 - **Context:** seven open issues (1–7). The task says to build the ones where the way is certain.
@@ -152,7 +152,7 @@ edited: 2026-11-19
 - **Alternatives:** build a first map (4) or a photo gallery (2) on assumptions (visible progress, but schema and privacy choices the user has not made).
 - **Consequences:** six issues stay open with questions; each question comes with a proposed default so that a short answer is enough.
 
-## 21:30 — The age is counted by month and day, and shown in the app only {#run-2026-11-19-2114-3}
+## 21:18 — The age is counted by month and day, and shown in the app only {#run-2026-11-19-2114-3}
 
 - **Status:** open
 - **Context:** issue 7, `ContactDetails.age` and the birthday row of the person card.
