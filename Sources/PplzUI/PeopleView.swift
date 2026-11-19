@@ -100,6 +100,10 @@ public struct PeopleView: View {
             if phase == .active { Task { await model.reload() } }
         }
         #endif
+        // Changes from another device show up as soon as iCloud has delivered them.
+        .onReceive(NotificationCenter.default.publisher(for: PplzStore.syncNotification).receive(on: DispatchQueue.main)) { note in
+            if PplzStore.broughtNewData(note) { Task { await model.reload() } }
+        }
         .alert("pplz", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.dismissError() } })) {
             Button("OK") { model.dismissError() }
             if model.sections.isEmpty {

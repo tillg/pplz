@@ -133,7 +133,14 @@ public final class PeopleModel {
             self.store = store
             let usesContacts = configuration.usesContacts
             let contacts = try await Task.detached { usesContacts ? try SystemContacts.fetchAll() : [] }.value
-            entries = PeopleDirectory.merge(contacts: contacts, persons: try store.persons())
+            let persons = try store.persons()
+            entries = PeopleDirectory.merge(contacts: contacts, persons: persons)
+            #if os(macOS)
+            // persons recorded on the iPhone or iPad: tie them to this Mac's contact and give it the pplz link
+            let adoptions = PeopleDirectory.adoptions(in: entries, persons: persons)
+            for adoption in adoptions { try store.setContactIdentifier(adoption.contactIdentifier, for: adoption.person) }
+            if !adoptions.isEmpty { try syncContacts(adoptions.map(\.person), store) }
+            #endif
             #if os(macOS)
             // tags created on two devices before they synced; only the Mac merges, so two devices never undo each other
             try store.mergeDuplicateTags()

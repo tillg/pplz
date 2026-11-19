@@ -1,3 +1,4 @@
+import CoreData
 import Foundation
 import SwiftData
 
@@ -17,6 +18,16 @@ public final class PplzStore {
         let container = try ModelContainer(for: Person.self, Event.self, Tag.self, FollowUp.self, Connection.self, Setting.self, configurations: config)
         context = ModelContext(container)
         context.autosaveEnabled = false
+    }
+
+    /// Posted whenever iCloud sync starts or finishes a step; see `broughtNewData`.
+    public static let syncNotification = NSPersistentCloudKitContainer.eventChangedNotification
+
+    /// Whether a sync notification says that changes from another device have just arrived.
+    public static func broughtNewData(_ notification: Notification) -> Bool {
+        guard let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
+                as? NSPersistentCloudKitContainer.Event else { return false }
+        return event.type == .import && event.endDate != nil && event.succeeded
     }
 
     /// `PPLZ_STORE` if set, otherwise `~/Library/Application Support/pplz/pplz.store`.
@@ -69,6 +80,12 @@ public final class PplzStore {
         context.insert(person)
         try context.save()
         return person.uuid
+    }
+
+    /// Ties a person to this device's contact, see `PeopleDirectory.adoptions`.
+    public func setContactIdentifier(_ identifier: String, for id: UUID) throws {
+        try fetchPerson(id).localContactIdentifier = identifier
+        try context.save()
     }
 
     /// Returns the person linked to this contact, creating it on first use.

@@ -78,7 +78,13 @@ struct Common: ParsableArguments {
     }
 
     func directory(_ store: PplzStore) throws -> [PersonEntry] {
-        PeopleDirectory.merge(contacts: try contacts(), persons: try store.persons())
+        let persons = try store.persons()
+        let entries = PeopleDirectory.merge(contacts: try contacts(), persons: persons)
+        // persons recorded on the iPhone or iPad: tie them to this Mac's contact and give it the pplz link
+        let adoptions = PeopleDirectory.adoptions(in: entries, persons: persons)
+        for adoption in adoptions { try store.setContactIdentifier(adoption.contactIdentifier, for: adoption.person) }
+        if !adoptions.isEmpty { report(syncHistory(adoptions.map(\.person), store)) }
+        return entries
     }
 
     /// Finds exactly one person; an unknown or ambiguous name ends the command with exit code 2.
