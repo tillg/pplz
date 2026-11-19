@@ -18,6 +18,8 @@ public final class PeopleModel {
         public var initialSelection: String?
         /// Whether the store syncs through the user's private iCloud.
         public var syncsWithICloud = false
+        /// Where the geocoded addresses are kept: per device, whichever store is open.
+        public var geocodeURL = GeocodeStore.defaultURL()
 
         /// Launch options, given the Apple way as `-key value` pairs:
         /// `-store <path>`, `-noContacts YES`, `-select <name or id>`, `-noSync YES`, `-forceSync YES`.
@@ -43,6 +45,7 @@ public final class PeopleModel {
     public enum Mode: String, CaseIterable, Sendable {
         case people = "People"
         case events = "Events"
+        case map = "Map"
     }
 
     /// What the sidebar lists.
@@ -69,6 +72,55 @@ public final class PeopleModel {
     public private(set) var isLoading = false
 
     public var sections: [PeopleSections.Section] { PeopleSections.make(entries, search: search) }
+
+    // MARK: Map
+
+    /// What has been geocoded so far; refreshed as the background locating goes on.
+    public private(set) var geocodes = GeocodeState()
+    private var locating: Task<Void, Never>?
+
+    /// One pin per located address of the people the search finds — the list's filter.
+    public var mapPins: [LocatedPin] { LocatedPeople.pins(for: PeopleSections.matching(entries, search: search), in: geocodes) }
+
+    /// "1 234 of 2 000 addresses located · continues at 14:10"; `nil` if nobody has an address.
+    public var locateStatus: String? {
+        let counts = LocatedPeople.counts(in: entries, state: geocodes)
+        var resumesAt: Date?
+        if case .wait(let until) = geocodes.budget() { resumesAt = until }
+        return LocatedPeople.statusLine(counts, resumesAt: resumesAt)
+    }
+
+    /// Shows a person's card, as when a pin is opened on the map.
+    public func openPerson(key: String) {
+        mode = .people
+        selection = key
+    }
+
+    private func refreshGeocodes() {
+        if let state = try? GeocodeStore(url: configuration.geocodeURL).load() { geocodes = state }
+    }
+
+    /// Geocodes the addresses that are still open, in the background, for as long as the app runs: after
+    /// a pause it carries on by itself, and new pins appear as they are located. People appear only with
+    /// contacts on, so with `-noContacts` nothing is ever sent.
+    private func startLocating() {
+        refreshGeocodes()
+        guard locating == nil, !LocatedPeople.outstanding(in: entries, state: geocodes).isEmpty else { return }
+        let store = GeocodeStore(url: configuration.geocodeURL)
+        locating = Task { [weak self] in
+            while !Task.isCancelled, let self {
+                let todo = LocatedPeople.outstanding(in: self.entries, state: self.geocodes)
+                if todo.isEmpty { break }
+                let outcome = try? await AddressLocator.locate(todo, in: store) { _ in
+                    Task { @MainActor in self.refreshGeocodes() }
+                }
+                self.refreshGeocodes()
+                guard case .paused(let until)? = outcome else { break }
+                try? await Task.sleep(for: .seconds(max(1, until.timeIntervalSinceNow)))
+            }
+            self?.locating = nil
+        }
+    }
 
     public struct EventSection: Identifiable, Equatable, Sendable {
         /// E.g. "November 2026".
@@ -158,6 +210,7 @@ public final class PeopleModel {
             events = try store.events()
             knownTags = try store.tags().map(\.name)
             suggestedFormat = try store.lastLoggedFormat() ?? .liveMeeting
+            startLocating()
             errorMessage = nil
             if let wanted = pendingSelection {
                 pendingSelection = nil

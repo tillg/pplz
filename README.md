@@ -58,6 +58,8 @@ pplz log "Anna Example" --format phone-call --title "Catch-up" --at yesterday
 pplz log "Ben New" --create --title "Fair" --format gathering --at 2026-10-03 --end 2026-10-05 --place Frankfurt
 pplz person "Anna Example"                         # contact details, notes, tags and history
 pplz person open "Anna Example"                    # show the card in the Contacts app
+pplz people --near Köln --within 50km              # people with an address near Köln, nearest first (50, 50 km, 800m also work)
+pplz locate                                        # locate outstanding addresses (see below); --status shows the progress
 pplz events --since 2026-11-01 --place frankfurt
 pplz followup add <event-id> "send the book title"
 pplz person connect "Anna Example" "manager of" "Ben New"     # Ben's card in Contacts gets "manager: Anna Example"
@@ -74,6 +76,7 @@ pplz --help
 - A date without a time means the whole day for `--end` and `--until`.
 - The store is `~/Library/Application Support/pplz/pplz.store`; set `PPLZ_STORE` or pass `--store` to use another file.
 - Contacts are read for names and details (macOS asks for access on first use). pplz writes three things into them: a `pplz` link row that opens the person in the app, connections as "related name" rows, and — only after `pplz contacts history on` — a history block in the note, between `── pplz ──` and `── /pplz ──`; your own note text around it is never changed. `pplz contacts sync` brings everything up to date, `person disconnect` and `contacts history off` remove what pplz added. `--no-contacts` neither reads nor writes the address book.
+- `--near` needs the addresses of your contacts located first: `pplz locate` sends them to Apple's geocoder, at most 300 per clock hour and one per second, and when the hour's budget is spent it says when it can continue (ten minutes into the next hour) and stops. Results are kept on this Mac in `geocache.json` next to the default store, whichever store is used; the app uses the same file. `people --near` tells you how many addresses are not located yet.
 - Event formats: `live-meeting`, `web-call`, `phone-call`, `gathering`, `written`.
 - Events can carry links (`--link`, repeatable), e.g. to a calendar entry or a document.
 
@@ -82,6 +85,8 @@ Run the tests with `swift test`.
 ## Apps
 
 The Mac app shows your people and each person's card, laid out like Contacts with pink highlights; next to a birthday it shows the age. You can browse and search people and events; log an event in a few seconds (the New Event button above the list, or + on a person's card): type two letters to pick one or several people — those you met most recently are offered right away — while time and the format you used last are already filled in; someone who is not in your contacts yet is added by typing the name and choosing "New person"; such a person lives in pplz only until you press "Add to Contacts" on their card, which creates the contact (name and `pplz` link) and opens it so you can enter phone, mail and the rest; edit their tags, notes, how you met and keep-in-touch rhythm (the pencil) — when tagging, the tags you already use are offered, and typing a new name creates one; add and remove relationships; edit and delete events, and add or remove their people ("Add people" in the event); and add and tick off follow-ups. Changes made with the CLI appear when the app comes to the front.
+
+**Map:** the third entry next to People and Events shows everyone with a postal address on a map — one pin per address, labelled home / work, nearby pins grouped with a count; open the callout of a pin to get to the person. The search field filters the map like the list. While the app runs it locates your contacts' addresses in the background (the street, postal code, city and country of each address are sent to Apple's geocoding service, at most 300 per hour; the status line at the bottom says how far it is and when it continues). Results stay on the device and are not synced; people with only a city appear at the city centre.
 
 **Capture a profile:** the Capture Profile button above the list takes a screenshot of someone's profile (e.g. LinkedIn) — a file on the Mac, a photo on iPhone / iPad. Quicker: share the screenshot or the profile link to pplz from the share menu (iPhone, iPad and Mac), or on the Mac paste it into pplz (⌘V, or Edit → Paste Screenshot or Business Card) or drag it onto the window. pplz reads it on the device: Vision recognises the text and crops the profile picture, Apple's on-device language model sorts the text into name, job title, company and place (iOS 26 / macOS 26 or later with Apple Intelligence; otherwise you fill in the fields yourself). A LinkedIn address visible in the screenshot is picked up too. You check the fields, say who it is — pplz proposes people with the same LinkedIn profile or name, or "New person", and "Search people" finds anyone else — and pplz creates or completes the person and the contact; it only fills fields that are still empty. Then it asks which event you met at: a recent pplz event, an entry of your calendar, or a new event.
 

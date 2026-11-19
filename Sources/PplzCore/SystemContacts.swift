@@ -24,7 +24,14 @@ public enum SystemContacts {
                 result.append(ContactSummary(identifier: contact.identifier, name: name.trimmed, nickname: contact.nickname.trimmed,
                                              pplzPersonID: link, organization: contact.organizationName.trimmed,
                                              city: contact.postalAddresses.first?.value.city.trimmed ?? "",
-                                             country: contact.postalAddresses.first?.value.country.trimmed ?? ""))
+                                             country: contact.postalAddresses.first?.value.country.trimmed ?? "",
+                                             addresses: contact.postalAddresses.map { labeled in
+                                                 let address = labeled.value
+                                                 return PostalAddress(
+                                                     label: labeled.label.map { CNLabeledValue<NSString>.localizedString(forLabel: $0) } ?? "",
+                                                     street: address.street.trimmed, postalCode: address.postalCode.trimmed,
+                                                     city: address.city.trimmed, country: address.country.trimmed)
+                                             }))
             }
         }
         return result

@@ -13,6 +13,8 @@ public struct PersonEntry: Encodable, Equatable, Sendable {
     public var nickname: String = ""
     /// The contact's company and place, for telling people of the same name apart: "Firm · City · Country".
     public var context: String = ""
+    /// The contact's postal addresses, for the map. Not part of the JSON output.
+    public var addresses: [PostalAddress] = []
 
     /// Someone typed in by name who is neither a contact nor a person in pplz yet.
     public static func new(named name: String) -> PersonEntry {
@@ -81,7 +83,8 @@ public enum PeopleDirectory {
             return PersonEntry(id: person?.id, contactIdentifier: contact.identifier, name: contact.name,
                                eventCount: person?.eventCount ?? 0, lastMet: person?.lastMet, tags: person?.tags ?? [],
                                nickname: contact.nickname,
-                               context: [contact.organization, contact.city, contact.country].filter { !$0.isEmpty }.joined(separator: " · "))
+                               context: [contact.organization, contact.city, contact.country].filter { !$0.isEmpty }.joined(separator: " · "),
+                               addresses: contact.addresses)
         }
         for person in persons where !claimed.contains(person.id) {
             entries.append(PersonEntry(id: person.id, contactIdentifier: person.contactIdentifier, name: person.name,

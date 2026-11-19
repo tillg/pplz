@@ -8,16 +8,21 @@ public enum PeopleSections {
         public var id: String { title }
     }
 
-    /// Sections A–Z by first letter (accents ignored), everything else under "#" at the end.
-    /// `search` matches names, nicknames and tags, ignoring case and accents.
-    public static func make(_ entries: [PersonEntry], search: String = "") -> [Section] {
+    /// `search` matches names, nicknames and tags, ignoring case and accents. The list and the map both use it.
+    public static func matching(_ entries: [PersonEntry], search: String) -> [PersonEntry] {
         let query = search.trimmed
         let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
-        let matching = query.isEmpty ? entries : entries.filter { entry in
+        return query.isEmpty ? entries : entries.filter { entry in
             entry.name.range(of: query, options: options) != nil
                 || entry.nickname.range(of: query, options: options) != nil
                 || entry.tags.contains { $0.range(of: query, options: options) != nil }
         }
+    }
+
+    /// Sections A–Z by first letter (accents ignored), everything else under "#" at the end.
+    public static func make(_ entries: [PersonEntry], search: String = "") -> [Section] {
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        let matching = matching(entries, search: search)
         var groups: [String: [PersonEntry]] = [:]
         for entry in matching { groups[title(for: entry.name), default: []].append(entry) }
         return groups.keys

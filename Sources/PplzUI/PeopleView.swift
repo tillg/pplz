@@ -35,6 +35,10 @@ public struct PeopleView: View {
     private struct ShownContact: Identifiable { let id: String }
     #endif
     private var opensEvents = false
+    private var opensMap = false
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    #endif
 
     public enum Sheet: String, Identifiable, Sendable {
         case log, quickLog, edit, editEvent, connect
@@ -47,10 +51,11 @@ public struct PeopleView: View {
         _sheet = State(initialValue: initialSheet)
     }
 
-    /// Reads the launch options `-show log|quickLog|edit|editEvent|connect`, `-mode events` and `-capture <image file>`.
+    /// Reads the launch options `-show log|quickLog|edit|editEvent|connect`, `-mode events|map` and `-capture <image file>`.
     public init(model: PeopleModel, defaults: UserDefaults) {
         self.init(model: model, initialSheet: defaults.string(forKey: "show").flatMap(Sheet.init))
         opensEvents = defaults.string(forKey: "mode") == "events"
+        opensMap = defaults.string(forKey: "mode") == "map"
         // `-capture <image file>` opens the capture sheet for that file (used to check the flow)
         if let path = defaults.string(forKey: "capture"), let data = FileManager.default.contents(atPath: path) {
             _capture = State(initialValue: CapturedImage(data: data))
@@ -63,6 +68,7 @@ public struct PeopleView: View {
                 switch model.mode {
                 case .people: peopleList
                 case .events: eventsList
+                case .map: mapSidebar
                 }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
@@ -98,6 +104,7 @@ public struct PeopleView: View {
             switch model.mode {
             case .people: personDetail
             case .events: eventDetail
+            case .map: mapPane
             }
         }
         .navigationTitle("pplz")
@@ -189,6 +196,7 @@ public struct PeopleView: View {
                 model.mode = .events
                 model.selectedEventID = model.events.first?.id
             }
+            if opensMap { model.mode = .map }
         }
         #if os(macOS)
         // Reload whenever the app comes to the front, so changes made by the CLI show up.
@@ -272,6 +280,35 @@ extension PeopleView {
                 ContentUnavailableView(model.search.isEmpty ? "No people yet" : "No results", systemImage: "person.2")
             }
         }
+    }
+
+    /// The people list; on an iPhone, where the detail column is never shown without a selection, the map itself.
+    @ViewBuilder private var mapSidebar: some View {
+        #if os(iOS)
+        if sizeClass == .compact { mapPane } else { peopleList }
+        #else
+        peopleList
+        #endif
+    }
+
+    private var mapPane: some View {
+        PersonMap(pins: model.mapPins, focus: model.selection, fitID: model.search, onOpen: { model.openPerson(key: $0) })
+            .overlay {
+                if model.mapPins.isEmpty {
+                    ContentUnavailableView(model.search.isEmpty ? "No one on the map yet" : "No results", systemImage: "map",
+                                           description: Text(model.search.isEmpty ? "People with an address appear here once it is located." : ""))
+                        .background(.background)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if let status = model.locateStatus {
+                    Text(status)
+                        .font(.caption).foregroundStyle(.secondary)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(8)
+                }
+            }
     }
 
     private var eventsList: some View {

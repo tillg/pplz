@@ -53,9 +53,12 @@ public struct ContactSummary: Codable, Equatable, Sendable {
     public var organization: String
     public var city: String
     public var country: String
+    /// Every postal address of the contact, for the map.
+    public var addresses: [PostalAddress]
 
     public init(identifier: String, name: String, nickname: String = "", pplzPersonID: UUID? = nil, organization: String = "",
-                city: String = "", country: String = "") {
+                city: String = "", country: String = "", addresses: [PostalAddress] = []) {
+        self.addresses = addresses
         self.organization = organization
         self.city = city
         self.country = country

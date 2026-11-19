@@ -570,3 +570,28 @@ import Testing
         #expect(try store.events()[0].participants.map(\.name) == ["Anna Example", "Oliver Massmann"])
     }
 }
+
+/// The map mode: a third entry next to People and Events. Pins come from contacts' addresses, which a
+/// test without the address book does not have; what can be tried here is the way from a pin to a card.
+@MainActor
+@Suite struct MapModeTests {
+    @Test func openingAPinShowsThePersonsCard() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("pplz-ui-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("test.store")
+        var configuration = PeopleModel.Configuration(storeURL: url, usesContacts: false)
+        configuration.geocodeURL = dir.appendingPathComponent("geocache.json")
+        let model = PeopleModel(configuration: configuration)
+        let anna = try PplzStore(url: url).createPerson(name: "Anna Example")
+        await model.reload()
+
+        model.mode = .map
+        #expect(PeopleModel.Mode.allCases.map(\.rawValue) == ["People", "Events", "Map"])
+        #expect(model.mapPins.isEmpty)
+        #expect(model.locateStatus == nil)
+
+        model.openPerson(key: anna.uuidString)
+        #expect(model.mode == .people)
+        #expect(model.selection == anna.uuidString)
+    }
+}

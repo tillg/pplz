@@ -20,6 +20,9 @@ edited: 2026-11-19
   - [21:15 — Commit, push to main and write to the issue tracker without asking](#run-2026-11-19-2114-1)
   - [21:16 — Build only issue 7; the other six get questions](#run-2026-11-19-2114-2)
   - [21:18 — The age is counted by month and day, and shown in the app only](#run-2026-11-19-2114-3)
+- [2026-11-19 23:24 — Build the answered issues: map, photos, Contacts functions](#run-2026-11-19-2324)
+  - [23:28 — Build 4, then 2, then 1 without deleting; ask again on 5 and on deleting](#run-2026-11-19-2324-1)
+  - [23:29 — At most 300 addresses an hour go to Apple's map service](#run-2026-11-19-2324-2)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -161,3 +164,41 @@ edited: 2026-11-19
 - **Why:** comparing month and day is the usual rule in Germany and needs no calendar arithmetic. The JSON is read by scripts, and an age in it would be out of date the next day.
 - **Alternatives:** count 28 February as the birthday in other years (what Apple's calendar arithmetic does); show the age in the command line too.
 - **Consequences:** none for stored data. The date itself stays in the form `YYYY-MM-DD`; a localised date would be a separate change.
+
+# 2026-11-19 23:24 — Build the answered issues: map, photos, Contacts functions {#run-2026-11-19-2324}
+
+- **Started by:** `/autonomous`
+- **Task, as given:**
+
+  > Read the comments of the issues and work on the ones where u feel confident. For the ones where there is information missing, write your questions into a comment (if you haven't done so yet).
+  > Every time u start woking on an issue, set it a label "wip". When done, close the issue.
+
+  Added by the user during the run: "In between always commit & push".
+
+## 23:28 — Build 4, then 2, then 1 without deleting; ask again on 5 and on deleting {#run-2026-11-19-2324-1}
+
+- **Status:** open
+- **Context:** the user answered the questions on issues 1, 2, 4 and 5. Issue 3 has no answer yet; issue 6 was closed by the user.
+- **Question:** which issues are clear enough to build, and in which order?
+- **Decision:**
+  - Build 4 (map) first, then 2 (photos of a person), then 1 (Contacts functions) in slices: round buttons with a choice of number, then editing and creating.
+  - Deleting a contact (part of 1) is not built; a follow-up question is posted. Issue 1 stays open with the label `wip` until that part is done.
+  - 5 (exchange cards) is not started; follow-up questions are posted.
+  - 3 is left alone: the questions are already there.
+- **Why:**
+  - 4 is fully answered and stores nothing in the synced data.
+  - 2 is fully answered but adds to the synced data, so it comes after the simpler one.
+  - Deleting cannot be undone, and the answer does not say whether the Apple contact goes at once or after the 30 days.
+  - 5 needs a store release, a website and two iCloud accounts, and iOS hands nothing from a QR code through an installation; how the card reaches a fresh app is open.
+- **Alternatives:** build deleting with the contact removed after 30 days (my proposal in the comment), unattended; start 5 with the parts that need no release.
+- **Consequences:** issues 1, 3 and 5 stay open after the run. For editing on the Mac and the edit screen on iPhone / iPad the user gave no choice, so the defaults proposed in the first comment apply: the Mac edits through the Contacts app where the framework cannot save, and iPhone / iPad keep the system's contact card.
+
+## 23:29 — At most 300 addresses an hour go to Apple's map service {#run-2026-11-19-2324-2}
+
+- **Status:** open
+- **Context:** issue 4. The user's rule: count the addresses sent in the current hour, pause until the next hour plus 10 minutes, then continue. The rule names no number, and Apple publishes none.
+- **Question:** how many addresses per hour, and through which interface?
+- **Decision:** 300 per clock hour, at least one second apart. If Apple's service answers with its "too many requests" error earlier, the hour counts as used up. The lookups use `CLGeocoder`. Results and the counter are kept in one file per device, outside the synced store, shared by the app and the command line.
+- **Why:** 300 an hour is far below anything reported to trigger the limit, and a few thousand addresses are still done within a day. `CLGeocoder` works on all supported systems (macOS 15, iOS 18); its successor needs version 26. A cache outside the store means a test instance does not send every address again.
+- **Alternatives:** a higher number (faster first run, more likely to be throttled); the newer MapKit request (not available on the oldest supported systems).
+- **Consequences:** the first complete run over a large address book takes several hours of app time. `CLGeocoder` is marked as deprecated from version 26 and has to be replaced when the minimum system is raised. The "50 lookups a minute" in the first comment on the issue was not verified.
