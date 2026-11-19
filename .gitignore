@@ -27,3 +27,5 @@ App/Mac/Info.plist
 App/iOS/Info.plist
 App/Mac/pplz.entitlements
 App/iOS/pplz.entitlements
+App/Share/Info.plist
+App/Share/pplzShare.entitlements

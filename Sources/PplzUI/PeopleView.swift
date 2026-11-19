@@ -21,7 +21,8 @@ public struct PeopleView: View {
     #endif
     private struct CapturedImage: Identifiable {
         let id = UUID()
-        let data: Data
+        var data: Data?
+        var link: String?
     }
     #if os(iOS)
     /// The contact whose system card is shown.
@@ -109,7 +110,7 @@ public struct PeopleView: View {
                 sheet = .log
             }
         }) { image in
-            CaptureSheet(model: model, imageData: image.data, onNewEvent: { logsAfterCapture = true })
+            CaptureSheet(model: model, imageData: image.data, link: image.link, onNewEvent: { logsAfterCapture = true })
         }
         .sheet(item: Binding(get: { sheetIfPossible }, set: { sheet = $0 })) { sheet in
             switch sheet {
@@ -158,9 +159,13 @@ public struct PeopleView: View {
         }
         #else
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await model.reload() } }
+            if phase == .active {
+                Task { await model.reload() }
+                checkInbox()
+            }
         }
         #endif
+        .onChange(of: model.captureRequests) { checkInbox() }
         // Changes from another device show up as soon as iCloud has delivered them.
         .onReceive(NotificationCenter.default.publisher(for: PplzStore.syncNotification).receive(on: DispatchQueue.main)) { note in
             if PplzStore.broughtNewData(note) { Task { await model.reload() } }
@@ -177,6 +182,13 @@ public struct PeopleView: View {
 }
 
 extension PeopleView {
+    /// Starts a capture for what was shared to pplz from another app.
+    private func checkInbox() {
+        guard capture == nil, let items = try? CaptureInbox.shared?.takeAll(), let request = CaptureInbox.request(from: items) else { return }
+        sheet = nil
+        capture = CapturedImage(data: request.image, link: request.link)
+    }
+
     /// Creates the contact and shows it right away, ready to be filled in.
     private func addToContacts() {
         Task {

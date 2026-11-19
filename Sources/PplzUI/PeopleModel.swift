@@ -56,6 +56,8 @@ public final class PeopleModel {
     /// False when the address book is neither read nor written (`-noContacts`).
     public var usesContacts: Bool { configuration.usesContacts }
     public private(set) var knownTags: [String] = []
+    /// Counts `pplz://capture` links; the view looks into the capture inbox whenever it changes.
+    public private(set) var captureRequests = 0
     /// The format offered when logging: the one used last.
     public private(set) var suggestedFormat: EventFormat = .liveMeeting
     public private(set) var card: PersonCard?
@@ -423,6 +425,10 @@ public final class PeopleModel {
 
     /// Handles a `pplz://person/<id>` link, e.g. clicked in the Contacts app.
     public func open(_ url: URL) async {
+        if url.scheme == "pplz", url.host == "capture" {
+            captureRequests += 1      // the share extension has put something into the inbox
+            return
+        }
         guard let id = PersonLink.personID(from: url) else { return }
         if entries.isEmpty { await reload() }
         await showPerson(id)

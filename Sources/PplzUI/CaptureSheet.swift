@@ -6,7 +6,10 @@ import SwiftUI
 /// which event the person belongs to.
 struct CaptureSheet: View {
     let model: PeopleModel
-    let imageData: Data
+    /// The screenshot, if one was shared.
+    let imageData: Data?
+    /// A profile link shared alone or along with the screenshot.
+    var link: String? = nil
     /// "New event" was chosen: the caller opens the quick log for the person just saved.
     let onNewEvent: () -> Void
 
@@ -34,7 +37,8 @@ struct CaptureSheet: View {
         }
         .task {
             guard phase == .reading else { return }
-            profile = await ProfileReader.read(imageData: imageData) ?? CapturedProfile()
+            if let imageData { profile = await ProfileReader.read(imageData: imageData) ?? CapturedProfile() }
+            if let shared = link.flatMap(LinkedInLink.profileID(in:)) { profile.linkedInID = shared }
             linkedIn = profile.linkedInID.isEmpty ? "" : LinkedInLink.url(forProfileID: profile.linkedInID)
             choice = bestGuess
             phase = .review
@@ -56,7 +60,10 @@ struct CaptureSheet: View {
                         .frame(maxWidth: .infinity)
                         .accessibilityLabel("Profile picture")
                 }
-                if let problem = ProfileReader.modelProblem {
+                if imageData == nil {
+                    Text("A profile link was shared. Choose whose it is.").font(.footnote).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if let problem = ProfileReader.modelProblem {
                     Text("\(problem) Please fill in the fields yourself.").font(.footnote).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -104,7 +111,13 @@ struct CaptureSheet: View {
         return profile
     }
 
-    private var candidates: [PersonEntry] { model.captureCandidates(for: edited) }
+    /// The proposals, plus — for a link shared alone — the person whose card is open: most likely the
+    /// one whose screenshot was captured a moment ago.
+    private var candidates: [PersonEntry] {
+        let proposed = model.captureCandidates(for: edited)
+        guard imageData == nil, let open = model.card?.entry, !proposed.contains(where: { $0.key == open.key }) else { return proposed }
+        return proposed + [open]
+    }
 
     /// The first proposal is preselected only when it is certain enough: the same LinkedIn profile or the same name.
     private var bestGuess: String {

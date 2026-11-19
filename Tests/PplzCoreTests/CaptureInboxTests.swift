@@ -31,4 +31,12 @@ import Testing
         #expect(try inbox.takeAll() == [.link("x")])
         #expect(FileManager.default.fileExists(atPath: stranger.path))
     }
+
+    @Test func aScreenshotAndALinkSharedTogetherMakeOneCapture() {
+        #expect(CaptureInbox.request(from: []) == nil)
+        #expect(CaptureInbox.request(from: [.link("https://www.linkedin.com/in/anna-example")])
+                == CaptureInbox.Request(image: nil, link: "https://www.linkedin.com/in/anna-example"))
+        #expect(CaptureInbox.request(from: [.image(Data([1])), .link("l"), .image(Data([2]))])
+                == CaptureInbox.Request(image: Data([2]), link: "l"))     // the latest of each
+    }
 }

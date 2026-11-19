@@ -10,6 +10,29 @@ public struct CaptureInbox: Sendable {
         case link(String)
     }
 
+    /// One capture to run: a screenshot, a profile link, or both.
+    public struct Request: Equatable, Sendable {
+        public var image: Data?
+        public var link: String?
+
+        public init(image: Data? = nil, link: String? = nil) {
+            self.image = image
+            self.link = link
+        }
+    }
+
+    /// What to capture from the things that were waiting: the latest screenshot and the latest link.
+    public static func request(from items: [Item]) -> Request? {
+        var request = Request()
+        for item in items {
+            switch item {
+            case .image(let data): request.image = data
+            case .link(let text): request.link = text
+            }
+        }
+        return request == Request() ? nil : request
+    }
+
     public let directory: URL
 
     public init(directory: URL) { self.directory = directory }
