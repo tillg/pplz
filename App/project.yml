@@ -51,6 +51,7 @@ targets:
         LSApplicationCategoryType: public.app-category.productivity
         NSContactsUsageDescription: "pplz shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and pplz does not share them with anyone."
         NSAppleEventsUsageDescription: "pplz asks the Contacts app to show a person's card and to add what you record in pplz."
+        NSCalendarsFullAccessUsageDescription: "pplz offers your current and recent calendar entries when you record whom you met."
         CFBundleURLTypes:
           - CFBundleURLName: com.tillg.pplz
             CFBundleURLSchemes: [pplz]
@@ -82,6 +83,7 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         NSContactsUsageDescription: "pplz shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and pplz does not share them with anyone."
+        NSCalendarsFullAccessUsageDescription: "pplz offers your current and recent calendar entries when you record whom you met."
         CFBundleURLTypes:
           - CFBundleURLName: com.tillg.pplz
             CFBundleURLSchemes: [pplz]

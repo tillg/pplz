@@ -1,5 +1,7 @@
+import PhotosUI
 import PplzCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The main window: people on the left, the selected person's card on the right —
 /// laid out like the Contacts app, tinted pink (SPEC §4.7).
@@ -10,6 +12,17 @@ public struct PeopleView: View {
     @State private var isConfirmingDelete = false
     /// The event edit sheet was opened through "Add people".
     @State private var addsPeople = false
+    /// A screenshot that is being captured (SPEC §4.4).
+    @State private var capture: CapturedImage?
+    @State private var isChoosingCapture = false
+    @State private var logsAfterCapture = false
+    #if os(iOS)
+    @State private var pickedPhoto: PhotosPickerItem?
+    #endif
+    private struct CapturedImage: Identifiable {
+        let id = UUID()
+        let data: Data
+    }
     #if os(iOS)
     /// The contact whose system card is shown.
     @State private var shownContact: ShownContact?
@@ -28,10 +41,14 @@ public struct PeopleView: View {
         _sheet = State(initialValue: initialSheet)
     }
 
-    /// Reads the launch options `-show log|quickLog|edit|editEvent|connect` and `-mode events`.
+    /// Reads the launch options `-show log|quickLog|edit|editEvent|connect`, `-mode events` and `-capture <image file>`.
     public init(model: PeopleModel, defaults: UserDefaults) {
         self.init(model: model, initialSheet: defaults.string(forKey: "show").flatMap(Sheet.init))
         opensEvents = defaults.string(forKey: "mode") == "events"
+        // `-capture <image file>` opens the capture sheet for that file (used to check the flow)
+        if let path = defaults.string(forKey: "capture"), let data = FileManager.default.contents(atPath: path) {
+            _capture = State(initialValue: CapturedImage(data: data))
+        }
     }
 
     public var body: some View {
@@ -56,6 +73,10 @@ public struct PeopleView: View {
                     Button("New Event", systemImage: "calendar.badge.plus") { sheet = .quickLog }
                         .help("Log a meeting or call you just had")
                 }
+                ToolbarItem {
+                    Button("Capture Profile", systemImage: "person.crop.rectangle.badge.plus") { isChoosingCapture = true }
+                        .help("Read a screenshot of someone's profile, e.g. from LinkedIn")
+                }
             }
             .navigationSplitViewColumnWidth(min: 230, ideal: 290)
         } detail: {
@@ -65,6 +86,31 @@ public struct PeopleView: View {
             }
         }
         .navigationTitle("pplz")
+        #if os(macOS)
+        .fileImporter(isPresented: $isChoosingCapture, allowedContentTypes: [.image]) { result in
+            guard let url = try? result.get() else { return }
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            if let data = try? Data(contentsOf: url) { capture = CapturedImage(data: data) }
+        }
+        #else
+        .photosPicker(isPresented: $isChoosingCapture, selection: $pickedPhoto, matching: .images)
+        .onChange(of: pickedPhoto) { _, item in
+            guard let item else { return }
+            pickedPhoto = nil
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) { capture = CapturedImage(data: data) }
+            }
+        }
+        #endif
+        .sheet(item: $capture, onDismiss: {
+            if logsAfterCapture {
+                logsAfterCapture = false
+                sheet = .log
+            }
+        }) { image in
+            CaptureSheet(model: model, imageData: image.data, onNewEvent: { logsAfterCapture = true })
+        }
         .sheet(item: Binding(get: { sheetIfPossible }, set: { sheet = $0 })) { sheet in
             switch sheet {
             case .log:

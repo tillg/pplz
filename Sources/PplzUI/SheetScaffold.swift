@@ -7,6 +7,8 @@ struct SheetScaffold<Content: View>: View {
     let confirmTitle: String
     var canConfirm = true
     var width: CGFloat = 460
+    /// False for a sheet with more than one step: confirming then leaves it open.
+    var dismissesOnConfirm = true
     let onConfirm: () -> Void
     @ViewBuilder let content: Content
 
@@ -46,7 +48,7 @@ struct SheetScaffold<Content: View>: View {
 
     private func confirm() {
         onConfirm()
-        dismiss()
+        if dismissesOnConfirm { dismiss() }
     }
 }
 
