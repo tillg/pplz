@@ -21,16 +21,22 @@ public struct CaptureInbox: Sendable {
         }
     }
 
-    /// What to capture from the things that were waiting: the latest screenshot and the latest link.
-    public static func request(from items: [Item]) -> Request? {
-        var request = Request()
+    /// The captures to run for the things that were waiting, in order. Every screenshot is its own
+    /// capture; a link shared right after a screenshot belongs to it; any other link stands alone.
+    public static func requests(from items: [Item]) -> [Request] {
+        var requests: [Request] = []
+        var lastWasImage = false
         for item in items {
             switch item {
-            case .image(let data): request.image = data
-            case .link(let text): request.link = text
+            case .image(let data):
+                requests.append(Request(image: data))
+                lastWasImage = true
+            case .link(let text):
+                if lastWasImage { requests[requests.count - 1].link = text } else { requests.append(Request(link: text)) }
+                lastWasImage = false
             }
         }
-        return request == Request() ? nil : request
+        return requests
     }
 
     public let directory: URL
@@ -59,9 +65,9 @@ public struct CaptureInbox: Sendable {
         let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .filter { ["image", "link"].contains($0.pathExtension) }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
-        return try files.map { file in
-            let data = try Data(contentsOf: file)
-            try FileManager.default.removeItem(at: file)
+        // a file that cannot be read is left where it is and does not cost the others
+        return files.compactMap { file in
+            guard let data = try? Data(contentsOf: file), (try? FileManager.default.removeItem(at: file)) != nil else { return nil }
             return file.pathExtension == "image" ? .image(data) : .link(String(decoding: data, as: UTF8.self))
         }
     }

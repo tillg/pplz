@@ -8,7 +8,9 @@ public struct CalendarEntry: Equatable, Sendable, Identifiable {
     public var end: Date?
     public var place: String
     public var isAllDay: Bool
-    public var id: String { "\(title)|\(start.timeIntervalSince1970)" }
+    public var id: String { "\(key)|\(end?.timeIntervalSince1970 ?? 0)|\(place)" }
+    /// What makes a calendar entry and a pplz event "the same meeting": title and start.
+    public var key: String { "\(title.trimmed)|\(start.timeIntervalSince1970)" }
 
     public init(title: String, start: Date, end: Date? = nil, place: String = "", isAllDay: Bool = false) {
         self.title = title
@@ -21,7 +23,8 @@ public struct CalendarEntry: Equatable, Sendable, Identifiable {
     /// What to offer when asking "which event was this?": entries going on right now first, then
     /// those that already started, latest first. Entries without a title and future ones are left out.
     public static func relevant(_ entries: [CalendarEntry], now: Date = Date(), limit: Int = 6) -> [CalendarEntry] {
-        let started = entries.filter { !$0.title.trimmed.isEmpty && $0.start <= now }
+        var seen = Set<String>()     // the same meeting in two calendars is offered once
+        let started = entries.filter { !$0.title.trimmed.isEmpty && $0.start <= now && seen.insert($0.key).inserted }
         func isCurrent(_ entry: CalendarEntry) -> Bool { (entry.end ?? entry.start) >= now }
         return Array(started.sorted { a, b in
             isCurrent(a) != isCurrent(b) ? isCurrent(a) : a.start > b.start

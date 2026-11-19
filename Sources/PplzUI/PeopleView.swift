@@ -14,6 +14,8 @@ public struct PeopleView: View {
     @State private var addsPeople = false
     /// A screenshot that is being captured (SPEC §4.4).
     @State private var capture: CapturedImage?
+    /// Further things shared to pplz, captured one after the other.
+    @State private var waitingCaptures: [CapturedImage] = []
     @State private var isChoosingCapture = false
     @State private var logsAfterCapture = false
     #if os(iOS)
@@ -108,6 +110,8 @@ public struct PeopleView: View {
             if logsAfterCapture {
                 logsAfterCapture = false
                 sheet = .log
+            } else {
+                checkInbox()      // the next one that was shared, if any
             }
         }) { image in
             CaptureSheet(model: model, imageData: image.data, link: image.link, onNewEvent: { logsAfterCapture = true })
@@ -166,6 +170,7 @@ public struct PeopleView: View {
         }
         #endif
         .onChange(of: model.captureRequests) { checkInbox() }
+        .onChange(of: sheet) { _, open in if open == nil { checkInbox() } }
         // Changes from another device show up as soon as iCloud has delivered them.
         .onReceive(NotificationCenter.default.publisher(for: PplzStore.syncNotification).receive(on: DispatchQueue.main)) { note in
             if PplzStore.broughtNewData(note) { Task { await model.reload() } }
@@ -182,11 +187,14 @@ public struct PeopleView: View {
 }
 
 extension PeopleView {
-    /// Starts a capture for what was shared to pplz from another app.
+    /// Queues what was shared to pplz from another app and starts the first capture. An open sheet is
+    /// left alone — its input is the user's; the inbox waits until it has closed.
     private func checkInbox() {
-        guard capture == nil, let items = try? CaptureInbox.shared?.takeAll(), let request = CaptureInbox.request(from: items) else { return }
-        sheet = nil
-        capture = CapturedImage(data: request.image, link: request.link)
+        guard sheet == nil, capture == nil else { return }
+        if let items = try? CaptureInbox.shared?.takeAll() {
+            waitingCaptures += CaptureInbox.requests(from: items).map { CapturedImage(data: $0.image, link: $0.link) }
+        }
+        if !waitingCaptures.isEmpty { capture = waitingCaptures.removeFirst() }
     }
 
     /// Creates the contact and shows it right away, ready to be filled in.

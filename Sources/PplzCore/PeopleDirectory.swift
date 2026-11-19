@@ -120,16 +120,33 @@ public enum PeopleDirectory {
         return taken ? nil : name
     }
 
-    /// A name as it stands on a profile, without academic titles in front ("Dr.", "Prof. Dr.-Ing.")
-    /// and without what follows a comma ("…, MBA").
+    /// A name as it stands on a profile, without academic titles in front ("Dr.", "Prof. Dr.-Ing.",
+    /// "Dr. h.c.") and without degrees after a comma ("…, MBA"). Careful on purpose: "Phil Collins"
+    /// and "C. S. Lewis" are names, so a word only counts as a title if it is written like one.
     public static func nameWithoutTitles(_ name: String) -> String {
-        let titles: Set<String> = ["dr", "prof", "dipl", "ing", "mag", "med", "rer", "nat", "phil", "jur", "h", "c", "hc"]
-        let words = (name.split(separator: ",").first ?? "").split(whereSeparator: \.isWhitespace)
-        let kept = words.drop { word in
-            let parts = word.lowercased().split(whereSeparator: { $0 == "." || $0 == "-" })
-            return !parts.isEmpty && parts.allSatisfy { titles.contains(String($0)) }
+        let dotted: Set<String> = ["dr", "prof", "dipl", "ing", "mag", "med", "rer", "nat", "phil", "jur", "habil"]
+        func isTitle(_ word: Substring) -> Bool {
+            let lower = word.lowercased()
+            if lower == "dr" || lower == "prof" { return true }        // the two that are written without a full stop
+            guard lower.contains(".") else { return false }
+            let parts = lower.split(whereSeparator: { $0 == "." || $0 == "-" }).map(String.init)
+            if parts == ["h", "c"] { return true }
+            return !parts.isEmpty && parts.allSatisfy(dotted.contains)
         }
-        return kept.joined(separator: " ")
+        func isDegree(_ word: Substring) -> Bool {
+            let letters = word.filter(\.isLetter)
+            return !letters.isEmpty && letters.count <= 5 && letters.first!.isUppercase && letters.filter(\.isUppercase).count * 2 >= letters.count
+                && (word.contains(".") || letters.allSatisfy(\.isUppercase) || letters == "PhD")
+        }
+        var text = name[...]
+        let parts = name.split(separator: ",")
+        if parts.count > 1, parts.dropFirst().allSatisfy({ part in
+            let words = part.split(whereSeparator: \.isWhitespace)
+            return !words.isEmpty && words.allSatisfy(isDegree)
+        }) {
+            text = parts[0]
+        }
+        return text.split(whereSeparator: \.isWhitespace).drop(while: isTitle).joined(separator: " ")
     }
 
     /// Who a captured name could be: people of exactly that name first, then those sharing the family

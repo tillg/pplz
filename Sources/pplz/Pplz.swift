@@ -756,10 +756,11 @@ struct Capture: ParsableCommand {
             print(try blocking { try await ProfileImage.text(in: image) }.joined(separator: "\n"))
             return
         }
-        if let problem = ProfileReader.modelProblem {
+        let reading = try blocking { await ProfileReader.read(image) }
+        if let problem = reading.problem {
             FileHandle.standardError.write(Data("Fields are not filled in: \(problem)\n".utf8))
         }
-        let profile = try blocking { await ProfileReader.read(image) }
+        let profile = reading.profile
         let rows = [("Name", profile.name), ("Title", profile.namePrefix), ("Job", profile.jobTitle), ("Company", profile.company),
                     ("City", profile.city), ("Country", profile.country),
                     ("LinkedIn", profile.linkedInID.isEmpty ? "" : LinkedInLink.url(forProfileID: profile.linkedInID)),

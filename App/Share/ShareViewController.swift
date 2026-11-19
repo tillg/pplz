@@ -52,15 +52,21 @@ final class ShareViewController: UIViewController {
         }
         if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
             return await withCheckedContinuation { continuation in
-                _ = provider.loadObject(ofClass: URL.self) { url, _ in continuation.resume(returning: url.map { .link($0.absoluteString) }) }
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in continuation.resume(returning: Self.profileLink(url?.absoluteString)) }
             }
         }
         if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
             return await withCheckedContinuation { continuation in
-                _ = provider.loadObject(ofClass: String.self) { text, _ in continuation.resume(returning: text.map { .link($0) }) }
+                _ = provider.loadObject(ofClass: String.self) { text, _ in continuation.resume(returning: Self.profileLink(text)) }
             }
         }
         return nil
+    }
+
+    /// Only a link to a LinkedIn profile is worth handing over; any other text or address is not.
+    private static func profileLink(_ text: String?) -> CaptureInbox.Item? {
+        guard let text, LinkedInLink.profileID(in: text) != nil else { return nil }
+        return .link(text)
     }
 
     private func data(from provider: NSItemProvider, type: UTType) async -> Data? {

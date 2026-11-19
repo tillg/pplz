@@ -22,6 +22,9 @@ struct CaptureSheet: View {
     @State private var choice = CaptureSheet.newPerson
     /// Once the user has chosen who it is, pplz stops preselecting.
     @State private var hasChosen = false
+    @State private var readingProblem: String?
+    /// A save or an event choice is under way: further taps are ignored.
+    @State private var isBusy = false
     @State private var savedName = ""
     @State private var savedID: UUID?
     @State private var calendar: [CalendarEntry] = []
@@ -37,8 +40,13 @@ struct CaptureSheet: View {
         }
         .task {
             guard phase == .reading else { return }
-            if let imageData { profile = await ProfileReader.read(imageData: imageData) ?? CapturedProfile() }
-            if let shared = link.flatMap(LinkedInLink.profileID(in:)) { profile.linkedInID = shared }
+            if model.entries.isEmpty { await model.reload() }     // opened by a share before the list was loaded
+            if let imageData, let reading = await ProfileReader.read(imageData: imageData) {
+                profile = reading.profile
+                readingProblem = reading.problem
+            }
+            // the address read from the screenshot is about this person for sure; a shared link only fills the gap
+            if profile.linkedInID.isEmpty, let shared = link.flatMap(LinkedInLink.profileID(in:)) { profile.linkedInID = shared }
             linkedIn = profile.linkedInID.isEmpty ? "" : LinkedInLink.url(forProfileID: profile.linkedInID)
             choice = bestGuess
             phase = .review
@@ -63,9 +71,12 @@ struct CaptureSheet: View {
                 if imageData == nil {
                     Text("A profile link was shared. Choose whose it is.").font(.footnote).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                } else if let problem = ProfileReader.modelProblem {
+                } else if let problem = readingProblem {
                     Text("\(problem) Please fill in the fields yourself.").font(.footnote).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                if let error = model.errorMessage {
+                    Text(error).font(.footnote).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
                 }
                 FormField(title: "Name", text: $profile.name)
                     .onChange(of: profile.name) { if !hasChosen { choice = bestGuess } }
@@ -74,7 +85,7 @@ struct CaptureSheet: View {
                 FormField(title: "Company", text: $profile.company)
                 FormField(title: "City", text: $profile.city)
                 FormField(title: "Country", text: $profile.country)
-                FormField(title: "LinkedIn", text: $linkedIn, prompt: "Profile link")
+                FormField(title: "LinkedIn", text: $linkedIn, prompt: "Profile link or ID")
                 who
             }
         }
@@ -107,7 +118,7 @@ struct CaptureSheet: View {
 
     private var edited: CapturedProfile {
         var profile = profile
-        profile.linkedInID = LinkedInLink.profileID(in: linkedIn) ?? ""
+        profile.linkedInID = LinkedInLink.profileID(typed: linkedIn) ?? ""
         return profile
     }
 
@@ -119,16 +130,13 @@ struct CaptureSheet: View {
         return proposed + [open]
     }
 
-    /// The first proposal is preselected only when it is certain enough: the same LinkedIn profile or the same name.
-    private var bestGuess: String {
-        guard let first = candidates.first else { return Self.newPerson }
-        let same = PeopleDirectory.nameWithoutTitles(first.name).compare(
-            PeopleDirectory.nameWithoutTitles(profile.name), options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
-        return same || candidates.count == 1 ? first.key : Self.newPerson
-    }
+    /// Preselected is only what is certain (the same LinkedIn profile, or the one person of exactly
+    /// that name); otherwise "New person" — which cannot be saved without a name, so a link shared
+    /// alone always needs a deliberate choice.
+    private var bestGuess: String { model.capturePreselection(for: edited) ?? Self.newPerson }
 
     private var canSave: Bool {
-        guard phase == .review else { return false }
+        guard phase == .review, !isBusy else { return false }
         if choice == Self.newPerson { return !PeopleDirectory.nameWithoutTitles(profile.name).isEmpty }
         return candidates.contains { $0.key == choice }
     }
@@ -136,8 +144,10 @@ struct CaptureSheet: View {
     private func save() {
         let profile = edited
         let target: PeopleModel.CaptureTarget = choice == Self.newPerson ? .new : .existing(key: choice)
+        isBusy = true
         Task {
-            guard let id = await model.saveCapture(profile, as: target) else { dismiss(); return }
+            defer { isBusy = false }
+            guard let id = await model.saveCapture(profile, as: target) else { return }   // the sheet stays; the error is shown
             savedID = id
             savedName = model.card?.entry.name ?? profile.name
             phase = .event
@@ -188,6 +198,8 @@ struct CaptureSheet: View {
 
     private func eventRow(title: String, date: Date, symbol: String, action: @escaping () async -> Void) -> some View {
         Button {
+            guard !isBusy else { return }
+            isBusy = true
             Task {
                 await action()
                 dismiss()
@@ -210,7 +222,7 @@ struct CaptureSheet: View {
         do {
             // entries that are events in pplz already are offered above, not twice
             let known = Set(model.events.map { "\($0.title)|\($0.start.timeIntervalSince1970)" })
-            calendar = try await SystemCalendar.recentEntries().filter { !known.contains($0.id) }
+            calendar = try await SystemCalendar.recentEntries().filter { !known.contains($0.key) }
         } catch {
             calendarProblem = (error as? LocalizedError)?.errorDescription ?? "The calendar could not be read."
         }

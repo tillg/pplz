@@ -32,11 +32,27 @@ import Testing
         #expect(FileManager.default.fileExists(atPath: stranger.path))
     }
 
-    @Test func aScreenshotAndALinkSharedTogetherMakeOneCapture() {
-        #expect(CaptureInbox.request(from: []) == nil)
-        #expect(CaptureInbox.request(from: [.link("https://www.linkedin.com/in/anna-example")])
-                == CaptureInbox.Request(image: nil, link: "https://www.linkedin.com/in/anna-example"))
-        #expect(CaptureInbox.request(from: [.image(Data([1])), .link("l"), .image(Data([2]))])
-                == CaptureInbox.Request(image: Data([2]), link: "l"))     // the latest of each
+    @Test func everyScreenshotBecomesItsOwnCaptureAndALinkSharedRightAfterBelongsToIt() {
+        #expect(CaptureInbox.requests(from: []).isEmpty)
+        #expect(CaptureInbox.requests(from: [.link("l")]) == [CaptureInbox.Request(image: nil, link: "l")])
+        #expect(CaptureInbox.requests(from: [.image(Data([1])), .link("l1"), .image(Data([2]))])
+                == [CaptureInbox.Request(image: Data([1]), link: "l1"), CaptureInbox.Request(image: Data([2]), link: nil)])
+    }
+
+    @Test func aLinkSharedBeforeAScreenshotIsNotAttachedToIt() {
+        // it may be about somebody else: better two questions than one wrong pairing
+        #expect(CaptureInbox.requests(from: [.link("old"), .image(Data([1]))])
+                == [CaptureInbox.Request(image: nil, link: "old"), CaptureInbox.Request(image: Data([1]), link: nil)])
+        #expect(CaptureInbox.requests(from: [.image(Data([1])), .link("a"), .link("b")])
+                == [CaptureInbox.Request(image: Data([1]), link: "a"), CaptureInbox.Request(image: nil, link: "b")])
+    }
+
+    @Test func anUnreadableFileDoesNotCostTheOthers() throws {
+        let inbox = try makeInbox()
+        try inbox.add(.link("first"), at: day(2026, 11, 19, 10))
+        try inbox.add(.link("third"), at: day(2026, 11, 19, 12))
+        // a folder where a file is expected cannot be read as one
+        try FileManager.default.createDirectory(at: inbox.directory.appendingPathComponent("0001800000000.000000-BROKEN.link"), withIntermediateDirectories: true)
+        #expect(try inbox.takeAll() == [.link("first"), .link("third")])
     }
 }

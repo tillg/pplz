@@ -475,6 +475,27 @@ import Testing
         #expect(model.captureCandidates(for: profile).map(\.name) == ["Olli M.", "Oliver Massmann"])
     }
 
+    @Test func onlyACertainMatchIsPreselected() async throws {
+        let (model, store) = try PeopleModelTests().makeModel()
+        let peter = try store.createPerson(name: "Peter Massmann")
+        await model.reload()
+        // the same family name alone is a proposal, never a preselection
+        #expect(model.captureCandidates(for: profile).map(\.name) == ["Peter Massmann"])
+        #expect(model.capturePreselection(for: profile) == nil)
+
+        let oliver = try store.createPerson(name: "Oliver Massmann")
+        await model.reload()
+        #expect(model.capturePreselection(for: profile) == oliver.uuidString)      // exactly that name, once
+
+        try store.createPerson(name: "Oliver Massmann")
+        await model.reload()
+        #expect(model.capturePreselection(for: profile) == nil)                    // two of that name: ask
+
+        try store.setLinkedInID("dr-oliver-massmann-153a405", for: peter)
+        await model.reload()
+        #expect(model.capturePreselection(for: profile) == peter.uuidString)       // the LinkedIn profile decides
+    }
+
     @Test func aCaptureWithoutANameIsNotSavedAsANewPerson() async throws {
         let (model, store) = try PeopleModelTests().makeModel()
         await model.reload()

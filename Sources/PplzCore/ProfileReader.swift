@@ -25,18 +25,32 @@ public enum ProfileReader {
         return "Reading profiles needs iOS 26 / macOS 26 or later."
     }
 
-    /// Reads what it can; never fails — whatever could not be read stays empty.
-    public static func read(_ image: CGImage) async -> CapturedProfile {
-        let lines = (try? await ProfileImage.text(in: image)) ?? []
-        var profile = (try? await fields(from: lines)) ?? CapturedProfile()
-        profile.linkedInID = LinkedInLink.profileID(in: lines.joined(separator: "\n")) ?? ""
-        if let picture = try? await ProfileImage.picture(in: image) { profile.picture = png(picture) }
-        return profile
+    public struct Reading: Sendable {
+        public var profile: CapturedProfile
+        /// Why fields are empty although a model is there (e.g. it refused or the text was too long); `nil` if all went well.
+        public var problem: String?
     }
 
-    public static func read(imageData: Data) async -> CapturedProfile? {
+    /// Reads what it can; never fails — whatever could not be read stays empty.
+    public static func read(_ image: CGImage) async -> Reading {
+        let lines = (try? await ProfileImage.text(in: image)) ?? []
+        var reading = Reading(profile: CapturedProfile(), problem: modelProblem)
+        do {
+            reading.profile = try await fields(from: lines)
+        } catch {
+            reading.problem = "The fields could not be read automatically (\(error.localizedDescription))."
+        }
+        reading.profile.linkedInID = LinkedInLink.profileID(in: lines.joined(separator: "\n")) ?? ""
+        if let picture = try? await ProfileImage.picture(in: image) { reading.profile.picture = png(picture) }
+        return reading
+    }
+
+    /// `nil` if the data is no image. A photo is turned upright first (screenshots already are).
+    public static func read(imageData: Data) async -> Reading? {
+        let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
+                                        kCGImageSourceThumbnailMaxPixelSize: 4096]
         guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
         return await read(image)
     }
 

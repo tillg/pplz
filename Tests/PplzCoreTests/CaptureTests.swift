@@ -39,6 +39,21 @@ import Testing
         #expect(PeopleDirectory.nameWithoutTitles("Dr Who") == "Who")
         #expect(PeopleDirectory.nameWithoutTitles("Drake Bell") == "Drake Bell")
     }
+
+    @Test func realNamesThatLookLikeTitlesAreKept() {
+        #expect(PeopleDirectory.nameWithoutTitles("Phil Collins") == "Phil Collins")
+        #expect(PeopleDirectory.nameWithoutTitles("C. S. Lewis") == "C. S. Lewis")
+        #expect(PeopleDirectory.nameWithoutTitles("Mag Ruffman") == "Mag Ruffman")
+        #expect(PeopleDirectory.nameWithoutTitles("Ing Chang") == "Ing Chang")
+        #expect(PeopleDirectory.nameWithoutTitles("Dr. h.c. Max Muster") == "Max Muster")
+        #expect(PeopleDirectory.nameWithoutTitles("Dipl.-Ing. Eva Klein") == "Eva Klein")
+    }
+
+    @Test func onlyDegreesAreCutOffAfterAComma() {
+        #expect(PeopleDirectory.nameWithoutTitles("Eva Klein, MBA, PhD") == "Eva Klein")
+        #expect(PeopleDirectory.nameWithoutTitles("Eva Klein, M.Sc.") == "Eva Klein")
+        #expect(PeopleDirectory.nameWithoutTitles("Müller, Anna") == "Müller, Anna")
+    }
 }
 
 /// The profile picture is found by looking for faces. The screenshot is searched tile by tile, at two
@@ -93,6 +108,25 @@ import Testing
         // the address bar in a browser screenshot, as text recognition returns it
         #expect(LinkedInLink.profileID(in: "Search\nwww.linkedin.com/in/dr-oliver-massmann-153a405/\nHome Network Jobs") == "dr-oliver-massmann-153a405")
         #expect(LinkedInLink.profileID(in: "Check out Anna's profile https://www.linkedin.com/in/anna-example?utm_medium=ios_app") == "anna-example")
+    }
+
+    @Test func punctuationAroundTheAddressIsNotPartOfTheID() {
+        #expect(LinkedInLink.profileID(in: "See linkedin.com/in/anna-example.") == "anna-example")
+        #expect(LinkedInLink.profileID(in: "(https://www.linkedin.com/in/anna-example), thanks") == "anna-example")
+    }
+
+    @Test func anAddressCutOffOnScreenIsNotTrusted() {
+        // a narrow address bar shows "linkedin.com/in/dr-oliver-mass…": half an ID would be a wrong ID
+        #expect(LinkedInLink.profileID(in: "www.linkedin.com/in/dr-oliver-mass…") == nil)
+        #expect(LinkedInLink.profileID(in: "www.linkedin.com/in/dr-oliver-mass...") == nil)
+    }
+
+    @Test func whatIsTypedIntoTheLinkedInFieldMayBeTheBareID() {
+        #expect(LinkedInLink.profileID(typed: "Anna-Example-123 ") == "anna-example-123")
+        #expect(LinkedInLink.profileID(typed: "https://www.linkedin.com/in/anna-example/") == "anna-example")
+        #expect(LinkedInLink.profileID(typed: "anna example") == nil)
+        #expect(LinkedInLink.profileID(typed: "https://example.com/anna") == nil)
+        #expect(LinkedInLink.profileID(typed: "") == nil)
     }
 
     @Test func otherAddressesAreNotProfiles() {

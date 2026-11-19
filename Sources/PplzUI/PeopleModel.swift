@@ -456,6 +456,20 @@ public final class PeopleModel {
         return (known.map { [$0] } ?? []) + byName
     }
 
+    /// The proposal that is certain enough to be preselected (its list key): the person with that
+    /// LinkedIn profile, or else the only person of exactly that name. Everything else the user decides.
+    public func capturePreselection(for profile: CapturedProfile) -> String? {
+        if let id = try? store?.person(withLinkedInID: profile.linkedInID), let entry = entries.first(where: { $0.id == id }) {
+            return entry.key
+        }
+        let wanted = PeopleDirectory.nameWithoutTitles(profile.name)
+        guard !wanted.isEmpty else { return nil }
+        let same = entries.filter {
+            PeopleDirectory.nameWithoutTitles($0.name).compare(wanted, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+        }
+        return same.count == 1 ? same[0].key : nil
+    }
+
     /// Saves a reviewed capture: creates the person or updates the chosen one, and — unless contacts
     /// are off — creates or fills the contact. Nothing the person or contact already has is overwritten.
     /// Returns the person's ID and shows their card.
@@ -484,28 +498,37 @@ public final class PeopleModel {
             if !profile.linkedInID.isEmpty, try store.person(id).linkedInID.isEmpty {
                 try store.setLinkedInID(profile.linkedInID, for: id)
             }
+            // From here on the person exists in pplz. If Contacts refuses, that stays so and is reported —
+            // failing the whole save would lose the user's input and invite a second, duplicate attempt.
+            var contactProblem: String?
             if configuration.usesContacts {
-                let link = ContactMirror.Row(contactIdentifier: contactIdentifier ?? "", label: PersonLink.label, value: PersonLink.url(for: id))
-                if let contactIdentifier {
-                    try await Task.detached {
-                        let fill = ContactFill.plan(for: profile, existing: try SystemContacts.details(identifier: contactIdentifier))
-                        if !fill.isEmpty { try SystemContacts.fill(fill, intoContact: contactIdentifier) }
-                    }.value
-                    try syncContacts([id], store)
-                } else {
-                    let name = try store.person(id).name
-                    let identifier = try await Task.detached {
-                        try SystemContacts.createContact(name: name, link: link, fill: ContactFill.plan(for: profile, existing: nil))
-                    }.value
-                    try store.setContactIdentifier(identifier, for: id)
-                    try ContactsSync.journal(forStoreAt: configuration.storeURL).record(
-                        .added, ContactMirror.Row(contactIdentifier: identifier, label: link.label, value: link.value), field: "url")
+                do {
+                    let link = ContactMirror.Row(contactIdentifier: contactIdentifier ?? "", label: PersonLink.label, value: PersonLink.url(for: id))
+                    if let contactIdentifier {
+                        try await Task.detached {
+                            // without the contact's current fields nothing is written: "unknown" must not count as "empty"
+                            guard let existing = try SystemContacts.details(identifier: contactIdentifier) else { return }
+                            let fill = ContactFill.plan(for: profile, existing: existing)
+                            if !fill.isEmpty { try SystemContacts.fill(fill, intoContact: contactIdentifier) }
+                        }.value
+                        try syncContacts([id], store)
+                    } else {
+                        let name = try store.person(id).name
+                        let identifier = try await Task.detached {
+                            try SystemContacts.createContact(name: name, link: link, fill: ContactFill.plan(for: profile, existing: nil))
+                        }.value
+                        try store.setContactIdentifier(identifier, for: id)
+                        try ContactsSync.journal(forStoreAt: configuration.storeURL).record(
+                            .added, ContactMirror.Row(contactIdentifier: identifier, label: link.label, value: link.value), field: "url")
+                    }
+                } catch {
+                    contactProblem = "Saved in pplz, but not in Contacts: " + ((error as? LocalizedError)?.errorDescription ?? "\(error)")
                 }
             }
-            errorMessage = nil
             await reload()
             mode = .people
             await select(matching: id.uuidString)
+            errorMessage = contactProblem
             return id
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
