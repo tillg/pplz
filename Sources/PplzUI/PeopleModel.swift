@@ -434,6 +434,80 @@ public final class PeopleModel {
         await select(matching: id.uuidString)
     }
 
+    // MARK: Capture
+
+    /// Whom a capture is about: someone in the list, or a new person.
+    public enum CaptureTarget: Equatable, Sendable {
+        case existing(key: String)
+        case new
+    }
+
+    /// Who the captured profile could be: the person with that LinkedIn profile first, then people
+    /// of that name or family name. Only proposals — the user chooses.
+    public func captureCandidates(for profile: CapturedProfile) -> [PersonEntry] {
+        let known = (try? store?.person(withLinkedInID: profile.linkedInID)).flatMap { id in entries.first { $0.id == id } }
+        let byName = PeopleDirectory.candidates(forCapturedName: profile.name, in: entries).filter { $0.key != known?.key }
+        return (known.map { [$0] } ?? []) + byName
+    }
+
+    /// Saves a reviewed capture: creates the person or updates the chosen one, and — unless contacts
+    /// are off — creates or fills the contact. Nothing the person or contact already has is overwritten.
+    /// Returns the person's ID and shows their card.
+    @discardableResult
+    public func saveCapture(_ profile: CapturedProfile, as target: CaptureTarget) async -> UUID? {
+        guard let store else { return nil }
+        do {
+            let id: UUID
+            var contactIdentifier: String?
+            switch target {
+            case .new:
+                let name = PeopleDirectory.nameWithoutTitles(profile.name)
+                guard !name.isEmpty else { return nil }
+                id = try store.createPerson(name: name)
+            case .existing(let key):
+                guard let entry = entries.first(where: { $0.key == key || $0.id?.uuidString == key }) else { return nil }
+                contactIdentifier = entry.contactIdentifier
+                if let existing = entry.id {
+                    id = existing
+                } else if let identifier = entry.contactIdentifier {
+                    id = try store.ensurePerson(for: ContactSummary(identifier: identifier, name: entry.name))
+                } else {
+                    return nil
+                }
+            }
+            if !profile.linkedInID.isEmpty, try store.person(id).linkedInID.isEmpty {
+                try store.setLinkedInID(profile.linkedInID, for: id)
+            }
+            if configuration.usesContacts {
+                let link = ContactMirror.Row(contactIdentifier: contactIdentifier ?? "", label: PersonLink.label, value: PersonLink.url(for: id))
+                if let contactIdentifier {
+                    try await Task.detached {
+                        let fill = ContactFill.plan(for: profile, existing: try SystemContacts.details(identifier: contactIdentifier))
+                        if !fill.isEmpty { try SystemContacts.fill(fill, intoContact: contactIdentifier) }
+                    }.value
+                    try syncContacts([id], store)
+                } else {
+                    let name = try store.person(id).name
+                    let identifier = try await Task.detached {
+                        try SystemContacts.createContact(name: name, link: link, fill: ContactFill.plan(for: profile, existing: nil))
+                    }.value
+                    try store.setContactIdentifier(identifier, for: id)
+                    try ContactsSync.journal(forStoreAt: configuration.storeURL).record(
+                        .added, ContactMirror.Row(contactIdentifier: identifier, label: link.label, value: link.value), field: "url")
+                }
+            }
+            errorMessage = nil
+            await reload()
+            mode = .people
+            await select(matching: id.uuidString)
+            return id
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            await reload()
+            return nil
+        }
+    }
+
     /// Gives the selected person, who exists only in pplz, a card in Contacts — with the name and the
     /// `pplz` link — so that phone, mail, address and picture can be entered there. Returns the new
     /// contact's identifier, or `nil` if nothing was created.

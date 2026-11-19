@@ -429,3 +429,56 @@ import Testing
         #expect(try store.persons().count == 2)
     }
 }
+
+@MainActor @Suite struct CaptureTests {
+    let profile = CapturedProfile(name: "Dr. Oliver Massmann", jobTitle: "Partner", company: "Duane Morris LLP",
+                                  linkedInID: "dr-oliver-massmann-153a405")
+
+    @Test func aCaptureCanBecomeANewPerson() async throws {
+        let (model, store) = try PeopleModelTests().makeModel()
+        await model.reload()
+        let id = try #require(await model.saveCapture(profile, as: .new))
+        #expect(model.errorMessage == nil)
+        let person = try store.person(id)
+        #expect(person.name == "Oliver Massmann")          // the title is not part of the name
+        #expect(person.linkedInID == "dr-oliver-massmann-153a405")
+        #expect(model.card?.entry.id == id)                // and the new person is shown
+    }
+
+    @Test func aCaptureCanUpdateAnExistingPerson() async throws {
+        let (model, store) = try PeopleModelTests().makeModel()
+        let oliver = try store.createPerson(name: "Olli Massmann")
+        await model.reload()
+        let id = await model.saveCapture(profile, as: .existing(key: oliver.uuidString))
+        #expect(id == oliver)
+        #expect(try store.persons().count == 1)
+        #expect(try store.person(oliver).name == "Olli Massmann")     // my own name for the person stays
+        #expect(try store.person(oliver).linkedInID == "dr-oliver-massmann-153a405")
+    }
+
+    @Test func anExistingLinkedInIDIsNotReplaced() async throws {
+        let (model, store) = try PeopleModelTests().makeModel()
+        let oliver = try store.createPerson(name: "Oliver Massmann")
+        try store.setLinkedInID("the-right-one", for: oliver)
+        await model.reload()
+        await model.saveCapture(profile, as: .existing(key: oliver.uuidString))
+        #expect(try store.person(oliver).linkedInID == "the-right-one")
+    }
+
+    @Test func thePersonWithThatLinkedInProfileIsProposedFirst() async throws {
+        let (model, store) = try PeopleModelTests().makeModel()
+        try store.createPerson(name: "Oliver Massmann")
+        let renamed = try store.createPerson(name: "Olli M.")
+        try store.setLinkedInID("dr-oliver-massmann-153a405", for: renamed)
+        try store.createPerson(name: "Somebody Else")
+        await model.reload()
+        #expect(model.captureCandidates(for: profile).map(\.name) == ["Olli M.", "Oliver Massmann"])
+    }
+
+    @Test func aCaptureWithoutANameIsNotSavedAsANewPerson() async throws {
+        let (model, store) = try PeopleModelTests().makeModel()
+        await model.reload()
+        #expect(await model.saveCapture(CapturedProfile(name: "  "), as: .new) == nil)
+        #expect(try store.persons().isEmpty)
+    }
+}

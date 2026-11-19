@@ -107,3 +107,42 @@ import Testing
         #expect(LinkedInLink.url(forProfileID: "jörg-müller-12345") == "https://www.linkedin.com/in/j%C3%B6rg-m%C3%BCller-12345")
     }
 }
+
+/// What a capture writes into an existing contact: only what the contact does not have yet.
+@Suite struct ContactFillTests {
+    let profile = CapturedProfile(name: "Oliver Massmann", namePrefix: "Dr.", jobTitle: "Partner", company: "Duane Morris LLP",
+                                  city: "Hanoi", country: "Vietnam", linkedInID: "dr-oliver-massmann-153a405", picture: Data([1, 2, 3]))
+
+    @Test func aNewContactGetsEverything() {
+        let fill = ContactFill.plan(for: profile, existing: nil)
+        #expect(fill == ContactFill(namePrefix: "Dr.", jobTitle: "Partner", organization: "Duane Morris LLP", city: "Hanoi", country: "Vietnam",
+                                    linkedInURL: "https://www.linkedin.com/in/dr-oliver-massmann-153a405", picture: Data([1, 2, 3])))
+        #expect(fill.isEmpty == false)
+    }
+
+    @Test func whatTheContactHasIsNeverOverwritten() {
+        let existing = ContactDetails(identifier: "C-1", givenName: "Oliver", familyName: "Massmann", organization: "Old Firm", jobTitle: "",
+                                      addresses: [LabeledValue(label: "work", value: "Somewhere 1, Berlin")],
+                                      socialProfiles: [LabeledValue(label: "LinkedIn", value: "https://www.linkedin.com/in/someone-else")],
+                                      imageData: Data([9]))
+        let fill = ContactFill.plan(for: profile, existing: existing)
+        #expect(fill == ContactFill(jobTitle: "Partner"))
+    }
+
+    @Test func nothingToWriteIsRecognised() {
+        #expect(ContactFill.plan(for: CapturedProfile(name: "Anna Example"), existing: nil).isEmpty)
+    }
+}
+
+@Suite struct LinkedInOnPersonTests {
+    @Test func aPersonKeepsItsLinkedInIDAndIsFoundByIt() throws {
+        let (store, _) = try makeStore()
+        let anna = try store.createPerson(name: "Anna Example")
+        #expect(try store.person(anna).linkedInID == "")
+        try store.setLinkedInID("Anna-Example-123", for: anna)
+        #expect(try store.person(anna).linkedInID == "anna-example-123")
+        #expect(try store.person(withLinkedInID: "ANNA-example-123") == anna)
+        #expect(try store.person(withLinkedInID: "nobody") == nil)
+        #expect(try store.person(withLinkedInID: "") == nil)
+    }
+}

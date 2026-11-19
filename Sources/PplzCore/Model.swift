@@ -16,6 +16,8 @@ final class Person {
     var localContactIdentifier: String?
     var howWeMet: String = ""
     var notes: String = ""
+    /// The person's LinkedIn profile ID (the part after "/in/"), lower-cased; empty if unknown.
+    var linkedInID: String = ""
     var createdAt: Date = Date()
     /// Desired number of days between meetings; `nil` = no rhythm.
     var keepInTouchDays: Int?

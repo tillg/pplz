@@ -75,9 +75,12 @@ public struct PersonSnapshot: Codable, Equatable, Sendable {
     /// Desired number of days between meetings; `nil` = no rhythm.
     public var keepInTouchDays: Int?
     public var tags: [String]
+    /// LinkedIn profile ID, empty if unknown.
+    public var linkedInID: String
 
     public init(id: UUID, name: String, contactIdentifier: String? = nil, howWeMet: String = "", notes: String = "",
-                eventCount: Int = 0, lastMet: Date? = nil, keepInTouchDays: Int? = nil, tags: [String] = []) {
+                eventCount: Int = 0, lastMet: Date? = nil, keepInTouchDays: Int? = nil, tags: [String] = [], linkedInID: String = "") {
+        self.linkedInID = linkedInID
         self.keepInTouchDays = keepInTouchDays
         self.id = id
         self.name = name

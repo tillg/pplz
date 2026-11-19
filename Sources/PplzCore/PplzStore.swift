@@ -82,6 +82,19 @@ public final class PplzStore {
         return person.uuid
     }
 
+    public func setLinkedInID(_ id: String, for person: UUID) throws {
+        try fetchPerson(person).linkedInID = id.trimmed.lowercased()
+        try context.save()
+    }
+
+    /// The person with this LinkedIn profile, if pplz knows one.
+    public func person(withLinkedInID id: String) throws -> UUID? {
+        let wanted = id.trimmed.lowercased()
+        guard !wanted.isEmpty else { return nil }
+        return try context.fetch(FetchDescriptor<Person>(predicate: #Predicate { $0.linkedInID == wanted }))
+            .min { $0.createdAt < $1.createdAt }?.uuid
+    }
+
     /// Ties a person to this device's contact, see `PeopleDirectory.adoptions`.
     public func setContactIdentifier(_ identifier: String, for id: UUID) throws {
         try fetchPerson(id).localContactIdentifier = identifier
@@ -473,7 +486,7 @@ public final class PplzStore {
         return PersonSnapshot(id: person.uuid, name: person.name, contactIdentifier: person.localContactIdentifier,
                               howWeMet: person.howWeMet, notes: person.notes, eventCount: events.count,
                               lastMet: events.map(\.start).max(), keepInTouchDays: person.keepInTouchDays,
-                              tags: tagNames(person.tags))
+                              tags: tagNames(person.tags), linkedInID: person.linkedInID)
     }
 
     private func snapshot(_ event: Event) -> EventSnapshot {

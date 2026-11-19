@@ -57,7 +57,7 @@ public enum SystemContacts {
 
     /// Creates a contact with this name and URL row (the `pplz` link) and returns its identifier.
     /// A new contact has no note, so this works on every platform (SPEC §8.1, S1).
-    public static func createContact(name: String, link: ContactMirror.Row) throws -> String {
+    public static func createContact(name: String, link: ContactMirror.Row, fill: ContactFill = ContactFill()) throws -> String {
         let store = CNContactStore()
         try requestAccessIfNeeded(store)
         let parts = nameParts(name)
@@ -65,10 +65,52 @@ public enum SystemContacts {
         contact.givenName = parts.given
         contact.familyName = parts.family
         contact.urlAddresses = [CNLabeledValue(label: link.label, value: link.value as NSString)]
+        apply(fill, to: contact)
         let request = CNSaveRequest()
         request.add(contact, toContainerWithIdentifier: nil)
         try store.execute(request)
         return contact.identifier
+    }
+
+    /// Adds the fields of a capture to an existing contact. `fill` must come from `ContactFill.plan`
+    /// with this contact's details, so that nothing the contact has is overwritten.
+    /// Works on iPhone and iPad; on the Mac it fails for a contact that has a note (SPEC §8.1, S4).
+    public static func fill(_ fill: ContactFill, intoContact identifier: String) throws {
+        let store = CNContactStore()
+        try requestAccessIfNeeded(store)
+        let keys = [CNContactNamePrefixKey, CNContactJobTitleKey, CNContactOrganizationNameKey, CNContactPostalAddressesKey,
+                    CNContactSocialProfilesKey, CNContactImageDataKey] as [CNKeyDescriptor]
+        guard let contact = try store.unifiedContact(withIdentifier: identifier, keysToFetch: keys).mutableCopy() as? CNMutableContact else { return }
+        apply(fill, to: contact)
+        let request = CNSaveRequest()
+        request.update(contact)
+        do {
+            try store.execute(request)
+        } catch {
+            #if os(macOS)
+            throw PplzError.invalid("Contacts did not accept the change. On the Mac this happens for a contact that has a note — capture this person on iPhone or iPad instead.")
+            #else
+            throw error
+            #endif
+        }
+    }
+
+    private static func apply(_ fill: ContactFill, to contact: CNMutableContact) {
+        if let prefix = fill.namePrefix { contact.namePrefix = prefix }
+        if let jobTitle = fill.jobTitle { contact.jobTitle = jobTitle }
+        if let organization = fill.organization { contact.organizationName = organization }
+        if fill.city != nil || fill.country != nil {
+            let address = CNMutablePostalAddress()
+            address.city = fill.city ?? ""
+            address.country = fill.country ?? ""
+            contact.postalAddresses.append(CNLabeledValue(label: CNLabelWork, value: address))
+        }
+        if let url = fill.linkedInURL {
+            let profile = CNSocialProfile(urlString: url, username: LinkedInLink.profileID(in: url), userIdentifier: nil,
+                                          service: CNSocialProfileServiceLinkedIn)
+            contact.socialProfiles.append(CNLabeledValue(label: nil, value: profile))
+        }
+        if let picture = fill.picture { contact.imageData = picture }
     }
 
     /// Everything pplz shows about one contact; `nil` if the contact no longer exists.
