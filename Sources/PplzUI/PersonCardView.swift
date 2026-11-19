@@ -85,18 +85,10 @@ struct PersonCardView: View {
                     Text("Only in pplz — no card in Contacts")
                         .font(.callout).foregroundStyle(.white.opacity(0.9))
                 }
-                if !quickActions.isEmpty {
-                    HStack(spacing: 12) {
-                        ForEach(quickActions, id: \.symbol) { action in
-                            Button { openURL(action.url) } label: {
-                                Image(systemName: action.symbol)
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 38, height: 38)
-                                    .background(.white.opacity(0.24), in: Circle())
-                            }
-                            .buttonStyle(.plain)
-                            .help(action.help)
+                if let contact = card.contact, !contact.availableQuickActions.isEmpty {
+                    HStack(spacing: 14) {
+                        ForEach(contact.availableQuickActions, id: \.self) { action in
+                            QuickActionButton(action: action, choices: contact.choices(for: action))
                         }
                     }
                     .padding(.top, 8)
@@ -116,27 +108,6 @@ struct PersonCardView: View {
         #else
         return UIImage(data: data).map(Image.init(uiImage:))
         #endif
-    }
-
-    private struct QuickAction {
-        var symbol: String
-        var help: String
-        var url: URL
-    }
-
-    /// Message, call, video and mail — for the first phone number and mail address.
-    private var quickActions: [QuickAction] {
-        guard let contact = card.contact else { return [] }
-        var actions: [QuickAction] = []
-        if let phone = contact.phones.first?.value {
-            if let url = ContactAction.message.url(for: phone) { actions.append(.init(symbol: "message.fill", help: "Message", url: url)) }
-            if let url = ContactAction.call.url(for: phone) { actions.append(.init(symbol: "phone.fill", help: "Call", url: url)) }
-            if let url = ContactAction.video.url(for: phone) { actions.append(.init(symbol: "video.fill", help: "FaceTime", url: url)) }
-        }
-        if let mail = contact.emails.first?.value, let url = ContactAction.mail.url(for: mail) {
-            actions.append(.init(symbol: "envelope.fill", help: "Mail", url: url))
-        }
-        return actions
     }
 
     /// One rounded group per kind of field, each row with its action on the right — as in Contacts.
@@ -239,6 +210,57 @@ struct PersonCardView: View {
     private var summary: String {
         guard let last = card.history.first else { return "" }
         return "Met \(card.history.count)× · last \(last.start.formatted(date: .abbreviated, time: .omitted))"
+    }
+}
+
+/// A big round button with a caption, as in Contacts: with one value it acts at once, with several it asks which.
+struct QuickActionButton: View {
+    let action: QuickAction
+    let choices: [QuickActionChoice]
+    @Environment(\.openURL) private var openURL
+    @State private var choosing = false
+
+    private var symbol: String {
+        switch action {
+        case .message: "message.fill"
+        case .call: "phone.fill"
+        case .video: "video.fill"
+        case .mail: "envelope.fill"
+        }
+    }
+
+    private var caption: String {
+        switch action {
+        case .message: "message"
+        case .call: "call"
+        case .video: "video"
+        case .mail: "mail"
+        }
+    }
+
+    var body: some View {
+        Button {
+            if choices.count == 1 { openURL(choices[0].url) } else { choosing = true }
+        } label: {
+            VStack(spacing: 5) {
+                Image(systemName: symbol)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 54, height: 54)
+                    .background(.white.opacity(0.24), in: Circle())
+                Text(caption).font(.caption2).foregroundStyle(.white.opacity(0.9))
+            }
+            .frame(minWidth: 60)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(caption)
+        .accessibilityLabel(caption)
+        .confirmationDialog(caption, isPresented: $choosing, titleVisibility: .visible) {
+            ForEach(Array(choices.enumerated()), id: \.offset) { _, choice in
+                Button("\(choice.label)  \(choice.value)") { openURL(choice.url) }
+            }
+        }
     }
 }
 

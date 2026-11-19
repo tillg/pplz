@@ -92,8 +92,8 @@ public enum ContactAction: Sendable {
         guard !text.isEmpty else { return nil }
         switch self {
         case .call: return URL(string: "tel:" + Self.dialable(text))
-        case .message: return URL(string: "sms:" + Self.dialable(text))
-        case .video: return URL(string: "facetime:" + Self.dialable(text))
+        case .message: return URL(string: "sms:" + Self.addressee(text))
+        case .video: return URL(string: "facetime:" + Self.addressee(text))
         case .mail: return URL(string: "mailto:" + text)
         case .map:
             return text.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed).flatMap { URL(string: "maps://?q=" + $0) }
@@ -102,8 +102,66 @@ public enum ContactAction: Sendable {
         }
     }
 
+    /// A phone number as digits, or a mail address as it is (iMessage and FaceTime take both).
+    private static func addressee(_ value: String) -> String {
+        value.contains("@") ? value : dialable(value)
+    }
+
     private static func dialable(_ number: String) -> String {
         number.filter { $0.isNumber || $0 == "+" }
+    }
+}
+
+/// The big round buttons on a card, as in Contacts.
+public enum QuickAction: CaseIterable, Sendable {
+    case message, call, video, mail
+
+    var action: ContactAction {
+        switch self {
+        case .message: .message
+        case .call: .call
+        case .video: .video
+        case .mail: .mail
+        }
+    }
+}
+
+/// One value a quick action can act on, e.g. "mobile  +49 170 0000000".
+public struct QuickActionChoice: Equatable, Sendable {
+    public var label: String
+    public var value: String
+    public var url: URL
+
+    public init(label: String, value: String, url: URL) {
+        self.label = label
+        self.value = value
+        self.url = url
+    }
+}
+
+extension ContactDetails {
+    /// What a quick action offers: call the phone numbers, mail the mail addresses; message and video the phone
+    /// numbers first, then the mail addresses (iMessage and FaceTime take both). Values without a link are left out.
+    public func choices(for quick: QuickAction) -> [QuickActionChoice] {
+        func choices(_ values: [LabeledValue], fallbackLabel: String) -> [QuickActionChoice] {
+            values.compactMap { item in
+                quick.action.url(for: item.value).map {
+                    QuickActionChoice(label: item.label.isEmpty ? fallbackLabel : item.label, value: item.value, url: $0)
+                }
+            }
+        }
+        let phoneChoices = choices(phones, fallbackLabel: "phone")
+        let mailChoices = choices(emails, fallbackLabel: "email")
+        switch quick {
+        case .call: return phoneChoices
+        case .mail: return mailChoices
+        case .message, .video: return phoneChoices + mailChoices
+        }
+    }
+
+    /// The quick actions that have at least one value, in the order of the buttons.
+    public var availableQuickActions: [QuickAction] {
+        QuickAction.allCases.filter { !choices(for: $0).isEmpty }
     }
 }
 
