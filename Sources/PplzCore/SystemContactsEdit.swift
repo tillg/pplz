@@ -17,7 +17,9 @@ extension SystemContacts {
         try requestAccessIfNeeded(store)
         guard let contact = try store.unifiedContacts(matching: CNContact.predicateForContacts(withIdentifiers: [identifier]),
                                                       keysToFetch: editKeys).first else { return nil }
-        return edit(from: contact)
+        var result = edit(from: contact)
+        result.contactIdentifier = contact.identifier
+        return result
     }
 
     private static func edit(from contact: CNContact) -> ContactEdit {
@@ -84,7 +86,7 @@ extension SystemContacts {
             do {
                 try ContactsApp.apply(changes, identifier: identifier)
             } catch {
-                throw PplzError.invalid("This contact has a note, so the Mac only lets the Contacts app change it, and that did not work: \((error as? LocalizedError)?.errorDescription ?? "\(error)") Nothing was saved.")
+                throw PplzError.invalid("This contact has a note, so the Mac only lets the Contacts app change it. \((error as? LocalizedError)?.errorDescription ?? "\(error)")")
             }
             #else
             throw error

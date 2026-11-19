@@ -110,6 +110,40 @@ public enum GeocodeBudget {
     }
 }
 
+/// What went wrong with one address.
+public enum GeocodeFailure: Equatable, Sendable {
+    /// The service does not know the address.
+    case noResult
+    /// Network error: the service's throttle error, but also what being offline gives.
+    case network
+    /// Anything else.
+    case other
+}
+
+public enum GeocodeReaction: Equatable, Sendable {
+    /// Note the address as not found (it is asked again after 30 days) and go on with the next one.
+    case recordNotFound
+    /// Stop this run and try again after this many seconds, without touching the hour's budget.
+    case retryLater(after: TimeInterval)
+    /// Treat the hour's budget as spent.
+    case markThrottled
+}
+
+/// What to do when the geocoder fails for one address.
+public enum GeocodeErrorPolicy {
+    /// This many network errors in a row are taken for the throttle error.
+    public static let networkFailuresForThrottle = 3
+    public static let networkPause: TimeInterval = 5 * 60
+
+    /// `consecutiveNetworkFailures` counts this failure too.
+    public static func reaction(to failure: GeocodeFailure, consecutiveNetworkFailures: Int) -> GeocodeReaction {
+        switch failure {
+        case .noResult, .other: .recordNotFound
+        case .network: consecutiveNetworkFailures >= networkFailuresForThrottle ? .markThrottled : .retryLater(after: networkPause)
+        }
+    }
+}
+
 /// What has been geocoded so far, and how much of this hour's budget is used. One file per device,
 /// shared by the app and the command line.
 public struct GeocodeState: Codable, Equatable, Sendable {
@@ -125,8 +159,19 @@ public struct GeocodeState: Codable, Equatable, Sendable {
     public var entries: [String: Entry] = [:]
     public var slotStart: Date?
     public var sent = 0
+    /// Network errors since the last answer; see `GeocodeErrorPolicy`.
+    public var networkFailures = 0
 
     public init() {}
+
+    /// Files written before `networkFailures` existed have no such key.
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        entries = try values.decode([String: Entry].self, forKey: .entries)
+        slotStart = try values.decodeIfPresent(Date.self, forKey: .slotStart)
+        sent = try values.decode(Int.self, forKey: .sent)
+        networkFailures = try values.decodeIfPresent(Int.self, forKey: .networkFailures) ?? 0
+    }
 
     public func coordinate(for key: String) -> Coordinate? { entries[key]?.coordinate }
 
@@ -154,14 +199,39 @@ public final class GeocodeStore: Sendable {
         URL.applicationSupportDirectory.appendingPathComponent("pplz/geocache.json")
     }
 
+    /// A missing file is an empty cache. A file that cannot be read is an error (the next write would replace it);
+    /// one that cannot be decoded is moved aside as `geocache.json.broken` and the cache starts empty.
     public func load() throws -> GeocodeState {
-        guard let data = try? Data(contentsOf: url) else { return GeocodeState() }
-        return try Self.decoder.decode(GeocodeState.self, from: data)
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+            return GeocodeState()
+        }
+        do {
+            return try Self.decoder.decode(GeocodeState.self, from: data)
+        } catch is DecodingError {
+            let broken = url.appendingPathExtension("broken")
+            try? FileManager.default.removeItem(at: broken)
+            try FileManager.default.moveItem(at: url, to: broken)
+            return GeocodeState()
+        }
     }
 
     /// Notes the answer for an address; `nil` = not found.
     public func record(_ key: String, _ coordinate: Coordinate?, now: Date = Date()) throws {
-        try update { $0.entries[key] = .init(coordinate: coordinate, checkedAt: now) }
+        try update {
+            $0.entries[key] = .init(coordinate: coordinate, checkedAt: now)
+            $0.networkFailures = 0
+        }
+    }
+
+    /// Counts a network error; returns how many came in a row, this one included.
+    public func recordNetworkFailure() throws -> Int {
+        try update { state in
+            state.networkFailures += 1
+            return state.networkFailures
+        }
     }
 
     /// Counts a request against the hour's budget if there is any left. Called before every request,
@@ -184,6 +254,7 @@ public final class GeocodeStore: Sendable {
         try update { state in
             state.sent = max(limit, GeocodeBudget.sent(now: now, slotStart: state.slotStart, sent: state.sent, calendar: calendar))
             state.slotStart = slot
+            state.networkFailures = 0
         }
         return GeocodeBudget.resume(after: slot, calendar: calendar)
     }

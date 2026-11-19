@@ -40,6 +40,27 @@ import Testing
         #expect(throws: (any Error).self) { try ContactsApp.apply([.removeItem(.socialProfile, profile)], identifier: "C-1") }
     }
 
+    @Test func editScriptReturnsAnErrorInsteadOfFailingHalfWay() {
+        let (body, _) = ContactsApp.editScript(for: [.text(.nickname, from: "", to: "Anni")], identifier: "C-1")
+        let try0 = body.firstIndex(of: "try")!, error = body.firstIndex { $0.hasPrefix("on error") }!
+        #expect(body.firstIndex { $0.hasPrefix("set nickname") }! > try0)
+        #expect(body.firstIndex(of: "save")! < error)
+        #expect(body.contains { $0.hasPrefix("return \"error ") })
+        // the lookups stay outside the try: a missing row stops the script before anything is changed
+        #expect(body.firstIndex { $0.contains("set p to person id") }! < try0)
+    }
+
+    @Test func theAnswerOfTheScriptBecomesTheMessageToTheUser() throws {
+        try ContactsApp.check(answer: "ok")
+        func message(_ answer: String) -> String {
+            do { try ContactsApp.check(answer: answer); return "" } catch { return (error as? LocalizedError)?.errorDescription ?? "\(error)" }
+        }
+        let missing = message("missing phone +49 170 0000000")
+        #expect(missing.contains("phone +49 170 0000000") && missing.contains("Nothing was saved"))
+        let halfway = message("error Contacts got an error: boom")
+        #expect(halfway.contains("boom") && halfway.contains("may already be applied") && !halfway.contains("Nothing was saved"))
+    }
+
     @Test func editScriptOnlySetsWhatChangedOnAnItem() {
         let work = ContactEdit.Item(id: "P2", label: "_$!<Work>!$_", value: "+49 221 0000000")
         var relabelled = work

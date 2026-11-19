@@ -73,13 +73,14 @@ struct ContactEditSheet: View {
     }
 
     /// The rows of one kind, each with its label and a button to remove it, and a button to add one.
+    /// The rows are bound by identity, not by position: a row that is removed while its field has focus must not be looked up again.
     @ViewBuilder private func multiValue(_ title: String, prompt: String, labels: [String], items: Binding<[ContactEdit.Item]>) -> some View {
         Section(title) {
-            ForEach(Array(items.wrappedValue.enumerated()), id: \.element.id) { index, item in
-                let number = "\(title.lowercased()) \(index + 1)"
+            ForEach(items) { $item in
+                let number = "\(title.lowercased()) \((items.wrappedValue.firstIndex { $0.id == item.id } ?? 0) + 1)"
                 HStack(spacing: 8) {
-                    LabelMenu(labels: labels, label: items[index].label, name: "\(number) label")
-                    TextField(prompt, text: items[index].value, prompt: Text(prompt))
+                    LabelMenu(labels: labels, label: $item.label, name: "\(number) label")
+                    TextField(prompt, text: $item.value, prompt: Text(prompt))
                         .labelsHidden()
                         .accessibilityLabel("\(number) value")
                     RemoveButton(name: "remove \(number)") { items.wrappedValue.removeAll { $0.id == item.id } }
@@ -95,21 +96,21 @@ struct ContactEditSheet: View {
 
     @ViewBuilder private var addresses: some View {
         Section("Address") {
-            ForEach(Array(edit.addresses.enumerated()), id: \.element.id) { index, address in
-                let number = "address \(index + 1)"
+            ForEach($edit.addresses) { $address in
+                let number = "address \((edit.addresses.firstIndex { $0.id == address.id } ?? 0) + 1)"
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        LabelMenu(labels: ContactLabels.address, label: $edit.addresses[index].label, name: "\(number) label")
+                        LabelMenu(labels: ContactLabels.address, label: $address.label, name: "\(number) label")
                         Spacer()
                         RemoveButton(name: "remove \(number)") { edit.addresses.removeAll { $0.id == address.id } }
                     }
-                    TextField("Street", text: $edit.addresses[index].street).accessibilityLabel("\(number) street")
+                    TextField("Street", text: $address.street).accessibilityLabel("\(number) street")
                     HStack {
-                        TextField("Postal code", text: $edit.addresses[index].postalCode).accessibilityLabel("\(number) postal code")
+                        TextField("Postal code", text: $address.postalCode).accessibilityLabel("\(number) postal code")
                             .frame(maxWidth: 110)
-                        TextField("City", text: $edit.addresses[index].city).accessibilityLabel("\(number) city")
+                        TextField("City", text: $address.city).accessibilityLabel("\(number) city")
                     }
-                    TextField("Country", text: $edit.addresses[index].country).accessibilityLabel("\(number) country")
+                    TextField("Country", text: $address.country).accessibilityLabel("\(number) country")
                 }
                 .padding(.vertical, 2)
             }

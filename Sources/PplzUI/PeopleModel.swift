@@ -115,7 +115,7 @@ public final class PeopleModel {
                     Task { @MainActor in self.refreshGeocodes() }
                 }
                 self.refreshGeocodes()
-                guard case .paused(let until)? = outcome else { break }
+                guard let until = outcome?.resumesAt else { break }
                 try? await Task.sleep(for: .seconds(max(1, until.timeIntervalSinceNow)))
             }
             self?.locating = nil
@@ -787,7 +787,10 @@ public final class PeopleModel {
         let changes = ContactEdit.changes(from: original, to: edit)
         guard !changes.isEmpty else { return nil }
         guard edit.hasName else { return "A contact needs a name or a company." }
-        guard configuration.usesContacts, let identifier = card?.entry.contactIdentifier else { return "pplz is not using Contacts." }
+        // the contact the form was loaded from, not the one selected now: the selection may have moved while the sheet was open
+        let identifier = original.contactIdentifier
+        guard !identifier.isEmpty else { return "This form was not loaded from a contact." }
+        guard configuration.usesContacts else { return "pplz is not using Contacts." }
         do {
             try await Task.detached { try SystemContacts.apply(changes, toContact: identifier) }.value
         } catch {

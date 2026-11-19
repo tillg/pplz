@@ -109,6 +109,28 @@ import Testing
         #expect(ContactEdit.changes(from: anna(), to: after) == [.removeAddress(home)])
     }
 
+    /// An address that only holds state / country code (the form shows it empty) must survive a save of something else.
+    @Test func anUnchangedRowThatLoadsAsEmptyIsNeverRemoved() {
+        var before = anna()
+        before.addresses.append(Address(id: "A2", label: "_$!<Work>!$_"))                              // street, city … all empty
+        before.socialProfiles.append(Item(id: "S2", label: "Twitter", value: ""))                      // service only
+        before.phones.append(Item(id: "P4", label: "_$!<Other>!$_", value: " "))
+        var after = before
+        after.jobTitle = "CEO"
+        #expect(ContactEdit.changes(from: before, to: after) == [.text(.jobTitle, from: "CTO", to: "CEO")])
+    }
+
+    @Test func aRowTheUserEmptiedIsRemovedButAnEmptyRowOnlyRelabelledIsUpdated() {
+        var before = anna()
+        before.addresses.append(Address(id: "A2", label: "_$!<Work>!$_"))
+        var after = before
+        after.addresses[0] = Address(id: "A1", label: "_$!<Home>!$_")           // emptied by the user
+        after.addresses[1].label = "_$!<Other>!$_"                                // was empty, only relabelled
+        var relabelled = before.addresses[1]
+        relabelled.label = "_$!<Other>!$_"
+        #expect(ContactEdit.changes(from: before, to: after) == [.removeAddress(home), .updateAddress(from: before.addresses[1], to: relabelled)])
+    }
+
     @Test func birthdaySetChangedAndRemoved() {
         var none = anna()
         none.birthday = nil
@@ -195,6 +217,16 @@ import Testing
     }
 
     // MARK: labels
+
+    @Test func theFormRemembersWhichContactItWasLoadedFrom() {
+        #expect(ContactEdit().contactIdentifier == "")
+        let loaded = ContactEdit(givenName: "Anna", contactIdentifier: "C-1")
+        var edited = loaded
+        edited.nickname = "Anni"
+        // the identifier is not a field: it never shows up as a change
+        #expect(ContactEdit.changes(from: loaded, to: edited) == [.text(.nickname, from: "", to: "Anni")])
+        #expect(edited.contactIdentifier == "C-1")
+    }
 
     @Test func nameIsUsableOnlyWithANameOrACompany() {
         #expect(!ContactEdit().hasName)

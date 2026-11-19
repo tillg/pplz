@@ -1,7 +1,7 @@
 ---
 title: "Decisions"
 created: 2026-11-19
-edited: 2026-11-19
+edited: 2026-11-20
 ---
 
 **Contents**
@@ -26,6 +26,7 @@ edited: 2026-11-19
   - [23:45 — Issue 4 is closed although the map background and clicking were not seen](#run-2026-11-19-2324-3)
   - [23:47 — A picture without a face is refused; photos sync as a new record type](#run-2026-11-19-2324-4)
   - [00:03 — One edit screen for contacts on all devices; an edit writes only what changed](#run-2026-11-19-2324-5)
+  - [00:56 — Fix seven review findings now; leave five as known limits](#run-2026-11-19-2324-6)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -194,7 +195,7 @@ edited: 2026-11-19
   - Deleting cannot be undone, and the answer does not say whether the Apple contact goes at once or after the 30 days.
   - 5 needs a store release, a website and two iCloud accounts, and iOS hands nothing from a QR code through an installation; how the card reaches a fresh app is open.
 - **Alternatives:** build deleting with the contact removed after 30 days (my proposal in the comment), unattended; start 5 with the parts that need no release.
-- **Consequences:** issues 1, 3 and 5 stay open after the run. For editing on the Mac and the edit screen on iPhone / iPad the user gave no choice, so the defaults proposed in the first comment apply: the Mac edits through the Contacts app where the framework cannot save, and iPhone / iPad keep the system's contact card.
+- **Consequences:** issues 1, 3 and 5 stay open after the run. Three things happened to real data during the run: (1) at 23:35 a test command wrote two invented persons and two events into the real store, because a failed shell step skipped the line that pointed it to a test store; all four were removed again. (2) Invented contacts named "Zzpplz Testperson" were created in the real address book to check the picture and the editing, and deleted; none is left. (3) The real store on the Mac was opened with the new data model at 00:00, after a backup. The iPhone was not reachable at 00:33, so the new version is on the Mac and the iPad only. For editing on the Mac and the edit screen on iPhone / iPad the user gave no choice, so the defaults proposed in the first comment apply: the Mac edits through the Contacts app where the framework cannot save, and iPhone / iPad keep the system's contact card.
 
 ## 23:29 — At most 300 addresses an hour go to Apple's map service {#run-2026-11-19-2324-2}
 
@@ -214,7 +215,7 @@ edited: 2026-11-19
 - **Decision:** close it, and say in the closing comment what was not checked.
 - **Why:** everything that can be checked from the session passes (258 tests, a real search with `--near`, the pins from 210 located addresses). A blank background with pins in place points to the display being asleep, not to the code; the user sees it at the first look and can reopen.
 - **Alternatives:** leave it open with `wip` (accurate, but then every issue with a screen stays open in an unattended run).
-- **Consequences:** to check by the user: the map background, the callout that opens a person, grouped pins zooming in, and the map on iPhone / iPad with real contacts. While building, about 300 real addresses were sent to Apple's service (as the user allowed) and are now in the device's cache file.
+- **Consequences:** to check by the user: the map background, the callout that opens a person, grouped pins zooming in, and the map on iPhone / iPad with real contacts. While building, about 300 real addresses were sent to Apple's service (as the user allowed) and are now in the device's cache file. Issue 2 was closed the same way at 23:59 (commit `e635b40`): the menus, the pickers, paste, drag & drop and the sync of photos between devices were not seen. Checked at 00:40 in the iPhone simulator: the map background shows, pins and groups appear, and a pin's callout opens the person; so the blank background on the Mac came from the sleeping display.
 
 ## 23:47 — A picture without a face is refused; photos sync as a new record type {#run-2026-11-19-2324-4}
 
@@ -240,3 +241,13 @@ edited: 2026-11-19
 - **Why:** the screen is shared code, so offering it everywhere costs nothing extra and the user asked for the functions "in pplz". Writing only changes keeps a mistake in pplz from damaging fields the user did not touch. The journal lists what pplz writes on its own, not what the user types.
 - **Alternatives:** the Mac only (as first proposed); replace all values of a contact on save (simpler, but rewrites everything on every save).
 - **Consequences:** editing through the Contacts app needs the user's permission for pplz to control Contacts, as the link and the history already do, and goes away when Apple grants the notes permission. The command line cannot edit contact fields yet.
+
+## 00:56 — Fix seven review findings now; leave five as known limits {#run-2026-11-19-2324-6}
+
+- **Status:** open
+- **Context:** an independent review of the four commits of this run (map, photos, buttons, editing), focused on the code that writes contacts and the synced store. Two of its findings could damage contacts: a save could land on another contact when the selection changed while the edit screen was open, and a row that the screen shows as empty (e.g. an address with only a state) was deleted on any save. Both were already pushed in `3df2453`.
+- **Question:** which findings are fixed in this run?
+- **Decision:** fixed, each with a test written first: the two above; a possible crash when removing a row in the edit screen; one failing address blocking all address lookups behind it; being offline counted as "too many requests" for a whole hour; the address cache being overwritten after a failed read; and the message after a failed change through the Contacts app, which claimed nothing was saved although some changes may stay pending there. Also from the retro: a test now checks that the stored test file from before the photo change still has the old data model.
+- **Why:** the first two are data loss on a normal path; the others are cheap and stop the map from getting stuck.
+- **Alternatives:** revert the editing commit until reviewed by the user (safe, but the user asked for the feature and the defects are fixed with tests).
+- **Consequences:** known limits that stay: (1) a change through the Contacts app (Mac, contact with a note) that fails half-way cannot be undone; pplz says so. (2) Contacts that are linked from several accounts may show a changed value twice or report "changed in the meantime". (3) On that same path the country code of an address is not updated with the country. (4) Changing a social profile's address replaces its user name by the last part of the address. (5) When several pictures with several faces are added at once, a waiting face choice may be skipped. Between `3df2453` (00:33) and the fix, the defective version was installed on the Mac and the iPad; nobody used it.

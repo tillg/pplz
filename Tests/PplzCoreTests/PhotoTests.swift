@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+import SQLite3
 import Testing
 @testable import PplzCore
 
@@ -148,5 +149,18 @@ func rgb(_ image: CGImage, _ x: Int, _ y: Int) -> (r: Int, g: Int, b: Int) {
         store = try PplzStore(url: url)                                       // a fresh open reads it back from disk
         #expect(try store.photos(of: anna.id).count == 1)
         #expect(try store.person(anna.id).eventCount == 2)
+    }
+    /// The fixture is only worth something while it has the old schema; opening it directly with a newer
+    /// build migrates it in place. Tests work on a copy, and this notices if someone opened the original.
+    @Test func fixtureStillHasTheOldSchema() throws {
+        let fixture = try #require(Bundle.module.url(forResource: "Fixtures/before-photos", withExtension: "store"))
+        var database: OpaquePointer?
+        try #require(sqlite3_open_v2("file:\(fixture.path)?immutable=1", &database, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, nil) == SQLITE_OK)
+        defer { sqlite3_close(database) }
+        var statement: OpaquePointer?
+        try #require(sqlite3_prepare_v2(database, "SELECT count(*) FROM sqlite_master WHERE name = 'ZPERSONPHOTO'", -1, &statement, nil) == SQLITE_OK)
+        defer { sqlite3_finalize(statement) }
+        try #require(sqlite3_step(statement) == SQLITE_ROW)
+        #expect(sqlite3_column_int(statement, 0) == 0)
     }
 }

@@ -66,10 +66,14 @@ public struct ContactEdit: Equatable, Sendable {
     public var socialProfiles: [Item]
     public var addresses: [Address]
     public var birthday: Birthday?
+    /// The contact this was read from; empty for a new contact. A save goes to exactly this contact, whatever else
+    /// is selected in the meantime. Not a field: it is never part of a diff.
+    public var contactIdentifier: String
 
     public init(givenName: String = "", familyName: String = "", nickname: String = "", organization: String = "", jobTitle: String = "",
                 phones: [Item] = [], emails: [Item] = [], urls: [Item] = [], socialProfiles: [Item] = [],
-                addresses: [Address] = [], birthday: Birthday? = nil) {
+                addresses: [Address] = [], birthday: Birthday? = nil, contactIdentifier: String = "") {
+        self.contactIdentifier = contactIdentifier
         self.givenName = givenName
         self.familyName = familyName
         self.nickname = nickname
@@ -175,28 +179,26 @@ extension ContactEdit {
         for kind in ContactChange.ItemKind.allCases {
             let old = kind.items(in: before).filter { !isPplzLink($0) }
             let new = kind.items(in: after).filter { !isPplzLink($0) }.map { Item(id: $0.id, label: $0.label, value: $0.value.trimmed) }
-            let kept = new.filter { item in !item.value.isEmpty }
-            changes += old.filter { item in !kept.contains { $0.id == item.id } }.map { .removeItem(kind, $0) }
-            for item in kept {
-                if let was = old.first(where: { $0.id == item.id }) {
-                    if was.label != item.label || was.value.trimmed != item.value { changes.append(.updateItem(kind, from: was, to: item)) }
-                } else {
-                    changes.append(.addItem(kind, item))
-                }
+            // a row that is the same as when the form loaded never produces a change, whatever it holds
+            for was in old {
+                guard let item = new.first(where: { $0.id == was.id }) else { changes.append(.removeItem(kind, was)); continue }
+                if was.label == item.label && was.value.trimmed == item.value { continue }
+                changes.append(item.value.isEmpty && !was.value.trimmed.isEmpty ? .removeItem(kind, was) : .updateItem(kind, from: was, to: item))
             }
+            changes += new.filter { item in !item.value.isEmpty && !old.contains { $0.id == item.id } }.map { .addItem(kind, $0) }
         }
-        let kept = after.addresses.filter { !$0.isEmpty }
-        changes += before.addresses.filter { address in !kept.contains { $0.id == address.id } }.map { .removeAddress($0) }
-        for address in kept {
-            let trimmed = Address(id: address.id, label: address.label, street: address.street.trimmed, postalCode: address.postalCode.trimmed,
-                                  city: address.city.trimmed, country: address.country.trimmed)
-            if let was = before.addresses.first(where: { $0.id == address.id }) {
-                let same = was.label == trimmed.label && was.street.trimmed == trimmed.street && was.postalCode.trimmed == trimmed.postalCode
-                    && was.city.trimmed == trimmed.city && was.country.trimmed == trimmed.country
-                if !same { changes.append(.updateAddress(from: was, to: trimmed)) }
-            } else {
-                changes.append(.addAddress(trimmed))
-            }
+        for was in before.addresses {
+            guard let address = after.addresses.first(where: { $0.id == was.id }) else { changes.append(.removeAddress(was)); continue }
+            let item = Address(id: address.id, label: address.label, street: address.street.trimmed, postalCode: address.postalCode.trimmed,
+                               city: address.city.trimmed, country: address.country.trimmed)
+            let same = was.label == item.label && was.street.trimmed == item.street && was.postalCode.trimmed == item.postalCode
+                && was.city.trimmed == item.city && was.country.trimmed == item.country
+            if same { continue }
+            changes.append(item.isEmpty && !was.isEmpty ? .removeAddress(was) : .updateAddress(from: was, to: item))
+        }
+        for address in after.addresses where !address.isEmpty && !before.addresses.contains(where: { $0.id == address.id }) {
+            changes.append(.addAddress(Address(id: address.id, label: address.label, street: address.street.trimmed, postalCode: address.postalCode.trimmed,
+                                               city: address.city.trimmed, country: address.country.trimmed)))
         }
         if before.birthday != after.birthday { changes.append(.birthday(from: before.birthday, to: after.birthday)) }
         return changes

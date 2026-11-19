@@ -128,10 +128,17 @@ public enum ContactsApp {
     public static func apply(_ changes: [ContactChange], identifier: String) throws {
         if let reason = unsupported(changes) { throw PplzError.invalid(reason) }
         let (body, text) = editScript(for: changes, identifier: identifier)
-        let answer = try runScript(body, text: text).trimmed
+        try check(answer: try runScript(body, text: text).trimmed)
+    }
+
+    /// Turns the answer of the edit script into success or the message for the user.
+    static func check(answer: String) throws {
         if answer == "ok" { return }
         if answer.hasPrefix("missing") {
             throw PplzError.invalid("This contact was changed in Contacts in the meantime (\(answer.dropFirst("missing ".count))). Nothing was saved. Close this form and open it again.")
+        }
+        if answer.hasPrefix("error") {
+            throw PplzError.invalid("The Contacts app stopped part-way (\(answer.dropFirst("error ".count))). Some of your changes may already be applied in the Contacts app (it keeps them until it next saves); check the contact there.")
         }
         throw PplzError.invalid("Contacts did not accept the change: \(answer)")
     }
@@ -140,7 +147,7 @@ public enum ContactsApp {
     /// (Contacts refuses to delete a social profile by script: AppleEvent error -10000, verified 2026-11-20.)
     static func unsupported(_ changes: [ContactChange]) -> String? {
         for case .removeItem(.socialProfile, let item) in changes {
-            return "The Contacts app cannot remove the social profile \(item.value.trimmed) by script. Remove it in the Contacts app or on an iPhone or iPad."
+            return "The Contacts app cannot remove the social profile \(item.value.trimmed) by script. Remove it in the Contacts app or on an iPhone or iPad. Nothing was saved."
         }
         return nil
     }
@@ -236,7 +243,9 @@ public enum ContactsApp {
                 }
             }
         }
-        let body = ["tell application \"Contacts\"", "set p to person id a1"] + lookups + edits + ["save", "return \"ok\"", "end tell"]
+        // the lookups stop the script before anything is changed; a failing change returns its error and does not save
+        let body = ["tell application \"Contacts\"", "set p to person id a1"] + lookups
+            + ["try"] + edits + ["save", "return \"ok\"", "on error errText", "return \"error \" & errText", "end try", "end tell"]
         return (body, text)
     }
 

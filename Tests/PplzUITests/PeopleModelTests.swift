@@ -659,7 +659,7 @@ import Testing
         await model.reload()
 
         #expect(await model.loadContactEdit() == nil)
-        var edit = ContactEdit(givenName: "Anna", familyName: "Example")
+        var edit = ContactEdit(givenName: "Anna", familyName: "Example", contactIdentifier: "C-1")
         #expect(await model.saveContactEdit(edit, original: edit) == nil)   // no change: nothing to do, nothing to refuse
         let original = edit
         edit.nickname = "Anni"
@@ -667,6 +667,17 @@ import Testing
         #expect(await model.createContact(edit) == "pplz is not using Contacts.")
         // the list is as it was
         #expect(model.sections.flatMap(\.entries).map(\.name) == ["Anna Example"])
+    }
+
+    /// A save goes to the contact the form was loaded from — never to whoever is selected when Save is pressed.
+    @Test func aSaveNeedsTheContactTheFormWasLoadedFrom() async throws {
+        let (model, store) = try PeopleModelTests().makeModel(select: "Anna Example")
+        try store.createPerson(name: "Anna Example")
+        await model.reload()                      // Anna is selected, with no contact identifier of her own to fall back on
+        let original = ContactEdit(givenName: "Anna")
+        var edit = original
+        edit.nickname = "Anni"
+        #expect(await model.saveContactEdit(edit, original: original) == "This form was not loaded from a contact.")
     }
 
     @Test func aContactNeedsANameOrACompany() async throws {

@@ -10,6 +10,16 @@ public enum AddressLocator {
         case done
         /// The hour's budget is spent (or the service said so itself); nothing is sent before this time.
         case paused(until: Date)
+        /// The service could not be reached; nothing was spent. Try again at this time.
+        case unreachable(until: Date)
+
+        /// When to carry on, if the run stopped early.
+        public var resumesAt: Date? {
+            switch self {
+            case .done: nil
+            case .paused(let until), .unreachable(let until): until
+            }
+        }
     }
 
     /// At least this long between two requests.
@@ -28,11 +38,18 @@ public enum AddressLocator {
                 // deprecated from macOS / iOS 26 in favour of MKGeocodingRequest; works on the 15 / 18 we run on
                 let marks = try await CLGeocoder().geocodeAddressString(address.query)
                 try store.record(address.key, marks.first?.location.map { Coordinate(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude) })
-            } catch let error as CLError where error.code == .geocodeFoundNoResult {
-                try store.record(address.key, nil)
-            } catch let error as CLError where error.code == .network {
-                // the service's throttle error: treat the hour as spent
-                return .paused(until: try store.markThrottled())
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // what to do about the failure is decided by `GeocodeErrorPolicy`; this only carries it out
+                let code = (error as? CLError)?.code
+                let failure: GeocodeFailure = code == .geocodeFoundNoResult ? .noResult : code == .network ? .network : .other
+                let count = failure == .network ? try store.recordNetworkFailure() : 0
+                switch GeocodeErrorPolicy.reaction(to: failure, consecutiveNetworkFailures: count) {
+                case .recordNotFound: try store.record(address.key, nil)
+                case .retryLater(let seconds): return .unreachable(until: Date().addingTimeInterval(seconds))
+                case .markThrottled: return .paused(until: try store.markThrottled())
+                }
             }
             done += 1
             progress(done)

@@ -108,6 +108,50 @@ import Testing
         guard case .wait = try store.reserve(now: now) else { Issue.record("must pause"); return }
     }
 
+    @Test func aFileThatExistsButCannotBeReadIsAnErrorNotAnEmptyCache() throws {
+        let store = makeStore()
+        try store.record("koeln", cologne)
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: store.url.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: store.url.path) }
+        #expect(throws: (any Error).self) { try store.load() }
+        #expect(throws: (any Error).self) { try store.record("bonn", cologne) }   // and nothing is written over it
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: store.url.path)
+        #expect(try store.load().coordinate(for: "koeln") == cologne)
+    }
+
+    @Test func aFileThatDoesNotDecodeIsMovedAsideAndTheCacheStartsEmpty() throws {
+        let store = makeStore()
+        try FileManager.default.createDirectory(at: store.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("this is not json".utf8).write(to: store.url)
+        let broken = store.url.appendingPathExtension("broken")
+        #expect(try store.load().entries.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: store.url.path))
+        #expect(try String(contentsOf: broken, encoding: .utf8) == "this is not json")
+        // writing works again, and a second broken file replaces the first one aside
+        try store.record("koeln", cologne)
+        try Data("again broken".utf8).write(to: store.url)
+        #expect(try store.load().entries.isEmpty)
+        #expect(try String(contentsOf: broken, encoding: .utf8) == "again broken")
+    }
+
+    @Test func networkFailuresInARowAreCountedAndAnAnswerResetsTheCount() throws {
+        let store = makeStore()
+        #expect(try store.recordNetworkFailure() == 1)
+        #expect(try store.recordNetworkFailure() == 2)
+        #expect(try GeocodeStore(url: store.url).recordNetworkFailure() == 3)   // kept across launches
+        try store.record("koeln", cologne)
+        #expect(try store.recordNetworkFailure() == 1)
+        try store.markThrottled()
+        #expect(try store.recordNetworkFailure() == 1)
+    }
+
+    @Test func aFileWrittenBeforeTheCounterExistedStillLoads() throws {
+        let store = makeStore()
+        try FileManager.default.createDirectory(at: store.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"entries":{},"sent":5}"#.utf8).write(to: store.url)
+        #expect(try store.load().sent == 5)
+    }
+
     @Test func notFoundIsAskedAgainAfterThirtyDays() throws {
         let store = makeStore()
         let then = Date(timeIntervalSince1970: 1_800_000_000)
@@ -136,6 +180,25 @@ import Testing
     @Test func theDefaultFileSitsNextToTheDefaultStore() {
         #expect(GeocodeStore.defaultURL().deletingLastPathComponent() == PplzStore.defaultURL(environment: [:]).deletingLastPathComponent())
         #expect(GeocodeStore.defaultURL().lastPathComponent == "geocache.json")
+    }
+}
+
+/// What to do when the geocoder fails for one address.
+@Suite struct GeocodeErrorPolicyTests {
+    @Test func noResultAndAnyOtherErrorMarkTheAddressNotFoundAndGoOn() {
+        #expect(GeocodeErrorPolicy.reaction(to: .noResult, consecutiveNetworkFailures: 0) == .recordNotFound)
+        #expect(GeocodeErrorPolicy.reaction(to: .other, consecutiveNetworkFailures: 0) == .recordNotFound)
+        #expect(GeocodeErrorPolicy.reaction(to: .other, consecutiveNetworkFailures: 5) == .recordNotFound)
+    }
+
+    @Test func aNetworkErrorStopsTheRunAndTriesAgainInFiveMinutes() {
+        #expect(GeocodeErrorPolicy.reaction(to: .network, consecutiveNetworkFailures: 1) == .retryLater(after: 300))
+        #expect(GeocodeErrorPolicy.reaction(to: .network, consecutiveNetworkFailures: 2) == .retryLater(after: 300))
+    }
+
+    @Test func threeNetworkErrorsInARowCountAsThrottling() {
+        #expect(GeocodeErrorPolicy.reaction(to: .network, consecutiveNetworkFailures: 3) == .markThrottled)
+        #expect(GeocodeErrorPolicy.reaction(to: .network, consecutiveNetworkFailures: 4) == .markThrottled)
     }
 }
 

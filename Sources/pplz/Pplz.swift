@@ -264,8 +264,12 @@ extension People {
     private func coordinate(of place: String, in geocodes: GeocodeStore) async throws -> Coordinate {
         let address = PostalAddress(city: place)
         if try !geocodes.load().isKnown(address.key) {
-            if case .paused(let until) = try await AddressLocator.locate([address], in: geocodes) {
+            switch try await AddressLocator.locate([address], in: geocodes) {
+            case .done: break
+            case .paused(let until):
                 throw Failure("Cannot look up \"\(place)\" now: this hour's budget for Apple's geocoder is spent. Try again after \(format(until)).")
+            case .unreachable(let until):
+                throw Failure("Cannot look up \"\(place)\" now: Apple's geocoder cannot be reached (are you offline?). Try again after \(format(until)).")
             }
         }
         guard let center = try geocodes.load().coordinate(for: address.key) else { throw Failure("Apple's geocoder does not know a place called \"\(place)\".") }
@@ -316,8 +320,12 @@ struct Locate: AsyncParsableCommand {
                 FileHandle.standardError.write(Data("Located \(done) of \(todo.count)\n".utf8))
             }
             try showStatus(entries, geocodes)
-            if case .paused(let until) = outcome {
+            switch outcome {
+            case .done: break
+            case .paused(let until):
                 common.report(["This hour's budget is spent. Run `pplz locate` again after \(format(until))."])
+            case .unreachable(let until):
+                common.report(["Apple's geocoder cannot be reached (are you offline?). Run `pplz locate` again after \(format(until))."])
             }
         }
     }
