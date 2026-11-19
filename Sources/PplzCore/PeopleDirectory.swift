@@ -120,6 +120,35 @@ public enum PeopleDirectory {
         return taken ? nil : name
     }
 
+    /// A name as it stands on a profile, without academic titles in front ("Dr.", "Prof. Dr.-Ing.")
+    /// and without what follows a comma ("…, MBA").
+    public static func nameWithoutTitles(_ name: String) -> String {
+        let titles: Set<String> = ["dr", "prof", "dipl", "ing", "mag", "med", "rer", "nat", "phil", "jur", "h", "c", "hc"]
+        let words = (name.split(separator: ",").first ?? "").split(whereSeparator: \.isWhitespace)
+        let kept = words.drop { word in
+            let parts = word.lowercased().split(whereSeparator: { $0 == "." || $0 == "-" })
+            return !parts.isEmpty && parts.allSatisfy { titles.contains(String($0)) }
+        }
+        return kept.joined(separator: " ")
+    }
+
+    /// Who a captured name could be: people of exactly that name first, then those sharing the family
+    /// name. Titles, case and accents are ignored ("ß" counts as "ss"). Only proposals — the user chooses.
+    public static func candidates(forCapturedName name: String, in entries: [PersonEntry], limit: Int = 5) -> [PersonEntry] {
+        func fold(_ text: String) -> [String] {
+            nameWithoutTitles(text).folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+                .lowercased().replacingOccurrences(of: "ß", with: "ss").split(whereSeparator: \.isWhitespace).map(String.init)
+        }
+        let wanted = fold(name)
+        guard let family = wanted.last else { return [] }
+        let ranked: [(rank: Int, entry: PersonEntry)] = entries.compactMap { entry in
+            let words = fold(entry.name)
+            if words == wanted { return (0, entry) }
+            return words.last == family && wanted.count > 1 ? (1, entry) : nil
+        }
+        return Array(ranked.sorted { $0.rank != $1.rank ? $0.rank < $1.rank : $0.entry.name < $1.entry.name }.prefix(limit).map(\.entry))
+    }
+
     /// A person that belongs to a contact of this device but is stored with another device's identifier.
     public struct Adoption: Equatable, Sendable {
         public var person: UUID

@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import ImageIO
 import PplzCore
 
 @main
@@ -11,7 +12,7 @@ struct Pplz: ParsableCommand {
             People are found by name (or part of it), pplz ID or contact identifier. Events and follow-ups \
             are addressed by ID or a unique ID prefix. Every command accepts --json for machine-readable output.
             """,
-        subcommands: [People.self, PersonCommand.self, Log.self, Events.self, EventCommand.self, FollowUpCommand.self, Due.self, Tags.self,
+        subcommands: [People.self, PersonCommand.self, Log.self, Events.self, EventCommand.self, FollowUpCommand.self, Due.self, Tags.self, Capture.self,
                       ContactsCommand.self]
     )
 }
@@ -734,6 +735,49 @@ struct ContactsCommand: ParsableCommand {
             }
         }
     }
+}
+
+// MARK: - capture
+
+struct Capture: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Read a profile screenshot (e.g. LinkedIn) on this Mac: its text and the profile picture.")
+    @Argument(help: "The screenshot file.") var image: String
+    @Option(help: "Save the cropped profile picture to this PNG file.") var picture: String?
+
+    func run() throws {
+        let url = URL(fileURLWithPath: (image as NSString).expandingTildeInPath)
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            throw PplzError.invalid("Cannot read an image from \(url.path).")
+        }
+        let (lines, face) = try blocking { (try await ProfileImage.text(in: image), try await ProfileImage.picture(in: image)) }
+        print(lines.joined(separator: "\n"))
+        guard let picture else { return }
+        guard let face else { throw PplzError.invalid("No face found in the image.") }
+        let out = URL(fileURLWithPath: (picture as NSString).expandingTildeInPath)
+        guard let destination = CGImageDestinationCreateWithURL(out as CFURL, "public.png" as CFString, 1, nil) else {
+            throw PplzError.invalid("Cannot write \(out.path).")
+        }
+        CGImageDestinationAddImage(destination, face, nil)
+        CGImageDestinationFinalize(destination)
+    }
+}
+
+private final class ResultBox<Value>: @unchecked Sendable {
+    var result: Result<Value, Error>?
+    init() {}
+}
+
+/// Runs async work from a command and waits for it.
+func blocking<T: Sendable>(_ work: @escaping @Sendable () async throws -> T) throws -> T {
+    let box = ResultBox<T>()
+    let done = DispatchSemaphore(value: 0)
+    Task.detached {
+        do { box.result = .success(try await work()) } catch { box.result = .failure(error) }
+        done.signal()
+    }
+    done.wait()
+    return try box.result!.get()
 }
 
 // MARK: - tags
