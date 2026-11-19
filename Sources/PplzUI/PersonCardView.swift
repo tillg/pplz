@@ -138,7 +138,7 @@ struct PersonCardView: View {
         fieldGroup(contact.emails, fallbackLabel: "email", symbol: "envelope.fill", action: .mail)
         fieldGroup(contact.addresses, fallbackLabel: "address", symbol: "mappin.and.ellipse", action: .map)
         fieldGroup(contact.urls + contact.socialProfiles, fallbackLabel: "url", symbol: "safari.fill", action: .web)
-        if let birthday = contact.birthday {
+        if let birthday = contact.birthdayWithAge() {
             FieldGroup { FieldRow(label: "birthday", value: birthday) }
         }
     }

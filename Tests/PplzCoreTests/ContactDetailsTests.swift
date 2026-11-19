@@ -28,4 +28,47 @@ import Testing
     @Test func emptyContactRendersNothing() {
         #expect(ContactDetails(identifier: "C-2").lines.isEmpty)
     }
+
+    private func day(_ text: String) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Berlin")!
+        let parts = text.split(separator: "-").map { Int($0)! }
+        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2], hour: 12))!
+    }
+
+    private func age(_ birthday: String?, on today: String) -> Int? {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Berlin")!
+        return ContactDetails(identifier: "C-3", birthday: birthday).age(on: day(today), calendar: calendar)
+    }
+
+    @Test func ageCountsCompletedYears() {
+        #expect(age("1980-05-17", on: "2026-05-16") == 45)   // the day before the birthday
+        #expect(age("1980-05-17", on: "2026-05-17") == 46)   // on the birthday
+        #expect(age("1980-05-17", on: "2026-11-19") == 46)
+    }
+
+    @Test func ageOfSomeoneBornOnLeapDay() {
+        #expect(age("2000-02-29", on: "2026-02-28") == 25)
+        #expect(age("2000-02-29", on: "2026-03-01") == 26)
+    }
+
+    @Test func noAgeWithoutABirthYear() {
+        #expect(age("--05-17", on: "2026-11-19") == nil)
+        #expect(age(nil, on: "2026-11-19") == nil)
+    }
+
+    @Test func noAgeForABirthdayInTheFuture() {
+        #expect(age("2030-01-01", on: "2026-11-19") == nil)
+    }
+
+    @Test func birthdayIsShownWithTheAge() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Berlin")!
+        let today = day("2026-11-19")
+        #expect(ContactDetails(identifier: "C-4", birthday: "1980-05-17").birthdayWithAge(on: today, calendar: calendar) == "1980-05-17 · 46 years")
+        #expect(ContactDetails(identifier: "C-5", birthday: "2025-05-17").birthdayWithAge(on: today, calendar: calendar) == "2025-05-17 · 1 year")
+        #expect(ContactDetails(identifier: "C-6", birthday: "--05-17").birthdayWithAge(on: today, calendar: calendar) == "--05-17")
+        #expect(ContactDetails(identifier: "C-7").birthdayWithAge(on: today, calendar: calendar) == nil)
+    }
 }

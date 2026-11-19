@@ -16,6 +16,10 @@ edited: 2026-11-19
   - [12:08 — The share extension only delivers; the app does the reading and asking](#run-2026-11-19-1154-7)
   - [12:10 — The extension opens pplz through the Objective-C runtime](#run-2026-11-19-1154-8)
   - [12:16 — Leave the share extension in the project although it cannot be signed from this session](#run-2026-11-19-1154-9)
+- [2026-11-19 21:14 — Work through the open GitHub issues](#run-2026-11-19-2114)
+  - [21:20 — Commit, push to main and write to the issue tracker without asking](#run-2026-11-19-2114-1)
+  - [21:22 — Build only issue 7; the other six get questions](#run-2026-11-19-2114-2)
+  - [21:30 — The age is counted by month and day, and shown in the app only](#run-2026-11-19-2114-3)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -114,3 +118,46 @@ edited: 2026-11-19
 - **Why:** the extension is what the user asked for, and one run of `scripts/build-app.sh iphone "<device>"` from their terminal creates the profiles; after that this session can build again, as with iCloud.
 - **Alternatives:** revert the extension (device builds from this session keep working, but the feature the user asked for is gone from `main`); make the extension optional by a build flag (more project plumbing for a one-time problem).
 - **Consequences:** until the user has run the device build once themselves, device builds of `main` fail. The iPad has a valid build with the capture screen but without "Share → pplz"; the iPhone was not connected and still has the build from 10:43. The share extension is untested on a device. Correction, 13:30: the user ran the build from their own terminal and it failed the same way, so the assumption in "Why" was wrong — `xcodebuild` cannot reach the account from any shell. The profiles have to be created once in the Xcode app (Signing & Capabilities of `pplziOS` and `pplzShare`).
+
+# 2026-11-19 21:14 — Work through the open GitHub issues {#run-2026-11-19-2114}
+
+- **Started by:** `/autonomous`
+- **Task, as given:**
+
+  > Look at the gh issues and do the ones where u are sure how to implement them. For the others write the questions in comments.
+
+## 21:20 — Commit, push to main and write to the issue tracker without asking {#run-2026-11-19-2114-1}
+
+- **Status:** open
+- **Overrides:** the user's standing practice in this project (commit and push only when they say "commit & push"). "Never create or switch branches" from `~/.claude/CLAUDE.md` is kept.
+- **Context:** the task ends in commits (issues done) and in comments on GitHub (questions). The repository is public.
+- **Question:** wait for a go-ahead per commit and per comment?
+- **Decision:** commit each green unit to `main`, push it, close an issue once its fix is on `main`, and post the questions as issue comments. Each comment starts with the note that Claude wrote it.
+- **Why:** the task asks for both, and the user is away. `/autonomous` allows it.
+- **Alternatives:** leave the commits and the comment drafts for the user (nothing is published, but the task is not done).
+- **Consequences:** `Package.resolved` was already changed before the run and `assets/social-preview.png` was untracked; neither is committed. Nothing from `private/` and no real person's data goes into commits or comments.
+
+## 21:22 — Build only issue 7; the other six get questions {#run-2026-11-19-2114-2}
+
+- **Status:** open
+- **Context:** seven open issues (1–7). The task says to build the ones where the way is certain.
+- **Question:** which ones are certain?
+- **Decision:** build 7 (age next to the birthday). Ask on 1, 2, 3, 4, 5 and 6.
+- **Why:**
+  - 7 is a single display rule with no data stored.
+  - 6 ("Icons same size") shows the pplz and the Contacts icon side by side. Measured in that screenshot, both are the same size (192 px wide, same circle, same tabs), so it is not clear what differs and where.
+  - 2 and 3 add photos and face data to the synced store, which is hard to take back, and the spec leaves the storage and the recognition service open.
+  - 4 needs every address turned into coordinates, which Apple's service limits and which sends the addresses to Apple.
+  - 1 names no functions; 5 needs a server and a store release, which the spec excludes so far.
+- **Alternatives:** build a first map (4) or a photo gallery (2) on assumptions (visible progress, but schema and privacy choices the user has not made).
+- **Consequences:** six issues stay open with questions; each question comes with a proposed default so that a short answer is enough.
+
+## 21:30 — The age is counted by month and day, and shown in the app only {#run-2026-11-19-2114-3}
+
+- **Status:** open
+- **Context:** issue 7, `ContactDetails.age` and the birthday row of the person card.
+- **Question:** when does someone born on 29 February get a year older in other years, where is the age shown, and what about a birthday without a year?
+- **Decision:** the age is the number of completed years by comparing month and day, so 29 February counts from 1 March. It is shown in the birthday row of the person card as `1980-05-17 · 46 years`. Without a birth year the row shows the date only. The text and JSON output of `pplz person` keep the plain date.
+- **Why:** comparing month and day is the usual rule in Germany and needs no calendar arithmetic. The JSON is read by scripts, and an age in it would be out of date the next day.
+- **Alternatives:** count 28 February as the birthday in other years (what Apple's calendar arithmetic does); show the age in the command line too.
+- **Consequences:** none for stored data. The date itself stays in the form `YYYY-MM-DD`; a localised date would be a separate change.
