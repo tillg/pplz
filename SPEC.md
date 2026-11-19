@@ -182,14 +182,18 @@ Met 7× · last 2026-11-12
 
 **Use case:** I meet someone at a conference or fair, we connect on LinkedIn — and I want that new person to end up in pplz *and* Contacts, including their LinkedIn picture, with very little effort.
 
-Flow (decided 2026-11-18):
+Flow **[S]** revised by Till 2026-11-19 (replaces the flow of 2026-11-18):
 
-1. On the person's LinkedIn profile (app or browser) → Share → **pplz**, or scan their LinkedIn QR code in pplz. This delivers the profile link and, if the share provides it, the name; otherwise I type the name. **[A]** until the device spike
-2. **Picture** **[S]**: I share the profile picture or a screenshot of the profile to pplz; pplz crops the face automatically and attaches it. pplz never fetches pictures from LinkedIn itself (R7).
-3. pplz proposes "how we met" from the current event (time + place, e.g. the conference I'm at) and adds the person as a participant of that event. **[A]**
-4. **The system contact is created automatically** with name, LinkedIn link and picture. **[S]**
+1. On the iPhone I open the person's LinkedIn page, take a **screenshot** and **share it to pplz**. (In the app or on the Mac: the Capture Profile button and a file or photo.)
+2. pplz **reads the screenshot on the device** and works out whether the person is known: it shows the fields it read, editable, and a list of possible matches plus **"New person"**. I choose. Proposals come from the LinkedIn profile ID and from the name (same name, then same family name); a name is only ever a proposal (§R3).
+3. pplz **creates or updates the person**, in pplz and in Contacts. For an existing contact only empty fields are filled — a capture never overwrites what the address book has.
+4. pplz asks **which event** the person belongs to: the current and recent entries of my **calendar**, recent pplz events, or **"New event"**.
 
-Also: attaching a LinkedIn profile to an *existing* person must be equally easy (share → pick person, or paste link). **[A]**
+Reading uses **local models first** **[S]** 2026-11-19: Vision for text and the profile picture, Apple's on-device language model (Foundation Models) to sort the text into name, title, job, company, city and country. We assume an AI-capable device; if the device has no model, the fields are filled in by hand, and offering an external model for that case comes later.
+
+**LinkedIn link** **[S]** 2026-11-19: stored in the contact's social-profile field *and* as the profile ID on the pplz person. A browser screenshot shows the address, and pplz reads it from there. A screenshot from the LinkedIn app does not contain it; there it comes from LinkedIn's own Share → pplz, and pplz offers the person whose card is open. Address shapes are reduced to the part after `/in/` (`LinkedInLink`); `lnkd.in` short links are not resolved, because that would mean fetching from LinkedIn (R7).
+
+**Built 2026-11-19:** `pplz capture <image>` (CLI), the capture screen in the apps, saving, event linking, the share extension with its App Group inbox. **Open:** how well the language model extracts the fields (the model was still downloading when this was built) and whether the image itself reads better than the recognised text; the share extension on a real device, including whether it may open pplz by itself; what LinkedIn's Share hands over; capture into an existing contact with a note on the Mac (fails there, works on iPhone / iPad); the picture is cropped as a square around the largest face.
 
 Possible later addition: bulk import of existing connections from LinkedIn's official data export (R7). **[A]**
 
