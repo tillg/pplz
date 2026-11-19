@@ -8,6 +8,11 @@ public struct PeopleView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var sheet: Sheet?
     @State private var isConfirmingDelete = false
+    #if os(iOS)
+    /// The contact whose system card is shown.
+    @State private var shownContact: ShownContact?
+    private struct ShownContact: Identifiable { let id: String }
+    #endif
     private var opensEvents = false
 
     public enum Sheet: String, Identifiable, Sendable {
@@ -169,8 +174,16 @@ extension PeopleView {
                         Button("Open in Contacts", systemImage: "person.crop.square") { model.openInContacts() }
                             .help("Show this card in the Contacts app")
                     }
+                    #else
+                    if let identifier = card.entry.contactIdentifier, card.contact != nil {
+                        Button("Contact card", systemImage: "person.crop.square") { shownContact = ShownContact(id: identifier) }
+                    }
                     #endif
                 }
+                #if os(iOS)
+                // changes made on the contact card show up when it closes
+                .sheet(item: $shownContact, onDismiss: { Task { await model.reload() } }) { ContactCardSheet(identifier: $0.id) }
+                #endif
         } else {
             ContentUnavailableView("No person selected", systemImage: "person.crop.circle")
         }
