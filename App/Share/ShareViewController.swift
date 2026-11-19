@@ -25,17 +25,25 @@ final class ShareViewController: UIViewController {
     }
 
     private func deliver() async {
-        let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? []).flatMap { $0.attachments ?? [] }
+        let items = extensionContext?.inputItems as? [NSExtensionItem] ?? []
+        let providers = items.flatMap { $0.attachments ?? [] }
         var delivered = 0
         if let inbox = CaptureInbox.shared {
             for provider in providers {
                 if let item = await item(from: provider), (try? inbox.add(item)) != nil { delivered += 1 }
             }
+            // some apps put the link into the text that accompanies what they share
+            if delivered == 0, let item = items.lazy.compactMap({ Self.profileLink($0.attributedContentText?.string) }).first,
+               (try? inbox.add(item)) != nil { delivered += 1 }
         }
         guard delivered > 0 else {
-            label.text = "pplz takes a screenshot of a profile or a profile link."
-            try? await Task.sleep(for: .seconds(2))
-            extensionContext?.completeRequest(returningItems: nil)
+            // say what arrived, so that an unknown way of sharing can be reported and supported
+            var received: [String] = []
+            for provider in providers { received.append(await description(of: provider)) }
+            label.font = .preferredFont(forTextStyle: .footnote)
+            label.text = (["pplz takes a screenshot of a profile or a profile link. Received:"] + received
+                          + items.compactMap { $0.attributedContentText?.string }).joined(separator: "\n")
+            view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(close)))
             return
         }
         // iOS has no official way for a share extension to open its app; if this does nothing,
@@ -43,24 +51,37 @@ final class ShareViewController: UIViewController {
         let opened = openApp()
         label.text = opened ? "Opening pplz…" : "Saved. Open pplz to continue."
         try? await Task.sleep(for: .seconds(opened ? 0.4 : 1.6))
-        extensionContext?.completeRequest(returningItems: nil)
+        close()
     }
+
+    @objc private func close() { extensionContext?.completeRequest(returningItems: nil) }
 
     private func item(from provider: NSItemProvider) async -> CaptureInbox.Item? {
         if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
             return await data(from: provider, type: .image).map { .image($0) }
         }
-        if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-            return await withCheckedContinuation { continuation in
-                _ = provider.loadObject(ofClass: URL.self) { url, _ in continuation.resume(returning: Self.profileLink(url?.absoluteString)) }
-            }
+        if let link = Self.profileLink(await url(from: provider)) { return link }
+        return Self.profileLink(await text(from: provider))
+    }
+
+    private func url(from provider: NSItemProvider) async -> String? {
+        guard provider.canLoadObject(ofClass: URL.self) else { return nil }
+        return await withCheckedContinuation { continuation in
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in continuation.resume(returning: url?.absoluteString) }
         }
-        if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-            return await withCheckedContinuation { continuation in
-                _ = provider.loadObject(ofClass: String.self) { text, _ in continuation.resume(returning: Self.profileLink(text)) }
-            }
+    }
+
+    private func text(from provider: NSItemProvider) async -> String? {
+        guard provider.canLoadObject(ofClass: String.self) else { return nil }
+        return await withCheckedContinuation { continuation in
+            _ = provider.loadObject(ofClass: String.self) { text, _ in continuation.resume(returning: text) }
         }
-        return nil
+    }
+
+    private func description(of provider: NSItemProvider) async -> String {
+        var content = await url(from: provider) ?? ""
+        if content.isEmpty { content = await text(from: provider) ?? "" }
+        return provider.registeredTypeIdentifiers.joined(separator: ", ") + (content.isEmpty ? "" : ": " + content.prefix(200))
     }
 
     /// Only a link to a LinkedIn profile is worth handing over; any other text or address is not.

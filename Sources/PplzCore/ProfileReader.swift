@@ -33,7 +33,8 @@ public enum ProfileReader {
 
     /// Reads what it can; never fails — whatever could not be read stays empty.
     public static func read(_ image: CGImage) async -> Reading {
-        let lines = (try? await ProfileImage.text(in: image)) ?? []
+        let found = (try? await ProfileImage.lines(in: image)) ?? []
+        let lines = found.map(\.text)
         var reading = Reading(profile: CapturedProfile(), problem: modelProblem)
         do {
             reading.profile = try await fields(from: lines)
@@ -41,7 +42,8 @@ public enum ProfileReader {
             reading.problem = "The fields could not be read automatically (\(error.localizedDescription))."
         }
         reading.profile.linkedInID = LinkedInLink.profileID(in: lines.joined(separator: "\n")) ?? ""
-        if let picture = try? await ProfileImage.picture(in: image) { reading.profile.picture = png(picture) }
+        let nameLine = nameLineIndex(in: lines).map { found[$0].box }
+        if let picture = try? await ProfileImage.picture(in: image, aboveLine: nameLine) { reading.profile.picture = png(picture) }
         return reading
     }
 
@@ -70,8 +72,21 @@ public enum ProfileReader {
         return looksLikeOrganisations ? "" : last
     }
 
+    /// The line with the owner's name: on LinkedIn the one ending in "1st", "2nd" or "3rd".
+    static func nameLineIndex(in lines: [String]) -> Int? {
+        lines.firstIndex { $0.firstMatch(of: /(?:^|[\s•·])(?:1st|2nd|3rd)\+?\s*$/) != nil }
+    }
+
+    /// What the model gave as academic title, kept only if it stands in the name line and is not
+    /// the connection degree ("2nd"), which the model has taken for a title.
+    static func title(_ prefix: String, nameLine: String) -> String {
+        let prefix = prefix.trimmed
+        let isDegree = prefix.wholeMatch(of: /(?i)(1st|2nd|3rd)\+?/) != nil
+        return !isDegree && nameLine.range(of: prefix, options: [.caseInsensitive, .diacriticInsensitive]) != nil ? prefix : ""
+    }
+
     private static func bounds(of lines: [String]) -> (lines: [String], isBounded: Bool) {
-        let marker = lines.firstIndex { $0.firstMatch(of: /(?:^|[\s•·])(?:1st|2nd|3rd)\s*$/) != nil }
+        let marker = nameLineIndex(in: lines)
         let start = marker ?? 0
         let rest = lines[start...]
         let end = rest.dropFirst().firstIndex { line in
@@ -133,7 +148,7 @@ public enum ProfileReader {
                 generating: ProfileFields.self, options: GenerationOptions(sampling: .greedy)).content
             let place = place(locationLine(in: lines))
             let company = found.company.trimmed
-            return CapturedProfile(name: found.name.trimmed, namePrefix: found.namePrefix.trimmed,
+            return CapturedProfile(name: found.name.trimmed, namePrefix: title(found.namePrefix, nameLine: header(of: lines).first ?? ""),
                                    jobTitle: role(at: company, in: header(of: lines)) ?? found.jobTitle.trimmed,
                                    company: company, city: place.city, country: place.country)
         }
