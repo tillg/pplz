@@ -741,25 +741,34 @@ struct ContactsCommand: ParsableCommand {
 
 struct Capture: ParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Read a profile screenshot (e.g. LinkedIn) on this Mac: its text and the profile picture.")
+        abstract: "Read a profile screenshot (e.g. LinkedIn) on this Mac: name, job, company, place, LinkedIn link and picture.",
+        discussion: "Nothing is saved and nothing leaves the Mac. The fields are filled in by Apple's on-device language model.")
     @Argument(help: "The screenshot file.") var image: String
     @Option(help: "Save the cropped profile picture to this PNG file.") var picture: String?
+    @Flag(help: "Print the recognised text instead of the fields.") var text = false
 
     func run() throws {
         let url = URL(fileURLWithPath: (image as NSString).expandingTildeInPath)
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
             throw PplzError.invalid("Cannot read an image from \(url.path).")
         }
-        let (lines, face) = try blocking { (try await ProfileImage.text(in: image), try await ProfileImage.picture(in: image)) }
-        print(lines.joined(separator: "\n"))
-        guard let picture else { return }
-        guard let face else { throw PplzError.invalid("No face found in the image.") }
-        let out = URL(fileURLWithPath: (picture as NSString).expandingTildeInPath)
-        guard let destination = CGImageDestinationCreateWithURL(out as CFURL, "public.png" as CFString, 1, nil) else {
-            throw PplzError.invalid("Cannot write \(out.path).")
+        if text {
+            print(try blocking { try await ProfileImage.text(in: image) }.joined(separator: "\n"))
+            return
         }
-        CGImageDestinationAddImage(destination, face, nil)
-        CGImageDestinationFinalize(destination)
+        if let problem = ProfileReader.modelProblem {
+            FileHandle.standardError.write(Data("Fields are not filled in: \(problem)\n".utf8))
+        }
+        let profile = try blocking { await ProfileReader.read(image) }
+        let rows = [("Name", profile.name), ("Title", profile.namePrefix), ("Job", profile.jobTitle), ("Company", profile.company),
+                    ("City", profile.city), ("Country", profile.country),
+                    ("LinkedIn", profile.linkedInID.isEmpty ? "" : LinkedInLink.url(forProfileID: profile.linkedInID)),
+                    ("Picture", profile.picture == nil ? "" : "found")]
+        print(rows.map { "\($0.0): \($0.1)" }.joined(separator: "\n"))
+        if let picture {
+            guard let data = profile.picture else { throw PplzError.invalid("No face found in the image.") }
+            try data.write(to: URL(fileURLWithPath: (picture as NSString).expandingTildeInPath))
+        }
     }
 }
 

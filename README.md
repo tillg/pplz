@@ -65,7 +65,7 @@ pplz contacts history on                           # write the meeting history i
 pplz contacts journal                              # every change pplz made to your address book
 pplz person rhythm "Anna Example" 3m               # keep in touch every 3 months
 pplz due                                           # who is overdue
-pplz capture profile.png --picture face.png        # read a profile screenshot: its text and the profile picture
+pplz capture profile.png --picture face.png        # read a profile screenshot: name, job, company, LinkedIn link, picture
 pplz --help
 ```
 
