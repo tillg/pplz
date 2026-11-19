@@ -14,6 +14,8 @@ edited: 2026-11-19
   - [12:02 — The model reads the recognised text, not the image](#run-2026-11-19-1154-5)
   - [12:03 — "Meetings in my calendar" means the system calendar, plus recent pplz events](#run-2026-11-19-1154-6)
   - [12:08 — The share extension only delivers; the app does the reading and asking](#run-2026-11-19-1154-7)
+  - [12:10 — The extension opens pplz through the Objective-C runtime](#run-2026-11-19-1154-8)
+  - [12:16 — Leave the share extension in the project although it cannot be signed from this session](#run-2026-11-19-1154-9)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -92,3 +94,23 @@ edited: 2026-11-19
 - **Why:** the synced store stays where it is (no move into an App Group, no second process writing to a CloudKit store); all logic stays in the app, where it is tested.
 - **Alternatives:** full flow in the extension (no app switch, but shared store, memory limits and duplicated UI).
 - **Consequences:** needs the App Groups capability and a second bundle ID, which Xcode has to register. If iOS does not let the extension open the app, the user has to open pplz themselves — one extra tap.
+
+## 12:10 — The extension opens pplz through the Objective-C runtime {#run-2026-11-19-1154-8}
+
+- **Status:** open
+- **Context:** `App/Share/ShareViewController.swift`. iOS offers share extensions no supported way to open their app; `UIApplication.open` is unavailable to extensions at compile time, and Xcode refuses to build an extension with `APPLICATION_EXTENSION_API_ONLY = NO`.
+- **Question:** make the user open pplz by hand after every share, or use the known workaround?
+- **Decision:** find the host's `UIApplication` through the responder chain and call `openURL:options:completionHandler:` through the Objective-C runtime; if that does nothing, show "Saved. Open pplz to continue."
+- **Why:** the user asked for a flow where sharing leads straight into pplz's questions; this is a personal build first (SPEC §1).
+- **Alternatives:** no automatic opening (always one extra tap, but nothing Apple could object to).
+- **Consequences:** not verified on a device yet. It uses an API that is off limits for extensions, so App Review may reject it: remove it before a store release. A system update can also stop it from working; the fallback message covers that.
+
+## 12:16 — Leave the share extension in the project although it cannot be signed from this session {#run-2026-11-19-1154-9}
+
+- **Status:** open
+- **Context:** the device build failed with "No Accounts" for the new bundle ID `com.tillg.pplz.share` and the App Groups capability: Xcode's signed-in account is not reachable from this session's shell, only from the user's own terminal (the same happened with the iCloud capability). The failed build left a broken app bundle behind, and the build script installed it on the iPad.
+- **Question:** take the extension out of `main` again so that device builds keep working, or leave it in?
+- **Decision:** leave it in. Fix the script so that it never installs after a failed build, and reinstall a clean build on the iPad from a temporary project variant without the extension (not committed).
+- **Why:** the extension is what the user asked for, and one run of `scripts/build-app.sh iphone "<device>"` from their terminal creates the profiles; after that this session can build again, as with iCloud.
+- **Alternatives:** revert the extension (device builds from this session keep working, but the feature the user asked for is gone from `main`); make the extension optional by a build flag (more project plumbing for a one-time problem).
+- **Consequences:** until the user has run the device build once themselves, device builds of `main` fail. The iPad has a valid build with the capture screen but without "Share → pplz"; the iPhone was not connected and still has the build from 10:43. The share extension is untested on a device.

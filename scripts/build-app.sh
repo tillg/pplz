@@ -25,7 +25,9 @@ iphone)
     DEVICE="${2:?device name, see: xcrun devicectl list devices}"
     # build for this very device, so that Xcode registers it and puts it into the provisioning profile
     xcodebuild -project pplz.xcodeproj -scheme pplziOS -configuration Debug -destination "platform=iOS,name=$DEVICE" \
-        -derivedDataPath "$DERIVED" -allowProvisioningUpdates -allowProvisioningDeviceRegistration build | grep -E "error:|BUILD"
+        -derivedDataPath "$DERIVED" -allowProvisioningUpdates -allowProvisioningDeviceRegistration build | grep -E "error:|BUILD" | tee "$DERIVED/last-build.txt"
+    # never install a stale build after a failed one
+    grep -q "BUILD SUCCEEDED" "$DERIVED/last-build.txt" || exit 1
     xcrun devicectl device install app --device "$DEVICE" \
         "$DERIVED/Build/Products/Debug-iphoneos/pplz.app" | tail -2
     ;;
