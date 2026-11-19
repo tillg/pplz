@@ -54,7 +54,7 @@ A person I know. Normally linked 1:1 to a contact in the system address book **[
 | Core contact data (name, phone, mail, …) | owned by Contacts and not duplicated in pplz while a contact is linked; pplz-only persons carry their own minimal core data **[A]** |
 | How we met | where / when / through whom **[S]** decided 2026-11-18 |
 | Notes | free text, things to remember **[S]** |
-| Tags / groups | my own labels ("client", "sailing club") to filter and group **[S]** |
+| Tags / groups | my own labels ("client", "sailing club") to filter and group **[S]**. One shared set of tags for persons and events; case does not matter. When tagging, the existing tags are offered and a new one can be created, so the set stays small **[S]** 2026-11-19. Tags created twice on two devices before a sync are merged into the most used spelling (by the Mac app) **[A]** |
 | Connections | links between persons: "introduced by", "colleague of", "partner of" **[S]**. Stored as a directed sentence "A — kind — B" with free-text kind; shown on both persons **[A]** |
 | Keep-in-touch rhythm | desired interval per person (e.g. every 3 months); pplz lists people I haven't met for too long **[S]**. Stored in days (a month counts as 30); people with a rhythm but no event yet count as overdue **[A]** |
 | | Connections are mirrored into Contacts as related names (§3.2) **[S]** 2026-11-18. Tags and the rhythm live in pplz only **[A]** |
@@ -263,7 +263,7 @@ Edge cases the first version handles **[S]** decided 2026-11-18:
 - **Built on the Mac 2026-11-18:** the Mac app syncs its default store through the iCloud container `iCloud.com.tillg.pplz` (CloudKit *Development* environment). Verified: records written by the CLI are uploaded by the app, and a fresh store received all existing persons, relationships and tags. The Mac app needs no sandbox for this, so the store stays where it is.
 - Sync is an explicit opt-in of the apps for their default store; the CLI, tests and stores given with `-store` never sync.
 - **Identity across devices:** a person is matched to the local contact through the `pplz://person/<id>` link in the contact, and only then by the stored contact identifier (R3). The stored identifier is never overwritten by another device.
-- **Not done yet:** (iPhone sync verified 2026-11-19: the phone's store received all persons with the Mac's IDs.) A running app picks up remote changes only when it starts or (with push) when notified, and reloads its screen only on activation; no de-duplication of tags or settings created on two devices before they synced; a person first created on the phone has no link in Contacts, because only the Mac can write it.
+- **Not done yet:** (iPhone sync verified 2026-11-19: the phone's store received all persons with the Mac's IDs.) A running app picks up remote changes only when it starts or (with push) when notified, and reloads its screen only on activation; no de-duplication of settings created on two devices (tags are merged, §2.1) before they synced; a person first created on the phone has no link in Contacts, because only the Mac can write it.
 - Model must respect the CloudKit schema rules from day one (no unique constraints, optional relationships with inverses, additive schema changes only — see §8.2). **[A]**
 - Contacts themselves sync via iCloud Contacts as today; pplz writes the notes block on one device and iCloud distributes it. Needs care to avoid two devices writing the same block concurrently. **[A]**
 - Works offline; syncs when online. **[A]**

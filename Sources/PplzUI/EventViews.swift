@@ -156,17 +156,24 @@ struct EventDetailView: View {
 
 /// Edits an event's own fields. Participants are not changed here.
 struct EditEventSheet: View {
+    let knownTags: [String]
     let onSave: (PeopleModel.EventEdit) -> Void
 
     @State private var edit: PeopleModel.EventEdit
+    @State private var pendingTag = ""
 
-    init(edit: PeopleModel.EventEdit, onSave: @escaping (PeopleModel.EventEdit) -> Void) {
+    init(knownTags: [String], edit: PeopleModel.EventEdit, onSave: @escaping (PeopleModel.EventEdit) -> Void) {
+        self.knownTags = knownTags
         self.onSave = onSave
         _edit = State(initialValue: edit)
     }
 
     var body: some View {
-        SheetScaffold(title: "Edit event", confirmTitle: "Save", onConfirm: { onSave(edit) }) {
+        SheetScaffold(title: "Edit event", confirmTitle: "Save", onConfirm: {
+            var edit = edit
+            edit.tags = TagInput.adding(pendingTag, to: edit.tags, known: knownTags)   // typed but not added yet
+            onSave(edit)
+        }) {
             Picker("Format", selection: $edit.format) {
                 ForEach(EventFormat.allCases, id: \.self) { Text($0.displayName).tag($0) }
             }
@@ -177,7 +184,7 @@ struct EditEventSheet: View {
                 DatePicker("End", selection: $edit.end, in: edit.start...)
             }
             FormField(title: "Place", text: $edit.place)
-            FormField(title: "Tags", text: $edit.tags, prompt: "Separated by commas")
+            TagField(title: "Tags", text: $edit.tags, pending: $pendingTag, known: knownTags)
             FormField(title: "Notes", text: $edit.notes, lines: 3...6)
             FormField(title: "Links", text: $edit.links, prompt: "One per line", lines: 2...4)
         }

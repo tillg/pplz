@@ -80,7 +80,7 @@ Run the tests with `swift test`.
 
 ## Apps
 
-The Mac app shows your people and each person's card, laid out like Contacts with pink highlights. You can browse and search people and events; log an event with a person (+ on their card); edit their tags, notes, how you met and keep-in-touch rhythm (the pencil); add and remove relationships; edit and delete events; and add and tick off follow-ups. Changes made with the CLI appear when the app comes to the front.
+The Mac app shows your people and each person's card, laid out like Contacts with pink highlights. You can browse and search people and events; log an event with a person (+ on their card); edit their tags, notes, how you met and keep-in-touch rhythm (the pencil) — when tagging, the tags you already use are offered, and typing a new name creates one; add and remove relationships; edit and delete events; and add and tick off follow-ups. Changes made with the CLI appear when the app comes to the front.
 
 The iPhone / iPad app uses the same screens. It is at an early stage: it syncs with the Mac through iCloud (changes from another device appear when the app starts), but it does not write into Contacts.
 

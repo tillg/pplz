@@ -4,7 +4,7 @@ import SwiftData
 /// The pplz database. App and CLI open the same store file (SPEC §8.3);
 /// CloudKit sync is the app's job, so this type never talks to CloudKit.
 public final class PplzStore {
-    private let context: ModelContext
+    let context: ModelContext
 
     /// The iCloud container the apps sync through.
     public static let iCloudContainer = "iCloud.com.tillg.pplz"
@@ -195,11 +195,46 @@ public final class PplzStore {
         try context.save()
     }
 
+    /// Tags in use. Spellings that differ only in case count as one tag (see `mergeDuplicateTags`).
     public func tags() throws -> [TagSummary] {
-        try context.fetch(FetchDescriptor<Tag>())
-            .map { TagSummary(name: $0.name, personCount: ($0.persons ?? []).count, eventCount: ($0.events ?? []).count) }
-            .filter { $0.personCount + $0.eventCount > 0 }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        try tagGroups().map { group in
+            TagSummary(name: group[0].name,
+                       personCount: Set(group.flatMap { $0.persons ?? [] }.map(\.uuid)).count,
+                       eventCount: Set(group.flatMap { $0.events ?? [] }.map(\.uuid)).count)
+        }
+        .filter { $0.personCount + $0.eventCount > 0 }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Two devices can create the same tag before they sync. This folds such twins into the
+    /// most used spelling and returns how many tags it removed.
+    @discardableResult
+    public func mergeDuplicateTags() throws -> Int {
+        var removed = 0
+        for group in try tagGroups() where group.count > 1 {
+            let keep = group[0]
+            for twin in group.dropFirst() {
+                for person in twin.persons ?? [] where !(keep.persons ?? []).contains(where: { $0 === person }) {
+                    keep.persons = (keep.persons ?? []) + [person]
+                }
+                for event in twin.events ?? [] where !(keep.events ?? []).contains(where: { $0 === event }) {
+                    keep.events = (keep.events ?? []) + [event]
+                }
+                context.delete(twin)
+                removed += 1
+            }
+        }
+        if removed > 0 { try context.save() }
+        return removed
+    }
+
+    /// All tags grouped by name without regard to case; in each group the spelling to keep comes first:
+    /// the most used one, then the alphabetically first — the same choice on every device.
+    private func tagGroups() throws -> [[Tag]] {
+        func uses(_ tag: Tag) -> Int { (tag.persons ?? []).count + (tag.events ?? []).count }
+        return Dictionary(grouping: try context.fetch(FetchDescriptor<Tag>())) { tagKey($0.name) }.values.map {
+            $0.sorted { uses($0) != uses($1) ? uses($0) > uses($1) : $0.name < $1.name }
+        }
     }
 
     // MARK: Events
@@ -363,14 +398,14 @@ public final class PplzStore {
         }
     }
 
-    private func fetchPerson(_ id: UUID) throws -> Person {
+    func fetchPerson(_ id: UUID) throws -> Person {
         guard let person = try context.fetch(FetchDescriptor<Person>(predicate: #Predicate { $0.uuid == id })).first else {
             throw PplzError.notFound("person \(id.uuidString)")
         }
         return person
     }
 
-    private func fetchEvent(_ id: UUID) throws -> Event {
+    func fetchEvent(_ id: UUID) throws -> Event {
         guard let event = try context.fetch(FetchDescriptor<Event>(predicate: #Predicate { $0.uuid == id })).first else {
             throw PplzError.notFound("event \(id.uuidString)")
         }
@@ -380,7 +415,7 @@ public final class PplzStore {
     private func findOrCreateTag(_ name: String) throws -> Tag {
         let display = try nonEmpty(name, "A tag needs a name.")
         let key = tagKey(display)
-        if let tag = try context.fetch(FetchDescriptor<Tag>()).first(where: { tagKey($0.name) == key }) {
+        if let tag = try tagGroups().first(where: { tagKey($0[0].name) == key })?[0] {
             return tag
         }
         let tag = Tag(name: display)
@@ -397,7 +432,9 @@ public final class PplzStore {
     }
 
     private func tagNames(_ tags: [Tag]?) -> [String] {
-        (tags ?? []).map(\.name).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        let canonical = Dictionary(uniqueKeysWithValues: ((try? tagGroups()) ?? []).map { (tagKey($0[0].name), $0[0].name) })
+        return Set((tags ?? []).map { canonical[tagKey($0.name)] ?? $0.name })
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
     private func refs(_ persons: [Person]?) -> [PersonRef] {

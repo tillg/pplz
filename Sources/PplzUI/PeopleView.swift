@@ -59,12 +59,12 @@ public struct PeopleView: View {
                     Task { await model.logEvent(input) }
                 }
             case .edit:
-                EditPersonSheet(personName: model.card?.entry.name ?? "", edit: model.personEdit) { edit in
+                EditPersonSheet(personName: model.card?.entry.name ?? "", knownTags: model.knownTags, edit: model.personEdit) { edit in
                     Task { await model.save(edit) }
                 }
             case .editEvent:
                 if let edit = model.eventEdit {
-                    EditEventSheet(edit: edit) { edit in Task { await model.save(edit) } }
+                    EditEventSheet(knownTags: model.knownTags, edit: edit) { edit in Task { await model.save(edit) } }
                 }
             case .connect:
                 ConnectSheet(personName: model.card?.title ?? "", candidates: model.connectionCandidates) { role, other in

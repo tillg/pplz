@@ -280,3 +280,22 @@ import Testing
         #expect(PeopleModel.Configuration(storeURL: URL(fileURLWithPath: "/tmp/x.store")).syncsWithICloud == false)
     }
 }
+
+@MainActor @Suite struct KnownTagsTests {
+    @Test func theModelOffersTheTagsInUse() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("pplz-ui-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("test.store")
+        let model = PeopleModel(configuration: .init(storeURL: url, usesContacts: false, initialSelection: "Anna Example"))
+        let store = try PplzStore(url: url)
+        let anna = try store.createPerson(name: "Anna Example")
+        try store.addTag("client", toPerson: anna)
+        try store.logEvent(EventDraft(title: "Dinner", format: .liveMeeting, start: Date(timeIntervalSince1970: 1_800_000_000), participants: [anna], tags: ["Sailing"]))
+
+        await model.reload()
+        #expect(model.knownTags == ["client", "Sailing"])
+
+        await model.save(PeopleModel.PersonEdit(howWeMet: "", notes: "", tags: "client, vip", keepInTouchDays: nil))
+        #expect(model.knownTags == ["client", "Sailing", "vip"])
+    }
+}

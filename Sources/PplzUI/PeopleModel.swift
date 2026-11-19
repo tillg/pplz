@@ -52,6 +52,8 @@ public final class PeopleModel {
     }
     private var isSelectingProgrammatically = false
     public private(set) var entries: [PersonEntry] = []
+    /// Every tag in use, offered when tagging a person or an event.
+    public private(set) var knownTags: [String] = []
     public private(set) var card: PersonCard?
     public private(set) var errorMessage: String?
     public private(set) var isLoading = false
@@ -132,7 +134,12 @@ public final class PeopleModel {
             let usesContacts = configuration.usesContacts
             let contacts = try await Task.detached { usesContacts ? try SystemContacts.fetchAll() : [] }.value
             entries = PeopleDirectory.merge(contacts: contacts, persons: try store.persons())
+            #if os(macOS)
+            // tags created on two devices before they synced; only the Mac merges, so two devices never undo each other
+            try store.mergeDuplicateTags()
+            #endif
             events = try store.events()
+            knownTags = try store.tags().map(\.name)
             errorMessage = nil
             if let wanted = pendingSelection {
                 pendingSelection = nil
