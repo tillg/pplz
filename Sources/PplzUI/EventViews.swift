@@ -170,14 +170,14 @@ struct EditEventSheet: View {
     /// Opened to add people: the cursor starts in the name field.
     var addsPeople = false
     let knownTags: [String]
-    let onSave: (PeopleModel.EventEdit, [String]) -> Void
+    let onSave: (PeopleModel.EventEdit, [String], [String]) -> Void
 
     @State private var edit: PeopleModel.EventEdit
     @State private var pendingTag = ""
     @State private var chosen: [PersonEntry]
 
     init(people: [PersonEntry], participants: [PersonEntry], addsPeople: Bool = false, knownTags: [String], edit: PeopleModel.EventEdit,
-         onSave: @escaping (PeopleModel.EventEdit, [String]) -> Void) {
+         onSave: @escaping (PeopleModel.EventEdit, [String], [String]) -> Void) {
         self.people = people
         self.addsPeople = addsPeople
         self.knownTags = knownTags
@@ -190,7 +190,7 @@ struct EditEventSheet: View {
         SheetScaffold(title: "Edit event", confirmTitle: "Save", canConfirm: !chosen.isEmpty, onConfirm: {
             var edit = edit
             edit.tags = TagInput.adding(pendingTag, to: edit.tags, known: knownTags)   // typed but not added yet
-            onSave(edit, chosen.map(\.key))
+            onSave(edit, chosen.filter { !$0.isNew }.map(\.key), chosen.filter(\.isNew).map(\.name))
         }) {
             PeoplePickerField(people: people, chosen: $chosen, startsSearching: addsPeople)
             Picker("Format", selection: $edit.format) {

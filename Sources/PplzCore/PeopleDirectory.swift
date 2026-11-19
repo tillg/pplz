@@ -12,6 +12,11 @@ public struct PersonEntry: Encodable, Equatable, Sendable {
     /// The contact's nickname; people can be found by it, as in Contacts.
     public var nickname: String = ""
 
+    /// Someone typed in by name who is neither a contact nor a person in pplz yet.
+    public static func new(named name: String) -> PersonEntry {
+        PersonEntry(id: nil, contactIdentifier: nil, name: name, eventCount: 0, lastMet: nil, tags: [])
+    }
+
     /// A person that exists only in pplz, without a system contact.
     public var isPplzOnly: Bool { contactIdentifier == nil }
 
@@ -103,6 +108,16 @@ public enum PeopleDirectory {
         return Array(candidates.compactMap { entry in rank(entry).map { (rank: $0, entry: entry) } }
             .sorted { $0.rank != $1.rank ? $0.rank < $1.rank : byRecency($0.entry, $1.entry) }
             .prefix(limit).map(\.entry))
+    }
+
+    /// The name under which the typed text can become a new person, or `nil` if someone of exactly
+    /// that name exists or is chosen already (case and accents ignored), or if it is too short to be a name.
+    public static func newPersonName(for query: String, in entries: [PersonEntry], chosen: [String]) -> String? {
+        let name = query.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        guard name.count >= 2 else { return nil }
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        let taken = (entries.map(\.name) + chosen).contains { $0.compare(name, options: options) == .orderedSame }
+        return taken ? nil : name
     }
 
     /// A person that belongs to a contact of this device but is stored with another device's identifier.

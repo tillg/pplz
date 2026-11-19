@@ -43,3 +43,27 @@ import Testing
         #expect(names("zzz") == [])
     }
 }
+
+/// After a gathering some of the people are new: they can be added by name while logging.
+@Suite struct NewPersonOfferTests {
+    let entries = [PersonSuggestionTests.entry("C-1", "Achim Botz", nickname: "Aki"), PersonSuggestionTests.entry("C-2", "Anna Example")]
+
+    @Test func aNameNobodyHasCanBeCreated() {
+        #expect(PeopleDirectory.newPersonName(for: "  Mai   Nguyen ", in: entries, chosen: []) == "Mai Nguyen")
+    }
+
+    @Test func nothingIsOfferedForAnExistingNameWhateverTheCase() {
+        #expect(PeopleDirectory.newPersonName(for: "anna example", in: entries, chosen: []) == nil)
+        #expect(PeopleDirectory.newPersonName(for: "ÁCHIM BOTZ", in: entries, chosen: []) == nil)
+    }
+
+    @Test func nothingIsOfferedForANameAlreadyChosenOrTooShort() {
+        #expect(PeopleDirectory.newPersonName(for: "Mai Nguyen", in: entries, chosen: ["mai nguyen"]) == nil)
+        #expect(PeopleDirectory.newPersonName(for: " ", in: entries, chosen: []) == nil)
+        #expect(PeopleDirectory.newPersonName(for: "M", in: entries, chosen: []) == nil)
+    }
+
+    @Test func partOfAnExistingNameCanStillBecomeANewPerson() {
+        #expect(PeopleDirectory.newPersonName(for: "Anna", in: entries, chosen: []) == "Anna")
+    }
+}

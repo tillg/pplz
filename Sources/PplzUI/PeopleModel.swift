@@ -53,6 +53,8 @@ public final class PeopleModel {
     private var isSelectingProgrammatically = false
     public private(set) var entries: [PersonEntry] = []
     /// Every tag in use, offered when tagging a person or an event.
+    /// False when the address book is neither read nor written (`-noContacts`).
+    public var usesContacts: Bool { configuration.usesContacts }
     public private(set) var knownTags: [String] = []
     /// The format offered when logging: the one used last.
     public private(set) var suggestedFormat: EventFormat = .liveMeeting
@@ -203,19 +205,15 @@ public final class PeopleModel {
     }
 
     /// Logs an event with the people given by their list keys — the quick log, which needs no open card.
-    public func logEvent(_ input: LogInput, with keys: [String]) async {
-        let people = keys.compactMap { key in entries.first { $0.key == key || $0.id?.uuidString == key } }
-        guard let store, !people.isEmpty else { return }
+    /// `newPeople` are names of people pplz does not know yet; they become persons that exist only in pplz.
+    public func logEvent(_ input: LogInput, with keys: [String], newPeople: [String] = []) async {
+        let (ids, additional) = participants(keys, newPeople)
+        guard let store, !ids.isEmpty || !additional.isEmpty else { return }
         do {
             var draft = EventDraft(title: input.title, format: input.format, start: input.start, place: input.place, notes: input.notes,
                                    tags: TagInput.names(in: input.tags))
-            for entry in people {
-                if let id = entry.id {
-                    draft.participants.append(id)
-                } else if let identifier = entry.contactIdentifier {
-                    draft.additionalParticipants.append(.contact(ContactSummary(identifier: identifier, name: entry.name)))
-                }
-            }
+            draft.participants = ids
+            draft.additionalParticipants = additional
             let event = try store.event(try store.logEvent(draft))
             errorMessage = nil
             try syncContacts(event.participants.map(\.id), store)
@@ -294,26 +292,35 @@ public final class PeopleModel {
 
     /// Saves the edited fields of the selected event. `keys` replaces its people (list keys, as in
     /// the quick log); `nil` or an empty list leaves them as they are — an event keeps at least one person.
-    public func save(_ edit: EventEdit, participants keys: [String]? = nil) async {
+    public func save(_ edit: EventEdit, participants keys: [String]? = nil, newPeople: [String] = []) async {
         guard let store, let event = selectedEvent else { return }
-        let people = (keys ?? []).compactMap { key in entries.first { $0.key == key || $0.id?.uuidString == key } }
+        let (ids, additional) = participants(keys ?? [], newPeople)
         await perform {
             var change = EventChange(
                 title: edit.title, format: edit.format, start: edit.start, end: edit.hasEnd ? edit.end : nil, clearEnd: !edit.hasEnd,
                 place: edit.place, notes: edit.notes.trimmingCharacters(in: .whitespacesAndNewlines),
                 tags: edit.tags.split(separator: ",").map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty },
                 links: edit.links.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
-            if !people.isEmpty {
-                change.participants = people.compactMap(\.id)
-                change.additionalParticipants = people.filter { $0.id == nil }.compactMap { entry in
-                    entry.contactIdentifier.map { .contact(ContactSummary(identifier: $0, name: entry.name)) }
-                }
+            if !ids.isEmpty || !additional.isEmpty {
+                change.participants = ids
+                change.additionalParticipants = additional
             }
             try store.updateEvent(event.id, change)
             // those who left need their history updated as much as those who joined
             let now = try store.event(event.id).participants.map(\.id)
             try self.syncContacts(Array(Set(event.participants.map(\.id) + now)), store)
         }
+    }
+
+    /// Turns list keys and new names into an event's participants: persons pplz has, contacts it has
+    /// nothing about yet, and people to create.
+    private func participants(_ keys: [String], _ newPeople: [String]) -> ([UUID], [NewParticipant]) {
+        let people = keys.compactMap { key in entries.first { $0.key == key || $0.id?.uuidString == key } }
+        let contacts: [NewParticipant] = people.filter { $0.id == nil }.compactMap { entry in
+            entry.contactIdentifier.map { .contact(ContactSummary(identifier: $0, name: entry.name)) }
+        }
+        let names = newPeople.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        return (people.compactMap(\.id), contacts + names.map { .named($0) })
     }
 
     public func addFollowUp(_ text: String) async {
@@ -425,6 +432,29 @@ public final class PeopleModel {
     public func showPerson(_ id: UUID) async {
         mode = .people
         await select(matching: id.uuidString)
+    }
+
+    /// Gives the selected person, who exists only in pplz, a card in Contacts — with the name and the
+    /// `pplz` link — so that phone, mail, address and picture can be entered there. Returns the new
+    /// contact's identifier, or `nil` if nothing was created.
+    @discardableResult
+    public func addSelectedPersonToContacts() async -> String? {
+        guard configuration.usesContacts, let store, let entry = card?.entry, entry.isPplzOnly, let id = entry.id else { return nil }
+        do {
+            let row = ContactMirror.Row(contactIdentifier: "", label: PersonLink.label, value: PersonLink.url(for: id))
+            let name = entry.name
+            let identifier = try await Task.detached { try SystemContacts.createContact(name: name, link: row) }.value
+            try store.setContactIdentifier(identifier, for: id)
+            try ContactsSync.journal(forStoreAt: configuration.storeURL).record(
+                .added, ContactMirror.Row(contactIdentifier: identifier, label: row.label, value: row.value), field: "url")
+            errorMessage = nil
+            await reload()
+            await select(matching: id.uuidString)
+            return identifier
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            return nil
+        }
     }
 
     public func openInContacts() {

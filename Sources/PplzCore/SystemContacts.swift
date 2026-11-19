@@ -43,6 +43,34 @@ public enum SystemContacts {
         return true
     }
 
+    public struct NameParts: Equatable, Sendable {
+        public var given: String
+        public var family: String
+    }
+
+    /// Splits a name as typed into first and last name: the last word is the family name.
+    public static func nameParts(_ name: String) -> NameParts {
+        let words = name.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard words.count > 1 else { return NameParts(given: words.first ?? "", family: "") }
+        return NameParts(given: words.dropLast().joined(separator: " "), family: words[words.count - 1])
+    }
+
+    /// Creates a contact with this name and URL row (the `pplz` link) and returns its identifier.
+    /// A new contact has no note, so this works on every platform (SPEC §8.1, S1).
+    public static func createContact(name: String, link: ContactMirror.Row) throws -> String {
+        let store = CNContactStore()
+        try requestAccessIfNeeded(store)
+        let parts = nameParts(name)
+        let contact = CNMutableContact()
+        contact.givenName = parts.given
+        contact.familyName = parts.family
+        contact.urlAddresses = [CNLabeledValue(label: link.label, value: link.value as NSString)]
+        let request = CNSaveRequest()
+        request.add(contact, toContainerWithIdentifier: nil)
+        try store.execute(request)
+        return contact.identifier
+    }
+
     /// Everything pplz shows about one contact; `nil` if the contact no longer exists.
     public static func details(identifier: String) throws -> ContactDetails? {
         let store = CNContactStore()
@@ -71,7 +99,9 @@ public enum SystemContacts {
                              value: CNPostalAddressFormatter.string(from: $0.value, style: .mailingAddress)
                                  .split(whereSeparator: \.isNewline).joined(separator: ", "))
             },
-            urls: contact.urlAddresses.map { LabeledValue(label: label($0.label), value: $0.value as String) },
+            // pplz's own link is its bookkeeping, not something to show on the pplz card
+            urls: contact.urlAddresses.filter { URL(string: $0.value as String).flatMap(PersonLink.personID) == nil }
+                .map { LabeledValue(label: label($0.label), value: $0.value as String) },
             socialProfiles: contact.socialProfiles.map {
                 LabeledValue(label: $0.value.service, value: $0.value.urlString.isEmpty ? $0.value.username : $0.value.urlString)
             },

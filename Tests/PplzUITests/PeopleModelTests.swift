@@ -390,3 +390,42 @@ import Testing
         #expect(try store.event(event).participants.count == 2)
     }
 }
+
+@MainActor @Suite struct NewPeopleInEventsTests {
+    @Test func loggingCanCreatePeopleWhoAreNotKnownYet() async throws {
+        let (model, store) = try PeopleModelTests().makeModel()
+        let anna = try store.createPerson(name: "Anna Example")
+        await model.reload()
+
+        await model.logEvent(.init(format: .largerGathering, title: "Vietnam Dialogue", place: "Hanoi"),
+                             with: [anna.uuidString], newPeople: ["Mai Nguyen", " Tran Duc "])
+
+        #expect(model.errorMessage == nil)
+        let event = try #require(try store.events().first)
+        #expect(event.participants.map(\.name) == ["Anna Example", "Mai Nguyen", "Tran Duc"])
+        // they are persons of their own now, only in pplz
+        let mai = try #require(model.entries.first { $0.name == "Mai Nguyen" })
+        #expect(mai.isPplzOnly)
+        #expect(mai.eventCount == 1)
+    }
+
+    @Test func anEventCanBeLoggedWithNewPeopleOnly() async throws {
+        let (model, store) = try PeopleModelTests().makeModel()
+        await model.reload()
+        await model.logEvent(.init(format: .liveMeeting), with: [], newPeople: ["Mai Nguyen"])
+        #expect(try store.events().first?.participants.map(\.name) == ["Mai Nguyen"])
+    }
+
+    @Test func aNewPersonCanBeAddedToAnExistingEvent() async throws {
+        let (model, store) = try PeopleModelTests().makeModel()
+        let anna = try store.createPerson(name: "Anna Example")
+        let event = try store.logEvent(EventDraft(title: "Dialogue", format: .liveMeeting, start: Date(timeIntervalSince1970: 1_800_000_000), participants: [anna]))
+        await model.reload()
+        model.mode = .events
+        model.selectedEventID = event
+
+        await model.save(model.eventEdit!, participants: [anna.uuidString], newPeople: ["Mai Nguyen"])
+        #expect(try store.event(event).participants.map(\.name) == ["Anna Example", "Mai Nguyen"])
+        #expect(try store.persons().count == 2)
+    }
+}

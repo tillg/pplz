@@ -69,12 +69,12 @@ public struct PeopleView: View {
             switch sheet {
             case .log:
                 LogEventSheet(people: model.entries, preselected: model.card.map { [$0.entry] } ?? [],
-                              format: model.suggestedFormat, knownTags: model.knownTags) { input, keys in
-                    Task { await model.logEvent(input, with: keys) }
+                              format: model.suggestedFormat, knownTags: model.knownTags) { input, keys, new in
+                    Task { await model.logEvent(input, with: keys, newPeople: new) }
                 }
             case .quickLog:
-                LogEventSheet(people: model.entries, preselected: [], format: model.suggestedFormat, knownTags: model.knownTags) { input, keys in
-                    Task { await model.logEvent(input, with: keys) }
+                LogEventSheet(people: model.entries, preselected: [], format: model.suggestedFormat, knownTags: model.knownTags) { input, keys, new in
+                    Task { await model.logEvent(input, with: keys, newPeople: new) }
                 }
             case .edit:
                 EditPersonSheet(personName: model.card?.entry.name ?? "", knownTags: model.knownTags, edit: model.personEdit) { edit in
@@ -82,8 +82,8 @@ public struct PeopleView: View {
                 }
             case .editEvent:
                 if let edit = model.eventEdit {
-                    EditEventSheet(people: model.entries, participants: model.selectedEventPeople, addsPeople: addsPeople, knownTags: model.knownTags, edit: edit) { edit, keys in
-                        Task { await model.save(edit, participants: keys) }
+                    EditEventSheet(people: model.entries, participants: model.selectedEventPeople, addsPeople: addsPeople, knownTags: model.knownTags, edit: edit) { edit, keys, new in
+                        Task { await model.save(edit, participants: keys, newPeople: new) }
                     }
                 }
             case .connect:
@@ -131,6 +131,19 @@ public struct PeopleView: View {
 }
 
 extension PeopleView {
+    /// Creates the contact and shows it right away, ready to be filled in.
+    private func addToContacts() {
+        Task {
+            guard let identifier = await model.addSelectedPersonToContacts() else { return }
+            #if os(macOS)
+            _ = identifier
+            model.openInContacts()
+            #else
+            shownContact = ShownContact(id: identifier)
+            #endif
+        }
+    }
+
     /// A sheet only opens once the thing it edits is loaded.
     private var sheetIfPossible: Sheet? {
         switch sheet {
@@ -183,7 +196,8 @@ extension PeopleView {
             PersonCardView(card: card,
                            onConnect: { sheet = .connect },
                            onDisconnect: { id in Task { await model.disconnect(from: id) } },
-                           onShowPerson: { id in Task { await model.showPerson(id) } })
+                           onShowPerson: { id in Task { await model.showPerson(id) } },
+                           onAddToContacts: card.entry.isPplzOnly && model.usesContacts ? { addToContacts() } : nil)
                 .toolbar {
                     Button("Log Event", systemImage: "calendar.badge.plus") { sheet = .log }
                         .help("Log a meeting or call with \(card.entry.name)")

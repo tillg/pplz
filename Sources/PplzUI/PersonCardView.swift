@@ -8,11 +8,23 @@ struct PersonCardView: View {
     var onConnect: () -> Void = {}
     var onDisconnect: (UUID) -> Void = { _ in }
     var onShowPerson: (UUID) -> Void = { _ in }
+    /// Set for a person who exists only in pplz and can get a card in Contacts.
+    var onAddToContacts: (() -> Void)? = nil
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                if let onAddToContacts {
+                    Button(action: onAddToContacts) {
+                        Label("Add to Contacts", systemImage: "person.crop.circle.badge.plus")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .tint(.pink)
+                    .help("Create a card in Contacts for \(card.entry.name), to enter phone, mail, address and picture")
+                }
                 if let contact = card.contact { contactFields(contact) }
                 pplzFields
                 connections

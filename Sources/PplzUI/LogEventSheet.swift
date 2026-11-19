@@ -7,14 +7,14 @@ import SwiftUI
 struct LogEventSheet: View {
     let people: [PersonEntry]
     let knownTags: [String]
-    let onLog: (PeopleModel.LogInput, [String]) -> Void
+    let onLog: (PeopleModel.LogInput, [String], [String]) -> Void
 
     @State private var input: PeopleModel.LogInput
     @State private var chosen: [PersonEntry]
     @State private var pendingTag = ""
 
     init(people: [PersonEntry], preselected: [PersonEntry], format: EventFormat, knownTags: [String],
-         onLog: @escaping (PeopleModel.LogInput, [String]) -> Void) {
+         onLog: @escaping (PeopleModel.LogInput, [String], [String]) -> Void) {
         self.people = people
         self.knownTags = knownTags
         self.onLog = onLog
@@ -39,7 +39,7 @@ struct LogEventSheet: View {
     private func log() {
         var input = input
         input.tags = TagInput.adding(pendingTag, to: input.tags, known: knownTags)   // typed but not added yet
-        onLog(input, chosen.map(\.key))
+        onLog(input, chosen.filter { !$0.isNew }.map(\.key), chosen.filter(\.isNew).map(\.name))
     }
 }
 
@@ -90,7 +90,13 @@ struct PeoplePickerField: View {
                 .autocorrectionDisabled()
                 .focused($isSearching)
                 .accessibilityLabel("Find a person")
-                .onSubmit { if let first = suggestions.first { add(first) } }
+                .onSubmit {
+                    if let first = suggestions.first {
+                        add(first)
+                    } else if let name = newPersonName {
+                        add(.new(named: name))
+                    }
+                }
             ForEach(suggestions, id: \.key) { entry in
                 Button { add(entry) } label: {
                     HStack(spacing: 6) {
@@ -103,6 +109,18 @@ struct PeoplePickerField: View {
                 }
                 .accessibilityLabel("Add \(entry.name)")
             }
+            if let name = newPersonName {
+                Button { add(.new(named: name)) } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.crop.circle.badge.plus").foregroundStyle(.pink)
+                        Text("New person “\(name)”")
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .accessibilityLabel("New person \(name)")
+                .help("Someone who is not in your contacts: \(name) is added to pplz only")
+            }
         }
         .buttonStyle(.plain)
     }
@@ -113,8 +131,18 @@ struct PeoplePickerField: View {
         return PeopleDirectory.suggestions(for: query, in: people, excluding: Set(chosen.map(\.key)))
     }
 
+    /// Set when the typed text could become a new person (nobody of that name exists or is chosen).
+    private var newPersonName: String? {
+        PeopleDirectory.newPersonName(for: query, in: people, chosen: chosen.map(\.name))
+    }
+
     private func add(_ entry: PersonEntry) {
         chosen.append(entry)
         query = ""
     }
+}
+
+extension PersonEntry {
+    /// Typed into the people picker as a new name; neither a contact nor a person in pplz yet.
+    var isNew: Bool { id == nil && contactIdentifier == nil }
 }
