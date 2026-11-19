@@ -27,6 +27,22 @@ public enum SystemContacts {
         return result
     }
 
+    /// Adds a URL row to a contact unless it is there already; `false` if it was.
+    /// Used on iPhone and iPad, where this works even for contacts that have a note. On the Mac it
+    /// fails for those (SPEC §8.1, S4), so the Mac goes through the Contacts app instead.
+    public static func addURL(_ row: ContactMirror.Row) throws -> Bool {
+        let store = CNContactStore()
+        try requestAccessIfNeeded(store)
+        let contact = try store.unifiedContact(withIdentifier: row.contactIdentifier, keysToFetch: [CNContactUrlAddressesKey as CNKeyDescriptor])
+        if contact.urlAddresses.contains(where: { ($0.value as String) == row.value }) { return false }
+        guard let changed = contact.mutableCopy() as? CNMutableContact else { return false }
+        changed.urlAddresses.append(CNLabeledValue(label: row.label, value: row.value as NSString))
+        let request = CNSaveRequest()
+        request.update(changed)
+        try store.execute(request)
+        return true
+    }
+
     /// Everything pplz shows about one contact; `nil` if the contact no longer exists.
     public static func details(identifier: String) throws -> ContactDetails? {
         let store = CNContactStore()

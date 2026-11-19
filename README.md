@@ -82,7 +82,7 @@ Run the tests with `swift test`.
 
 The Mac app shows your people and each person's card, laid out like Contacts with pink highlights. You can browse and search people and events; log an event with a person (+ on their card); edit their tags, notes, how you met and keep-in-touch rhythm (the pencil) — when tagging, the tags you already use are offered, and typing a new name creates one; add and remove relationships; edit and delete events; and add and tick off follow-ups. Changes made with the CLI appear when the app comes to the front.
 
-The iPhone / iPad app uses the same screens. It is at an early stage: it syncs with the Mac through iCloud (changes from another device appear within seconds while the app is open), but it does not write into Contacts. The "Contact card" button shows the system's contact card inside pplz, where you can edit the contact, call or message (iOS has no way to jump to a person in the Contacts app).
+The iPhone / iPad app uses the same screens. It is at an early stage: it syncs with the Mac through iCloud (changes from another device appear within seconds while the app is open), and writes the `pplz` link into a contact when you first record something about that person; relationships and the history block are written by the Mac only. The "Contact card" button shows the system's contact card inside pplz, where you can edit the contact, call or message (iOS has no way to jump to a person in the Contacts app).
 
 Both are built from the Xcode project in `App/`, which is generated with [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 
@@ -99,6 +99,17 @@ To click through the iOS app from the command line (useful for coding agents), `
 ```sh
 scripts/ui.sh "-select|Anna Example" "tap:Log Event;screenshot:sheet;tree:sheet"
 ```
+
+## How pplz recognises a contact on every device
+
+Apple Contacts has no identifier that is the same on your Mac, iPhone and iPad: each device gives the same contact a different one. pplz therefore brings its own.
+
+- **The ID is the `pplz` link in the contact**, a URL row such as `pplz://person/7ffa0cd8-…`. It travels with the contact through iCloud, survives renames, and opens the person in pplz when you click it.
+- **It is written when you first record something** about a person (a tag, a note, an event, a relationship), by the device you do it on. Contacts you never use in pplz stay untouched; they still appear in pplz, read live from your address book.
+- **Names never decide a match.** A name is content and can change.
+- **A short delay is normal:** pplz data and contacts sync through separate iCloud channels, so a person recorded on one device can appear as a separate entry on another until the contact with its link has arrived.
+- **If you delete the `pplz` row**, pplz treats the contact as unlinked until a device writes the row again.
+- **Known gap:** if two devices record something about the same new contact before they have synced, each creates its own ID and the person appears twice. Nothing merges these yet.
 
 ## How it is built
 

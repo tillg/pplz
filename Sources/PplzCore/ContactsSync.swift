@@ -39,20 +39,20 @@ public enum ContactsSync {
 
     /// Writes link rows. Rows the journal already knows are skipped without asking Contacts, unless `recheck`.
     public static func applyLinks(_ rows: [ContactMirror.Row], journal: ContactJournal, recheck: Bool = false) -> [String] {
-        #if os(macOS)
         rows.compactMap { row in
             do {
                 if try !recheck && journal.pplzAdded(row, field: "url") { return nil }
+                #if os(macOS)
                 guard try ContactsApp.addURL(row) == .added else { return nil }
+                #else
+                guard try SystemContacts.addURL(row) else { return nil }
+                #endif
                 try journal.record(.added, row, field: "url")
                 return "Contacts: added the pplz link"
             } catch {
                 return "Contacts: could not add the pplz link — \(describe(error))"
             }
         }
-        #else
-        return []   // Contacts can only be scripted on the Mac
-        #endif
     }
 
     /// The related-name rows of a connection.

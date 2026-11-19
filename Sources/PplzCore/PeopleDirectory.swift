@@ -69,20 +69,6 @@ public enum PeopleDirectory {
             if let person = byIdentifier[contact.identifier], claimed.insert(person.id).inserted { matches[contact.identifier] = person }
         }
 
-        // A person recorded on another device carries that device's identifier, and its contact has no
-        // link until the Mac has written one. Then the name decides — but only if it leaves no doubt.
-        let local = Set(contacts.map(\.identifier))
-        func key(_ name: String) -> String { name.trimmingCharacters(in: .whitespaces).lowercased() }
-        let foreign = Dictionary(grouping: persons.filter { person in
-            !claimed.contains(person.id) && person.contactIdentifier.map { !local.contains($0) } == true
-        }) { key($0.name) }
-        let unmatched = Dictionary(grouping: contacts.filter { matches[$0.identifier] == nil }) { key($0.name) }
-        for (name, candidates) in foreign where candidates.count == 1 && !name.isEmpty {
-            guard let sameName = unmatched[name], sameName.count == 1 else { continue }
-            matches[sameName[0].identifier] = candidates[0]
-            claimed.insert(candidates[0].id)
-        }
-
         var entries = contacts.map { contact in
             let person = matches[contact.identifier]
             return PersonEntry(id: person?.id, contactIdentifier: contact.identifier, name: contact.name,
