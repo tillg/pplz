@@ -434,6 +434,17 @@ import Testing
     let profile = CapturedProfile(name: "Dr. Oliver Massmann", jobTitle: "Partner", company: "Duane Morris LLP",
                                   linkedInID: "dr-oliver-massmann-153a405")
 
+    /// A picture pasted or dropped into pplz waits in the model until the window can show it.
+    @Test func picturesOfferedToTheAppWaitInOrderAndAreHandedOutOnce() throws {
+        let (model, _) = try PeopleModelTests().makeModel()
+        let before = model.captureRequests
+        model.offerCapture(Data([1]))
+        model.offerCapture(Data([2]))
+        #expect(model.captureRequests == before + 2)       // the view is told each time
+        #expect(model.takeOfferedCaptures() == [Data([1]), Data([2])])
+        #expect(model.takeOfferedCaptures().isEmpty)
+    }
+
     @Test func aCaptureCanBecomeANewPerson() async throws {
         let (model, store) = try PeopleModelTests().makeModel()
         await model.reload()

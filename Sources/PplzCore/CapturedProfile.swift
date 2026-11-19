@@ -3,8 +3,10 @@ import Foundation
 /// What pplz learned about a person from a capture, e.g. a screenshot of their LinkedIn profile.
 /// Every field may be empty; the user reviews and corrects it before anything is saved.
 public struct CapturedProfile: Equatable, Sendable {
-    /// As on the profile; a title in front ("Dr.") is taken off when the name is used.
-    public var name: String
+    /// First and last name, kept apart as in Contacts. As on the profile; a title in front ("Dr.")
+    /// is taken off when the name is used.
+    public var givenName: String
+    public var familyName: String
     public var namePrefix: String
     public var jobTitle: String
     public var company: String
@@ -15,9 +17,25 @@ public struct CapturedProfile: Equatable, Sendable {
     /// The profile picture as PNG data.
     public var picture: Data?
 
-    public init(name: String = "", namePrefix: String = "", jobTitle: String = "", company: String = "", city: String = "",
+    /// The full name. Setting it splits at the last word, which is a guess: set the two parts where they are known.
+    public var name: String {
+        get { [givenName, familyName].map(\.trimmed).filter { !$0.isEmpty }.joined(separator: " ") }
+        set {
+            let parts = SystemContacts.nameParts(newValue)
+            givenName = parts.given
+            familyName = parts.family
+        }
+    }
+
+    /// The name as it goes into a contact: without a title in front of the first name.
+    public var contactName: SystemContacts.NameParts {
+        .init(given: PeopleDirectory.nameWithoutTitles(givenName), family: familyName.trimmed)
+    }
+
+    public init(name: String = "", givenName: String = "", familyName: String = "", namePrefix: String = "", jobTitle: String = "", company: String = "", city: String = "",
                 country: String = "", linkedInID: String = "", picture: Data? = nil) {
-        self.name = name
+        self.givenName = givenName
+        self.familyName = familyName
         self.namePrefix = namePrefix
         self.jobTitle = jobTitle
         self.company = company
@@ -25,6 +43,7 @@ public struct CapturedProfile: Equatable, Sendable {
         self.country = country
         self.linkedInID = linkedInID
         self.picture = picture
+        if givenName.isEmpty, familyName.isEmpty { self.name = name }
     }
 }
 

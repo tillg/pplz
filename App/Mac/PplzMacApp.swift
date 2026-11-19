@@ -17,5 +17,12 @@ struct PplzMacApp: App {
                 }
         }
         .defaultSize(width: 980, height: 660)
+        .commands {
+            // ⌘V does the same while no text field has the focus
+            CommandGroup(after: .pasteboard) {
+                Button("Paste Profile Screenshot") { model.offerCaptureFromClipboard() }
+                    .keyboardShortcut("v", modifiers: [.command, .shift])
+            }
+        }
     }
 }

@@ -72,9 +72,12 @@ public enum ProfileReader {
         return looksLikeOrganisations ? "" : last
     }
 
-    /// The line with the owner's name: on LinkedIn the one ending in "1st", "2nd" or "3rd".
+    /// The line with the owner's name: on LinkedIn the one ending in "1st", "2nd" or "3rd" — or the
+    /// line above, when the degree was recognised as a line of its own (a badge stands in between).
     static func nameLineIndex(in lines: [String]) -> Int? {
-        lines.firstIndex { $0.firstMatch(of: /(?:^|[\s•·])(?:1st|2nd|3rd)\+?\s*$/) != nil }
+        guard let marker = lines.firstIndex(where: { $0.firstMatch(of: /(?:^|[\s•·])(?:1st|2nd|3rd)\+?\s*$/) != nil }) else { return nil }
+        let standsAlone = lines[marker].wholeMatch(of: /\W*(?:1st|2nd|3rd)\+?\s*/) != nil
+        return standsAlone && marker > 0 ? marker - 1 : marker
     }
 
     /// What the model gave as academic title, kept only if it stands in the name line and is not
@@ -148,7 +151,7 @@ public enum ProfileReader {
                 generating: ProfileFields.self, options: GenerationOptions(sampling: .greedy)).content
             let place = place(locationLine(in: lines))
             let company = found.company.trimmed
-            return CapturedProfile(name: found.name.trimmed, namePrefix: title(found.namePrefix, nameLine: header(of: lines).first ?? ""),
+            return CapturedProfile(givenName: found.firstName.trimmed, familyName: found.lastName.trimmed, namePrefix: title(found.namePrefix, nameLine: header(of: lines).first ?? ""),
                                    jobTitle: role(at: company, in: header(of: lines)) ?? found.jobTitle.trimmed,
                                    company: company, city: place.city, country: place.country)
         }
@@ -168,8 +171,10 @@ public enum ProfileReader {
 @available(macOS 26.0, iOS 26.0, *)
 @Generable
 struct ProfileFields {
-    @Guide(description: "The profile owner's first and last name, without academic titles such as Dr. or Prof.")
-    var name: String
+    @Guide(description: "The profile owner's first name (all given names), without academic titles such as Dr. or Prof.")
+    var firstName: String
+    @Guide(description: "The profile owner's last name (family name, with particles such as von or de), without degrees after it")
+    var lastName: String
     @Guide(description: "Academic title in front of the name, e.g. Dr. or Prof. Dr.; empty if none")
     var namePrefix: String
     @Guide(description: "The owner's current role only, at most four words. The headline often lists several things; take the role that goes with the current employer: 'Partner at X' gives Partner. Empty if unknown")

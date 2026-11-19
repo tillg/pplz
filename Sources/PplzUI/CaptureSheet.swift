@@ -22,6 +22,11 @@ struct CaptureSheet: View {
     @State private var choice = CaptureSheet.newPerson
     /// Once the user has chosen who it is, pplz stops preselecting.
     @State private var hasChosen = false
+    /// The screenshot itself, shown for comparing with what was read.
+    @State private var screenshot: Image?
+    /// Looking for someone pplz did not propose.
+    @State private var search = ""
+    @State private var searched: PersonEntry?
     @State private var readingProblem: String?
     /// A save or an event choice is under way: further taps are ignored.
     @State private var isBusy = false
@@ -40,6 +45,7 @@ struct CaptureSheet: View {
         }
         .task {
             guard phase == .reading else { return }
+            screenshot = imageData.flatMap(Image.init(data:))
             if model.entries.isEmpty { await model.reload() }     // opened by a share before the list was loaded
             if let imageData, let reading = await ProfileReader.read(imageData: imageData) {
                 profile = reading.profile
@@ -56,6 +62,25 @@ struct CaptureSheet: View {
     // MARK: Step 1 — what was read, and who it is
 
     private var review: some View {
+        ScrollViewReader { proxy in
+            #if os(macOS)
+            // the screenshot beside the fields, to check them against it
+            HStack(alignment: .top, spacing: 0) {
+                if let screenshot {
+                    screenshot.resizable().scaledToFit().frame(width: 400).frame(maxHeight: 640, alignment: .top)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .padding([.leading, .vertical], 20)
+                        .accessibilityLabel("Screenshot")
+                }
+                reviewForm(proxy)
+            }
+            #else
+            reviewForm(proxy)
+            #endif
+        }
+    }
+
+    private func reviewForm(_ proxy: ScrollViewProxy) -> some View {
         SheetScaffold(title: "Captured profile", confirmTitle: "Save", canConfirm: canSave, dismissesOnConfirm: false, onConfirm: save) {
             if phase == .reading {
                 HStack(spacing: 10) {
@@ -68,8 +93,13 @@ struct CaptureSheet: View {
                         .frame(maxWidth: .infinity)
                         .accessibilityLabel("Profile picture")
                 }
+                #if !os(macOS)
+                if let screenshot {
+                    DisclosureGroup("Screenshot") { screenshot.resizable().scaledToFit().accessibilityLabel("Screenshot") }
+                }
+                #endif
                 if imageData == nil {
-                    Text("A profile link was shared. Choose whose it is.").font(.footnote).foregroundStyle(.secondary)
+                    Text("A profile link was shared. Choose whose it is, or search for the person below.").font(.footnote).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if let problem = readingProblem {
                     Text("\(problem) Please fill in the fields yourself.").font(.footnote).foregroundStyle(.secondary)
@@ -78,7 +108,8 @@ struct CaptureSheet: View {
                 if let error = model.errorMessage {
                     Text(error).font(.footnote).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
                 }
-                FormField(title: "Name", text: $profile.name)
+                FormField(title: "First name", text: $profile.givenName)
+                FormField(title: "Last name", text: $profile.familyName)
                     .onChange(of: profile.name) { if !hasChosen { choice = bestGuess } }
                 FormField(title: "Title", text: $profile.namePrefix, prompt: "e.g. Dr.")
                 FormField(title: "Job title", text: $profile.jobTitle)
@@ -86,18 +117,37 @@ struct CaptureSheet: View {
                 FormField(title: "City", text: $profile.city)
                 FormField(title: "Country", text: $profile.country)
                 FormField(title: "LinkedIn", text: $linkedIn, prompt: "Profile link or ID")
-                who
+                who(proxy)
             }
         }
     }
 
-    private var who: some View {
+    private func who(_ proxy: ScrollViewProxy) -> some View {
         Section("Who is this?") {
             ForEach(candidates, id: \.key) { entry in
                 choiceRow(entry.key, title: entry.name, detail: entry.eventCount > 0 ? "met \(entry.eventCount)×" : "in your contacts",
                           label: "Existing person \(entry.name)")
             }
             choiceRow(Self.newPerson, title: "New person", detail: "", label: "New person")
+            ForEach(searchResults, id: \.key) { entry in
+                Button { searched = entry; choice = entry.key; hasChosen = true; search = "" } label: {
+                    HStack {
+                        Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                        Text(entry.name)
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Found person \(entry.name)")
+            }
+            // below its results, so that the keyboard does not cover them
+            TextField("Search people", text: $search)
+                .autocorrectionDisabled()
+                .accessibilityLabel("Search people")
+                .id("search")
+                // the results push the field down, behind the keyboard: bring it back
+                .onChange(of: searchResults.count) { Task { @MainActor in withAnimation { proxy.scrollTo("search", anchor: .bottom) } } }
         }
     }
 
@@ -125,9 +175,16 @@ struct CaptureSheet: View {
     /// The proposals, plus — for a link shared alone — the person whose card is open: most likely the
     /// one whose screenshot was captured a moment ago.
     private var candidates: [PersonEntry] {
-        let proposed = model.captureCandidates(for: edited)
-        guard imageData == nil, let open = model.card?.entry, !proposed.contains(where: { $0.key == open.key }) else { return proposed }
-        return proposed + [open]
+        var proposed = model.captureCandidates(for: edited)
+        if imageData == nil, let open = model.card?.entry, !proposed.contains(where: { $0.key == open.key }) { proposed.append(open) }
+        if let searched, !proposed.contains(where: { $0.key == searched.key }) { proposed.append(searched) }
+        return proposed
+    }
+
+    /// People matching what is typed into "Search people", without those already listed.
+    private var searchResults: [PersonEntry] {
+        guard !search.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
+        return PeopleDirectory.suggestions(for: search, in: model.entries, excluding: Set(candidates.map(\.key)))
     }
 
     /// Preselected is only what is certain (the same LinkedIn profile, or the one person of exactly
@@ -163,24 +220,24 @@ struct CaptureSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
             let recent = model.recentEvents()
             if !recent.isEmpty {
-                Section("Recent events in pplz") {
+                Section {
                     ForEach(recent) { item in
                         eventRow(title: item.title.isEmpty ? item.format.displayName : item.title, date: item.start,
                                  symbol: item.format.symbol) {
                             if let savedID { await model.addPerson(savedID, toEvent: item.id) }
                         }
                     }
-                }
+                } header: { eventHeader("Recent events in pplz") }
             }
             if !calendar.isEmpty || calendarProblem != nil {
-                Section("From your calendar") {
+                Section {
                     ForEach(calendar) { entry in
                         eventRow(title: entry.title, date: entry.start, symbol: "calendar") {
                             if let savedID { await model.logCalendarEntry(entry, with: savedID) }
                         }
                     }
                     if let calendarProblem { Text(calendarProblem).font(.footnote).foregroundStyle(.secondary) }
-                }
+                } header: { eventHeader("From your calendar") }
             }
             Section {
                 Button {
@@ -192,8 +249,25 @@ struct CaptureSheet: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.pink)
+                .padding(.vertical, Self.rowPadding)
+                .padding(.top, Self.rowPadding * 2)
             }
         }
+    }
+
+    /// The Mac's form sets rows tightly; iPhone and iPad space their list rows themselves.
+    #if os(macOS)
+    private static let rowPadding: CGFloat = 4
+    #else
+    private static let rowPadding: CGFloat = 0
+    #endif
+
+    private func eventHeader(_ title: String) -> some View {
+        #if os(macOS)
+        Text(title).font(.headline).padding(.top, 12).padding(.bottom, 2)
+        #else
+        Text(title)
+        #endif
     }
 
     private func eventRow(title: String, date: Date, symbol: String, action: @escaping () async -> Void) -> some View {
@@ -214,6 +288,7 @@ struct CaptureSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.vertical, Self.rowPadding)
         .accessibilityLabel("Add to \(title)")
     }
 

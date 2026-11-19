@@ -21,7 +21,11 @@ public enum ContactsApp {
     /// If that fails, falls back to the `addressbook://` link, which may not select the card
     /// when Contacts is already running (SPEC §8.1 S7).
     public static func open(identifier: String) throws {
-        if run("/usr/bin/osascript", selectScriptArguments(identifier: identifier)) { return }
+        // a contact that was created a moment ago is not known to the Contacts app right away
+        for attempt in 0..<4 {
+            if attempt > 0 { Thread.sleep(forTimeInterval: 0.7) }
+            if run("/usr/bin/osascript", selectScriptArguments(identifier: identifier)) { return }
+        }
         if run("/usr/bin/open", ["addressbook://\(identifier)"]) { return }
         throw PplzError.invalid("Could not open the contact in Contacts.")
     }

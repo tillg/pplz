@@ -761,7 +761,7 @@ struct Capture: ParsableCommand {
             FileHandle.standardError.write(Data("Fields are not filled in: \(problem)\n".utf8))
         }
         let profile = reading.profile
-        let rows = [("Name", profile.name), ("Title", profile.namePrefix), ("Job", profile.jobTitle), ("Company", profile.company),
+        let rows = [("First name", profile.givenName), ("Last name", profile.familyName), ("Title", profile.namePrefix), ("Job", profile.jobTitle), ("Company", profile.company),
                     ("City", profile.city), ("Country", profile.country),
                     ("LinkedIn", profile.linkedInID.isEmpty ? "" : LinkedInLink.url(forProfileID: profile.linkedInID)),
                     ("Picture", profile.picture == nil ? "" : "found")]

@@ -106,6 +106,19 @@ public struct PeopleView: View {
             }
         }
         #endif
+        // a screenshot dragged onto the window, or pasted, is captured like one that was shared
+        .onDrop(of: [.image], isTargeted: nil) { providers in
+            for provider in providers {
+                _ = provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
+                    guard let data else { return }
+                    Task { @MainActor in model.offerCapture(data) }
+                }
+            }
+            return !providers.isEmpty
+        }
+        #if os(macOS)
+        .onPasteCommand(of: [.image, .fileURL]) { _ in model.offerCaptureFromClipboard() }
+        #endif
         .sheet(item: $capture, onDismiss: {
             if logsAfterCapture {
                 logsAfterCapture = false
@@ -191,6 +204,7 @@ extension PeopleView {
     /// left alone — its input is the user's; the inbox waits until it has closed.
     private func checkInbox() {
         guard sheet == nil, capture == nil else { return }
+        waitingCaptures += model.takeOfferedCaptures().map { CapturedImage(data: $0) }
         if let items = try? CaptureInbox.shared?.takeAll() {
             waitingCaptures += CaptureInbox.requests(from: items).map { CapturedImage(data: $0.image, link: $0.link) }
         }

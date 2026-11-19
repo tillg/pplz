@@ -1,6 +1,4 @@
-import PplzCore
 import UIKit
-import UniformTypeIdentifiers
 
 /// "Share → pplz" for a screenshot or a profile link. The extension only delivers: it puts what was
 /// shared into the inbox that it shares with the app and opens pplz, which reads the screenshot and
@@ -25,24 +23,10 @@ final class ShareViewController: UIViewController {
     }
 
     private func deliver() async {
-        let items = extensionContext?.inputItems as? [NSExtensionItem] ?? []
-        let providers = items.flatMap { $0.attachments ?? [] }
-        var delivered = 0
-        if let inbox = CaptureInbox.shared {
-            for provider in providers {
-                if let item = await item(from: provider), (try? inbox.add(item)) != nil { delivered += 1 }
-            }
-            // some apps put the link into the text that accompanies what they share
-            if delivered == 0, let item = items.lazy.compactMap({ Self.profileLink($0.attributedContentText?.string) }).first,
-               (try? inbox.add(item)) != nil { delivered += 1 }
-        }
-        guard delivered > 0 else {
-            // say what arrived, so that an unknown way of sharing can be reported and supported
-            var received: [String] = []
-            for provider in providers { received.append(await description(of: provider)) }
+        let result = await SharedItems.deliver(extensionContext?.inputItems as? [NSExtensionItem] ?? [])
+        guard result.delivered > 0 else {
             label.font = .preferredFont(forTextStyle: .footnote)
-            label.text = (["pplz takes a screenshot of a profile or a profile link. Received:"] + received
-                          + items.compactMap { $0.attributedContentText?.string }).joined(separator: "\n")
+            label.text = (["pplz takes a screenshot of a profile or a profile link. Received:"] + result.received).joined(separator: "\n")
             view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(close)))
             return
         }
@@ -55,46 +39,6 @@ final class ShareViewController: UIViewController {
     }
 
     @objc private func close() { extensionContext?.completeRequest(returningItems: nil) }
-
-    private func item(from provider: NSItemProvider) async -> CaptureInbox.Item? {
-        if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
-            return await data(from: provider, type: .image).map { .image($0) }
-        }
-        if let link = Self.profileLink(await url(from: provider)) { return link }
-        return Self.profileLink(await text(from: provider))
-    }
-
-    private func url(from provider: NSItemProvider) async -> String? {
-        guard provider.canLoadObject(ofClass: URL.self) else { return nil }
-        return await withCheckedContinuation { continuation in
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in continuation.resume(returning: url?.absoluteString) }
-        }
-    }
-
-    private func text(from provider: NSItemProvider) async -> String? {
-        guard provider.canLoadObject(ofClass: String.self) else { return nil }
-        return await withCheckedContinuation { continuation in
-            _ = provider.loadObject(ofClass: String.self) { text, _ in continuation.resume(returning: text) }
-        }
-    }
-
-    private func description(of provider: NSItemProvider) async -> String {
-        var content = await url(from: provider) ?? ""
-        if content.isEmpty { content = await text(from: provider) ?? "" }
-        return provider.registeredTypeIdentifiers.joined(separator: ", ") + (content.isEmpty ? "" : ": " + content.prefix(200))
-    }
-
-    /// Only a link to a LinkedIn profile is worth handing over; any other text or address is not.
-    private static func profileLink(_ text: String?) -> CaptureInbox.Item? {
-        guard let text, LinkedInLink.profileID(in: text) != nil else { return nil }
-        return .link(text)
-    }
-
-    private func data(from provider: NSItemProvider, type: UTType) async -> Data? {
-        await withCheckedContinuation { continuation in
-            _ = provider.loadDataRepresentation(forTypeIdentifier: type.identifier) { data, _ in continuation.resume(returning: data) }
-        }
-    }
 
     /// Asks the hosting app's `UIApplication` — found through the responder chain — to open
     /// `pplz://capture`. That method is not available to extensions at compile time, so it is called

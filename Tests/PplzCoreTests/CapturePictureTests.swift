@@ -75,3 +75,68 @@ import Testing
         #expect(ProfileReader.title("dr", nameLine: "Dr. Oliver Massmann") == "dr")
     }
 }
+
+/// A profile link shared alone carries no name, only the profile ID, which usually contains it.
+@Suite struct LinkOnlyCandidateTests {
+    let entries = PeopleDirectory.merge(contacts: [
+        ContactSummary(identifier: "1", name: "Jonathan London"), ContactSummary(identifier: "2", name: "Oliver Massmann"),
+        ContactSummary(identifier: "3", name: "Anna London"), ContactSummary(identifier: "4", name: "Li Wu"),
+        ContactSummary(identifier: "5", name: "Jörg Müller"),
+    ], persons: [])
+
+    @Test func thePersonWhoseWholeNameIsInTheIDComesFirst() {
+        #expect(PeopleDirectory.candidates(forLinkedInID: "dr-oliver-massmann-153a405", in: entries).map(\.name) == ["Oliver Massmann"])
+        #expect(PeopleDirectory.candidates(forLinkedInID: "anna-london-99", in: entries).map(\.name) == ["Anna London", "Jonathan London"])
+    }
+
+    @Test func aFamilyNameInTheIDIsEnoughForAProposal() {
+        #expect(PeopleDirectory.candidates(forLinkedInID: "jdlondon", in: entries).map(\.name) == ["Anna London", "Jonathan London"])
+    }
+
+    @Test func accentsAreIgnoredAndShortNamesProposeNothing() {
+        #expect(PeopleDirectory.candidates(forLinkedInID: "joerg-mueller-1", in: entries).isEmpty)
+        #expect(PeopleDirectory.candidates(forLinkedInID: "jorg-muller-1", in: entries).map(\.name) == ["Jörg Müller"])
+        #expect(PeopleDirectory.candidates(forLinkedInID: "wuhan-trading", in: entries).isEmpty)
+        #expect(PeopleDirectory.candidates(forLinkedInID: "", in: entries).isEmpty)
+    }
+}
+
+/// First and last name are kept apart, as in Contacts: which word belongs where cannot be guessed
+/// from a full name ("Maria del Carmen Ruiz").
+@Suite struct CapturedNameTests {
+    @Test func firstAndLastNameAreKeptAsGiven() {
+        let profile = CapturedProfile(givenName: "Maria", familyName: "del Carmen Ruiz")
+        #expect(profile.name == "Maria del Carmen Ruiz")
+        #expect(profile.contactName == .init(given: "Maria", family: "del Carmen Ruiz"))
+    }
+
+    @Test func aFullNameIsSplitAtItsLastWord() {
+        var profile = CapturedProfile(name: "Dr. Oliver Massmann")
+        #expect(profile.givenName == "Dr. Oliver" && profile.familyName == "Massmann")
+        #expect(profile.name == "Dr. Oliver Massmann")
+        profile.name = "Mai"
+        #expect(profile.givenName == "Mai" && profile.familyName == "")
+    }
+
+    @Test func aTitleIsNotPartOfTheContactsFirstName() {
+        #expect(CapturedProfile(givenName: "Dr. Oliver", familyName: "Massmann").contactName == .init(given: "Oliver", family: "Massmann"))
+        #expect(CapturedProfile(givenName: " Anna ", familyName: " Example ").contactName == .init(given: "Anna", family: "Example"))
+    }
+}
+
+/// Seen on 2026-11-19: with a badge between name and "2nd", the degree is recognised as a line of its own.
+@Suite struct NameLineTests {
+    let lines = ["#HIRING", "Jan René Fricke", "• 2nd", "Building FMCG Brands | Unternehmer & Advisor", "Frankfurt, Hesse, Germany • Contact info",
+                 "500+ connections", "Daniel, Frank and 25 other mutual connections"]
+
+    @Test func aDegreeStandingAloneBelongsToTheLineAboveIt() {
+        #expect(ProfileReader.nameLineIndex(in: lines) == 1)
+        #expect(ProfileReader.header(of: lines) == ["Jan René Fricke", "• 2nd", "Building FMCG Brands | Unternehmer & Advisor",
+                                                     "Frankfurt, Hesse, Germany • Contact info"])
+        #expect(ProfileReader.locationLine(in: lines) == "Frankfurt, Hesse, Germany • Contact info")
+    }
+
+    @Test func aDegreeAloneInTheFirstLineStaysTheNameLine() {
+        #expect(ProfileReader.nameLineIndex(in: ["2nd", "Head of Sales"]) == 0)
+    }
+}

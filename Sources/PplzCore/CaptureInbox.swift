@@ -45,7 +45,9 @@ public struct CaptureInbox: Sendable {
 
     /// The inbox shared between the app and its share extension; `nil` without the App Group.
     public static var shared: CaptureInbox? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
+        // on the Mac the group carries the developer team's prefix, which the app's Info.plist knows
+        let group = Bundle.main.object(forInfoDictionaryKey: "PplzAppGroup") as? String ?? appGroup
+        return FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)
             .map { CaptureInbox(directory: $0.appendingPathComponent("Inbox", isDirectory: true)) }
     }
 

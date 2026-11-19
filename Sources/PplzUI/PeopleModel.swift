@@ -1,6 +1,10 @@
 import Foundation
 import Observation
 import PplzCore
+import UniformTypeIdentifiers
+#if os(macOS)
+import AppKit
+#endif
 
 /// State of the people browser: the list, the search text, the selected person's card.
 @MainActor
@@ -423,6 +427,32 @@ public final class PeopleModel {
         }
     }
 
+    private var offeredCaptures: [Data] = []
+
+    /// A picture handed to the app directly — pasted or dropped — to be captured as a profile.
+    public func offerCapture(_ image: Data) {
+        offeredCaptures.append(image)
+        captureRequests += 1
+    }
+
+    /// The pictures offered since the last call, oldest first.
+    public func takeOfferedCaptures() -> [Data] {
+        defer { offeredCaptures = [] }
+        return offeredCaptures
+    }
+
+    #if os(macOS)
+    /// Offers the picture on the clipboard (a screenshot, or a copied picture file); `false` if there is none.
+    @discardableResult
+    public func offerCaptureFromClipboard() -> Bool {
+        let board = NSPasteboard.general
+        let files = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingContentsConformToTypes: [UTType.image.identifier]]) as? [URL]
+        guard let image = files?.first.flatMap({ try? Data(contentsOf: $0) }) ?? board.data(forType: .png) ?? board.data(forType: .tiff) else { return false }
+        offerCapture(image)
+        return true
+    }
+    #endif
+
     /// Handles a `pplz://person/<id>` link, e.g. clicked in the Contacts app.
     public func open(_ url: URL) async {
         if url.scheme == "pplz", url.host == "capture" {
@@ -452,7 +482,9 @@ public final class PeopleModel {
     /// of that name or family name. Only proposals — the user chooses.
     public func captureCandidates(for profile: CapturedProfile) -> [PersonEntry] {
         let known = (try? store?.person(withLinkedInID: profile.linkedInID)).flatMap { id in entries.first { $0.id == id } }
-        let byName = PeopleDirectory.candidates(forCapturedName: profile.name, in: entries).filter { $0.key != known?.key }
+        let byName = (profile.name.trimmingCharacters(in: .whitespaces).isEmpty
+                      ? PeopleDirectory.candidates(forLinkedInID: profile.linkedInID, in: entries)
+                      : PeopleDirectory.candidates(forCapturedName: profile.name, in: entries)).filter { $0.key != known?.key }
         return (known.map { [$0] } ?? []) + byName
     }
 
@@ -513,7 +545,7 @@ public final class PeopleModel {
                         }.value
                         try syncContacts([id], store)
                     } else {
-                        let name = try store.person(id).name
+                        let name = profile.contactName
                         let identifier = try await Task.detached {
                             try SystemContacts.createContact(name: name, link: link, fill: ContactFill.plan(for: profile, existing: nil))
                         }.value

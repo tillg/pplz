@@ -166,6 +166,20 @@ public enum PeopleDirectory {
         return Array(ranked.sorted { $0.rank != $1.rank ? $0.rank < $1.rank : $0.entry.name < $1.entry.name }.prefix(limit).map(\.entry))
     }
 
+    /// People a LinkedIn profile ID may belong to, when no name is known: those whose whole name is
+    /// in the ID ("anna-london-99"), then those whose family name is ("jdlondon"). Family names
+    /// shorter than four letters propose nothing — they are part of too many IDs.
+    public static func candidates(forLinkedInID id: String, in entries: [PersonEntry], limit: Int = 5) -> [PersonEntry] {
+        func fold(_ text: String) -> String { text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil).lowercased() }
+        let id = fold(id)
+        let ranked: [(rank: Int, entry: PersonEntry)] = entries.compactMap { entry in
+            let words = fold(nameWithoutTitles(entry.name)).split(whereSeparator: \.isWhitespace).map(String.init)
+            guard let family = words.last, family.count >= 4, id.contains(family) else { return nil }
+            return (words.allSatisfy { id.contains($0) } ? 0 : 1, entry)
+        }
+        return Array(ranked.sorted { $0.rank != $1.rank ? $0.rank < $1.rank : $0.entry.name < $1.entry.name }.prefix(limit).map(\.entry))
+    }
+
     /// A person that belongs to a contact of this device but is stored with another device's identifier.
     public struct Adoption: Equatable, Sendable {
         public var person: UUID

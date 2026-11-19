@@ -58,9 +58,13 @@ public enum SystemContacts {
     /// Creates a contact with this name and URL row (the `pplz` link) and returns its identifier.
     /// A new contact has no note, so this works on every platform (SPEC §8.1, S1).
     public static func createContact(name: String, link: ContactMirror.Row, fill: ContactFill = ContactFill()) throws -> String {
+        try createContact(name: nameParts(name), link: link, fill: fill)
+    }
+
+    /// The same with first and last name known.
+    public static func createContact(name parts: NameParts, link: ContactMirror.Row, fill: ContactFill = ContactFill()) throws -> String {
         let store = CNContactStore()
         try requestAccessIfNeeded(store)
-        let parts = nameParts(name)
         let contact = CNMutableContact()
         contact.givenName = parts.given
         contact.familyName = parts.family
