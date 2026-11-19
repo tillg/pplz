@@ -146,3 +146,23 @@ import Testing
         #expect(try store.person(withLinkedInID: "") == nil)
     }
 }
+
+/// The calendar entries offered after a capture: what is on right now, then the most recent ones.
+@Suite struct CalendarChoiceTests {
+    let now = day(2026, 11, 19, 12)
+    func entry(_ title: String, _ startHour: Int, _ endHour: Int, day d: Int = 19, allDay: Bool = false) -> CalendarEntry {
+        CalendarEntry(title: title, start: day(2026, 11, d, startHour), end: day(2026, 11, d, endHour), place: "", isAllDay: allDay)
+    }
+
+    @Test func currentEntriesComeFirstThenTheLatestPastOnes() {
+        let entries = [entry("Breakfast", 8, 9), entry("Dialogue", 11, 14), entry("Dinner", 19, 21), entry("Yesterday", 10, 11, day: 18)]
+        #expect(CalendarEntry.relevant(entries, now: now).map(\.title) == ["Dialogue", "Breakfast", "Yesterday"])
+    }
+
+    @Test func futureAndUntitledEntriesAreLeftOutAndTheListIsLimited() {
+        var entries = (0..<12).map { entry("Past \($0)", 1, 2, day: 18) }
+        entries.append(entry("", 11, 13))
+        #expect(CalendarEntry.relevant(entries, now: now, limit: 6).count == 6)
+        #expect(CalendarEntry.relevant([entry("", 11, 13), entry("Later", 15, 16)], now: now).isEmpty)
+    }
+}

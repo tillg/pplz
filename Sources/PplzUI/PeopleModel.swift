@@ -508,6 +508,39 @@ public final class PeopleModel {
         }
     }
 
+    /// The events to offer for "which event was this?": started within the last `days` days, latest first.
+    public func recentEvents(now: Date = Date(), days: Int = 3, limit: Int = 5) -> [EventSnapshot] {
+        let from = now.addingTimeInterval(-Double(days) * 86_400)
+        return Array(events.filter { $0.start <= now && $0.start >= from }.sorted { $0.start > $1.start }.prefix(limit))
+    }
+
+    /// Adds a person to an event's people.
+    public func addPerson(_ id: UUID, toEvent eventID: UUID) async {
+        guard let store else { return }
+        await perform {
+            let people = try store.event(eventID).participants.map(\.id)
+            guard !people.contains(id) else { return }
+            try store.updateEvent(eventID, EventChange(participants: people + [id]))
+            try self.syncContacts([id], store)
+        }
+    }
+
+    /// Makes a pplz event of a calendar entry with this person — or adds the person, if that entry
+    /// has become an event already (same title and start).
+    public func logCalendarEntry(_ entry: CalendarEntry, with id: UUID) async {
+        guard let store else { return }
+        let title = entry.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let existing = events.first(where: { $0.title == title && $0.start == entry.start }) {
+            await addPerson(id, toEvent: existing.id)
+            return
+        }
+        await perform {
+            try store.logEvent(EventDraft(title: title, format: .liveMeeting, start: entry.start, end: entry.end, place: entry.place,
+                                          participants: [id]))
+            try self.syncContacts([id], store)
+        }
+    }
+
     /// Gives the selected person, who exists only in pplz, a card in Contacts — with the name and the
     /// `pplz` link — so that phone, mail, address and picture can be entered there. Returns the new
     /// contact's identifier, or `nil` if nothing was created.

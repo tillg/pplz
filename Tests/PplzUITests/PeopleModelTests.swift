@@ -482,3 +482,59 @@ import Testing
         #expect(try store.persons().isEmpty)
     }
 }
+
+/// After a capture pplz asks which event the person belongs to.
+@MainActor @Suite struct CaptureEventTests {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    var hour: TimeInterval { 3600 }
+
+    func setUp() async throws -> (PeopleModel, PplzStore, anna: UUID, oliver: UUID) {
+        let (model, store) = try PeopleModelTests().makeModel()
+        let anna = try store.createPerson(name: "Anna Example")
+        let oliver = try store.createPerson(name: "Oliver Massmann")
+        return (model, store, anna, oliver)
+    }
+
+    @Test func theEventsOfTheLastDaysAreOffered() async throws {
+        let (model, store, anna, _) = try await setUp()
+        try store.logEvent(EventDraft(title: "Old", format: .liveMeeting, start: now.addingTimeInterval(-30 * 24 * hour), participants: [anna]))
+        try store.logEvent(EventDraft(title: "Yesterday", format: .liveMeeting, start: now.addingTimeInterval(-26 * hour), participants: [anna]))
+        try store.logEvent(EventDraft(title: "Just now", format: .liveMeeting, start: now.addingTimeInterval(-hour), participants: [anna]))
+        try store.logEvent(EventDraft(title: "Next week", format: .liveMeeting, start: now.addingTimeInterval(7 * 24 * hour), participants: [anna]))
+        await model.reload()
+        #expect(model.recentEvents(now: now).map(\.title) == ["Just now", "Yesterday"])
+    }
+
+    @Test func aPersonCanBeAddedToAnEvent() async throws {
+        let (model, store, anna, oliver) = try await setUp()
+        let event = try store.logEvent(EventDraft(title: "Vietnam Dialogue", format: .largerGathering, start: now, participants: [anna]))
+        await model.reload()
+        await model.addPerson(oliver, toEvent: event)
+        await model.addPerson(oliver, toEvent: event)      // twice does no harm
+        #expect(model.errorMessage == nil)
+        #expect(try store.event(event).participants.map(\.name) == ["Anna Example", "Oliver Massmann"])
+    }
+
+    @Test func aCalendarEntryBecomesAnEventWithThePerson() async throws {
+        let (model, store, _, oliver) = try await setUp()
+        await model.reload()
+        let entry = CalendarEntry(title: "Vietnam Dialogue", start: now, end: now.addingTimeInterval(2 * hour), place: "Hanoi")
+        await model.logCalendarEntry(entry, with: oliver)
+        let event = try #require(try store.events().first)
+        #expect(event.title == "Vietnam Dialogue")
+        #expect(event.start == now)
+        #expect(event.end == now.addingTimeInterval(2 * hour))
+        #expect(event.place == "Hanoi")
+        #expect(event.participants.map(\.name) == ["Oliver Massmann"])
+    }
+
+    @Test func theSameCalendarEntryIsNotLoggedTwice() async throws {
+        let (model, store, anna, oliver) = try await setUp()
+        await model.reload()
+        let entry = CalendarEntry(title: "Vietnam Dialogue", start: now, end: nil, place: "")
+        await model.logCalendarEntry(entry, with: anna)
+        await model.logCalendarEntry(entry, with: oliver)
+        #expect(try store.events().count == 1)
+        #expect(try store.events()[0].participants.map(\.name) == ["Anna Example", "Oliver Massmann"])
+    }
+}
