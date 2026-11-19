@@ -6,9 +6,14 @@ import SwiftData
 public final class PplzStore {
     private let context: ModelContext
 
-    public init(url: URL) throws {
+    /// The iCloud container the apps sync through.
+    public static let iCloudContainer = "iCloud.com.tillg.pplz"
+
+    /// Opens the store at `url`. It stays purely local unless `container` names an iCloud container;
+    /// only the apps pass one, and only for their default store. The CLI and tests never do.
+    public init(url: URL, syncingWith container: String? = nil) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let config = ModelConfiguration(url: url, cloudKitDatabase: .none)
+        let config = ModelConfiguration(url: url, cloudKitDatabase: container.map { .private($0) } ?? .none)
         let container = try ModelContainer(for: Person.self, Event.self, Tag.self, FollowUp.self, Connection.self, Setting.self, configurations: config)
         context = ModelContext(container)
         context.autosaveEnabled = false

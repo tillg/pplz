@@ -35,8 +35,13 @@ targets:
         # scripts the Contacts app. Both change when iCloud sync and the notes entitlement arrive.
         ENABLE_APP_SANDBOX: NO
         ENABLE_HARDENED_RUNTIME: NO
-        CODE_SIGN_STYLE: Manual
-        CODE_SIGN_IDENTITY: Apple Development
+        CODE_SIGN_STYLE: Automatic
+    entitlements:
+      path: Mac/pplz.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers: [iCloud.com.tillg.pplz]
+        com.apple.developer.icloud-services: [CloudKit]
+        com.apple.developer.aps-environment: development
     info:
       path: Mac/Info.plist
       properties:
@@ -60,9 +65,16 @@ targets:
       base:
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
+    entitlements:
+      path: iOS/pplz.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers: [iCloud.com.tillg.pplz]
+        com.apple.developer.icloud-services: [CloudKit]
+        aps-environment: development
     info:
       path: iOS/Info.plist
       properties:
+        UIBackgroundModes: [remote-notification]
         CFBundleDisplayName: pplz
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)

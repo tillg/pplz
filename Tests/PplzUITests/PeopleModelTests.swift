@@ -250,3 +250,33 @@ import Testing
         #expect(model.card?.connections.isEmpty == true)
     }
 }
+
+/// iCloud sync must be an explicit choice of the app's own default store — never of a demo,
+/// test or scratch store, whose rows would otherwise land in the user's iCloud.
+@Suite struct SyncOptInTests {
+    func defaults(_ values: [String: Any]) -> UserDefaults {
+        let name = "pplz-test-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.removePersistentDomain(forName: name)
+        for (key, value) in values { defaults.set(value, forKey: key) }
+        return defaults
+    }
+
+    @Test func theDefaultStoreSyncs() {
+        #expect(PeopleModel.Configuration(defaults: defaults([:])).syncsWithICloud)
+    }
+
+    @Test func aCustomStoreNeverSyncsUnlessForced() {
+        #expect(PeopleModel.Configuration(defaults: defaults(["store": "/tmp/x.store"])).syncsWithICloud == false)
+        #expect(PeopleModel.Configuration(defaults: defaults(["store": "/tmp/x.store", "forceSync": true])).syncsWithICloud)
+    }
+
+    @Test func syncCanBeSwitchedOff() {
+        #expect(PeopleModel.Configuration(defaults: defaults(["noSync": true])).syncsWithICloud == false)
+    }
+
+    @Test func codeThatBuildsAConfigurationItselfDoesNotSync() {
+        #expect(PeopleModel.Configuration().syncsWithICloud == false)
+        #expect(PeopleModel.Configuration(storeURL: URL(fileURLWithPath: "/tmp/x.store")).syncsWithICloud == false)
+    }
+}

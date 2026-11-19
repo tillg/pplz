@@ -260,6 +260,10 @@ Edge cases the first version handles **[S]** decided 2026-11-18:
 - SwiftData / Core Data + CloudKit **private** database — no own storage backend, no pplz account, data stays in my iCloud. **[S]** decided 2026-11-18
 - Photo references use `PHCloudIdentifier` (asset IDs are device-local); where it can't be resolved, the thumbnail remains. **[A]** see §8.3
 - App and CLI share one local store; only the app syncs with CloudKit (§8.3). **[A]**
+- **Built on the Mac 2026-11-18:** the Mac app syncs its default store through the iCloud container `iCloud.com.tillg.pplz` (CloudKit *Development* environment). Verified: records written by the CLI are uploaded by the app, and a fresh store received all existing persons, relationships and tags. The Mac app needs no sandbox for this, so the store stays where it is.
+- Sync is an explicit opt-in of the apps for their default store; the CLI, tests and stores given with `-store` never sync.
+- **Identity across devices:** a person is matched to the local contact through the `pplz://person/<id>` link in the contact, and only then by the stored contact identifier (R3). The stored identifier is never overwritten by another device.
+- **Not done yet:** (iPhone sync verified 2026-11-19: the phone's store received all persons with the Mac's IDs.) A running app picks up remote changes only when it starts or (with push) when notified, and reloads its screen only on activation; no de-duplication of tags or settings created on two devices before they synced; a person first created on the phone has no link in Contacts, because only the Mac can write it.
 - Model must respect the CloudKit schema rules from day one (no unique constraints, optional relationships with inverses, additive schema changes only — see §8.2). **[A]**
 - Contacts themselves sync via iCloud Contacts as today; pplz writes the notes block on one device and iCloud distributes it. Needs care to avoid two devices writing the same block concurrently. **[A]**
 - Works offline; syncs when online. **[A]**
@@ -370,7 +374,7 @@ From Apple's documentation:
 - Sharing one SwiftData store between processes is supported (Apple's app + widget sample). Changes from another process are not announced automatically; the reader uses SwiftData's history API.
 - SwiftData and Core Data can work on the same store file (Apple sample), so the choice is reversible.
 - macOS 15+ protects app group containers: a process accesses them without a prompt only if signed by the same team with a team-ID-prefixed group ID (or equivalent).
-- **Not documented, not testable without a signed app:** that the app's CloudKit sync exports rows written by another process. Inferred from how history-based export works; needs a spike with a signed build.
+- That the app's CloudKit sync exports rows written by another process was not documented; **confirmed 2026-11-18** with the signed Mac app: an event logged by the CLI into the app's store was uploaded within seconds and arrived in a second store, and its deletion travelled back.
 - Photos: asset identifiers are device-local; `PHCloudIdentifier` is Apple's cross-device reference (can fail or be ambiguous → thumbnail remains the fallback).
 
 **Design consequences** **[A]**

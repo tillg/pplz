@@ -9,7 +9,7 @@ xcodegen generate >/dev/null
 OUT="../tmp/ui"; RESULT="../tmp/ui-result.xcresult"
 rm -rf "$OUT" "$RESULT"; mkdir -p "$OUT"
 status=0
-TEST_RUNNER_PPLZ_APP_ARGS="${1:-}" TEST_RUNNER_PPLZ_UI_SCRIPT="${2:-screenshot:start}" \
+TEST_RUNNER_PPLZ_APP_ARGS="-noSync|YES|${1:-}" TEST_RUNNER_PPLZ_UI_SCRIPT="${2:-screenshot:start}" \
     xcodebuild test -project pplz.xcodeproj -scheme pplziOS -destination "platform=iOS Simulator,name=${3:-pplz iPhone}" \
     -derivedDataPath ../.build/xc -resultBundlePath "$RESULT" 2>&1 | grep -E "error:|XCTAssert|Nothing on screen|TEST (SUCCEEDED|FAILED)" || status=$?
 xcrun xcresulttool export attachments --path "$RESULT" --output-path "$OUT" >/dev/null

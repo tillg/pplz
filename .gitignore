@@ -25,3 +25,5 @@ App/pplz.xcodeproj/
 App/Local.xcconfig
 App/Mac/Info.plist
 App/iOS/Info.plist
+App/Mac/pplz.entitlements
+App/iOS/pplz.entitlements

@@ -50,21 +50,32 @@ public enum PersonMatch: Equatable, Sendable {
 /// The people list is built at read time from the address book and the pplz store;
 /// contacts are never imported (SPEC §3.1).
 public enum PeopleDirectory {
+    /// A person belongs to the contact whose `pplz` link names them; failing that, to the contact
+    /// with the identifier stored for them. The link comes first because contact identifiers differ
+    /// from device to device, while the link travels with the contact (SPEC R3).
     public static func merge(contacts: [ContactSummary], persons: [PersonSnapshot]) -> [PersonEntry] {
-        var linked: [String: PersonSnapshot] = [:]
+        let byID = Dictionary(persons.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var byIdentifier: [String: PersonSnapshot] = [:]
         for person in persons {
-            if let identifier = person.contactIdentifier, linked[identifier] == nil { linked[identifier] = person }
+            if let identifier = person.contactIdentifier, byIdentifier[identifier] == nil { byIdentifier[identifier] = person }
         }
-        var entries: [PersonEntry] = []
-        var seen: Set<String> = []
+        // links first, so that a person claimed through a link is not also matched by a stale identifier
+        var claimed: Set<UUID> = []
+        var matches: [String: PersonSnapshot] = [:]
         for contact in contacts {
-            let person = linked[contact.identifier]
-            seen.insert(contact.identifier)
-            entries.append(PersonEntry(id: person?.id, contactIdentifier: contact.identifier, name: contact.name,
-                                       eventCount: person?.eventCount ?? 0, lastMet: person?.lastMet, tags: person?.tags ?? [],
-                                       nickname: contact.nickname))
+            if let id = contact.pplzPersonID, let person = byID[id], claimed.insert(id).inserted { matches[contact.identifier] = person }
         }
-        for person in persons where person.contactIdentifier.map({ !seen.contains($0) }) ?? true {
+        for contact in contacts where matches[contact.identifier] == nil {
+            if let person = byIdentifier[contact.identifier], claimed.insert(person.id).inserted { matches[contact.identifier] = person }
+        }
+
+        var entries = contacts.map { contact in
+            let person = matches[contact.identifier]
+            return PersonEntry(id: person?.id, contactIdentifier: contact.identifier, name: contact.name,
+                               eventCount: person?.eventCount ?? 0, lastMet: person?.lastMet, tags: person?.tags ?? [],
+                               nickname: contact.nickname)
+        }
+        for person in persons where !claimed.contains(person.id) {
             entries.append(PersonEntry(id: person.id, contactIdentifier: person.contactIdentifier, name: person.name,
                                        eventCount: person.eventCount, lastMet: person.lastMet, tags: person.tags))
         }

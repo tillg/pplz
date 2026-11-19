@@ -12,14 +12,21 @@ public final class PeopleModel {
         public var usesContacts: Bool
         /// Name or ID of a person to select after loading.
         public var initialSelection: String?
+        /// Whether the store syncs through the user's private iCloud.
+        public var syncsWithICloud = false
 
         /// Launch options, given the Apple way as `-key value` pairs:
-        /// `-store <path>`, `-noContacts YES`, `-select <name or id>`.
+        /// `-store <path>`, `-noContacts YES`, `-select <name or id>`, `-noSync YES`, `-forceSync YES`.
+        ///
+        /// iCloud sync is on for the app's own default store only. A store given with `-store`
+        /// (demo data, tests) stays local unless `-forceSync YES` says otherwise.
         public init(defaults: UserDefaults) {
             self.init(storeURL: defaults.string(forKey: "store").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
                           ?? PplzStore.defaultURL(),
                       usesContacts: !defaults.bool(forKey: "noContacts"),
                       initialSelection: defaults.string(forKey: "select"))
+            syncsWithICloud = defaults.bool(forKey: "forceSync")
+                || (defaults.string(forKey: "store") == nil && !defaults.bool(forKey: "noSync"))
         }
 
         public init(storeURL: URL = PplzStore.defaultURL(), usesContacts: Bool = true, initialSelection: String? = nil) {
@@ -119,7 +126,8 @@ public final class PeopleModel {
         isLoading = entries.isEmpty
         defer { isLoading = false }
         do {
-            let store = try self.store ?? PplzStore(url: configuration.storeURL)
+            let store = try self.store ?? PplzStore(
+                url: configuration.storeURL, syncingWith: configuration.syncsWithICloud ? PplzStore.iCloudContainer : nil)
             self.store = store
             let usesContacts = configuration.usesContacts
             let contacts = try await Task.detached { usesContacts ? try SystemContacts.fetchAll() : [] }.value

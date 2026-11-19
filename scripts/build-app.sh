@@ -12,7 +12,9 @@ DERIVED="../.build/xc"
 
 case "${1:-mac}" in
 mac)
-    xcodebuild -project pplz.xcodeproj -scheme pplzMac -configuration Release -derivedDataPath "$DERIVED" build | grep -E "error:|BUILD"
+    # automatic signing: the iCloud entitlement needs a provisioning profile
+    xcodebuild -project pplz.xcodeproj -scheme pplzMac -configuration Release -derivedDataPath "$DERIVED" \
+        -allowProvisioningUpdates build | grep -E "error:|BUILD"
     osascript -e 'tell application id "com.tillg.pplz" to quit' 2>/dev/null || true
     # move, don't copy: two registered copies would compete for pplz:// links
     rm -rf /Applications/pplz.app

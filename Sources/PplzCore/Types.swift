@@ -47,11 +47,14 @@ public struct ContactSummary: Codable, Equatable, Sendable {
     public var identifier: String
     public var name: String
     public var nickname: String
+    /// The person the contact's `pplz://person/<id>` link points to, if it has one.
+    public var pplzPersonID: UUID?
 
-    public init(identifier: String, name: String, nickname: String = "") {
+    public init(identifier: String, name: String, nickname: String = "", pplzPersonID: UUID? = nil) {
         self.identifier = identifier
         self.name = name
         self.nickname = nickname
+        self.pplzPersonID = pplzPersonID
     }
 }
 

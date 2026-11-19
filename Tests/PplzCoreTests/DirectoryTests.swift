@@ -93,3 +93,51 @@ import Testing
         #expect(throws: PplzError.self) { try DateInput.parse("2026-13-40", now: now, calendar: calendar) }
     }
 }
+
+/// With iCloud sync, a person record made on the Mac arrives on the phone carrying the Mac's
+/// contact identifier, which means nothing there. The `pplz://person/<id>` link inside the contact
+/// (synced by iCloud Contacts) is what ties the two together on every device (SPEC R3).
+@Suite struct CrossDeviceIdentityTests {
+    let anna = UUID()
+
+    @Test func aPersonIsMatchedToTheLocalContactThroughThePplzLink() {
+        let contacts = [ContactSummary(identifier: "PHONE-1", name: "Anna Example", pplzPersonID: anna),
+                        ContactSummary(identifier: "PHONE-2", name: "Ben Sample")]
+        let persons = [PersonSnapshot(id: anna, name: "Anna Example", contactIdentifier: "MAC-1", eventCount: 3, tags: ["client"])]
+
+        let entries = PeopleDirectory.merge(contacts: contacts, persons: persons)
+        #expect(entries.count == 2)                       // not three: no duplicate Anna
+        #expect(entries[0].id == anna)
+        #expect(entries[0].contactIdentifier == "PHONE-1")   // the identifier that works on this device
+        #expect(entries[0].eventCount == 3)
+        #expect(entries[0].tags == ["client"])
+        #expect(entries[0].isPplzOnly == false)
+    }
+
+    @Test func theLinkWinsOverAStaleIdentifierMatch() {
+        // "MAC-1" happens to exist here too, but belongs to someone else
+        let contacts = [ContactSummary(identifier: "MAC-1", name: "Somebody Else"),
+                        ContactSummary(identifier: "PHONE-1", name: "Anna Example", pplzPersonID: anna)]
+        let persons = [PersonSnapshot(id: anna, name: "Anna Example", contactIdentifier: "MAC-1", eventCount: 1)]
+        let entries = PeopleDirectory.merge(contacts: contacts, persons: persons)
+        #expect(entries.map(\.name) == ["Anna Example", "Somebody Else"])
+        #expect(entries[0].id == anna)
+        #expect(entries[1].id == nil)
+        #expect(entries[1].eventCount == 0)
+    }
+
+    @Test func withoutALinkTheLocalIdentifierStillMatches() {
+        let contacts = [ContactSummary(identifier: "C-1", name: "Anna Example")]
+        let persons = [PersonSnapshot(id: anna, name: "Anna", contactIdentifier: "C-1", eventCount: 2)]
+        let entries = PeopleDirectory.merge(contacts: contacts, persons: persons)
+        #expect(entries.count == 1)
+        #expect(entries[0].id == anna)
+    }
+
+    @Test func aLinkToAnUnknownPersonIsIgnored() {
+        let contacts = [ContactSummary(identifier: "C-1", name: "Anna Example", pplzPersonID: UUID())]
+        let entries = PeopleDirectory.merge(contacts: contacts, persons: [])
+        #expect(entries.count == 1)
+        #expect(entries[0].id == nil)
+    }
+}

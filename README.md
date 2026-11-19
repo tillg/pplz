@@ -6,7 +6,7 @@
 
 pplz is a personal contact manager for Mac, iPhone and iPad. It enriches the contacts you already have with the history of your interactions: meetings, calls, events and photos.
 
-> **Status: early development.** The shared core, the `pplz` command line, a Mac app and a first iPhone / iPad app exist and work on a local store; connections and (if you switch it on) the meeting history are written to your contacts, Mac only, and there is no sync between devices yet. The design, the decisions taken so far and the results of the technical spikes are in [SPEC.md](SPEC.md).
+> **Status: early development.** The shared core, the `pplz` command line, a Mac app and a first iPhone / iPad app exist and work on a local store; connections and (if you switch it on) the meeting history are written to your contacts, Mac only, and both apps sync their data through your private iCloud. The design, the decisions taken so far and the results of the technical spikes are in [SPEC.md](SPEC.md).
 
 ## The idea
 
@@ -82,7 +82,7 @@ Run the tests with `swift test`.
 
 The Mac app shows your people and each person's card, laid out like Contacts with pink highlights. You can browse and search people and events; log an event with a person (+ on their card); edit their tags, notes, how you met and keep-in-touch rhythm (the pencil); add and remove relationships; edit and delete events; and add and tick off follow-ups. Changes made with the CLI appear when the app comes to the front.
 
-The iPhone / iPad app uses the same screens. It is at an early stage: it has its own, separate data on each device until iCloud sync exists, and it does not write into Contacts yet.
+The iPhone / iPad app uses the same screens. It is at an early stage: it syncs with the Mac through iCloud (changes from another device appear when the app starts), but it does not write into Contacts.
 
 Both are built from the Xcode project in `App/`, which is generated with [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 
