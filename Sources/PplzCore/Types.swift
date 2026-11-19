@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 
 public enum EventFormat: String, Codable, CaseIterable, Sendable {
     case liveMeeting = "live-meeting"
@@ -246,6 +247,26 @@ public struct EventFilter: Sendable {
     }
 }
 
+/// One of a person's pictures. The image itself is left out of JSON output.
+public struct PhotoSnapshot: Encodable, Equatable, Sendable {
+    public var id: UUID
+    public var createdAt: Date
+    public var pixelWidth: Int
+    public var pixelHeight: Int
+    public var data: Data
+
+    enum CodingKeys: String, CodingKey { case id, createdAt, pixelWidth, pixelHeight }
+
+    init(id: UUID, createdAt: Date, data: Data) {
+        let size = CGImageSourceCreateWithData(data as CFData, nil).flatMap { CGImageSourceCopyPropertiesAtIndex($0, 0, nil) as? [CFString: Any] }
+        self.id = id
+        self.createdAt = createdAt
+        self.data = data
+        pixelWidth = size?[kCGImagePropertyPixelWidth] as? Int ?? 0
+        pixelHeight = size?[kCGImagePropertyPixelHeight] as? Int ?? 0
+    }
+}
+
 /// Everything shown on a person's card: the contact's own data plus what pplz knows.
 public struct PersonCard: Equatable, Sendable {
     public var entry: PersonEntry
@@ -255,4 +276,5 @@ public struct PersonCard: Equatable, Sendable {
     public var stored: PersonSnapshot?
     public var connections: [ConnectionSnapshot]
     public var history: [EventSnapshot]
+    public var photos: [PhotoSnapshot] = []
 }

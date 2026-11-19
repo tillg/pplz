@@ -121,6 +121,20 @@ public enum ContactsApp {
         ], text: [row.contactIdentifier, row.label, row.value])
     }
 
+    /// Sets the contact's picture through the Contacts app, which accepts it for contacts with a note too.
+    public static func setImage(_ image: Data, identifier: String) throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("pplz-picture-\(UUID().uuidString).jpg")
+        try image.write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        _ = try runScript([
+            "tell application \"Contacts\"",
+            "set p to person id a1",
+            "set image of p to (read (POSIX file a2) as JPEG picture)",
+            "save",
+            "end tell",
+        ], text: [identifier, file.path])
+    }
+
     /// The contact's note, read through the Contacts app ("" if empty).
     public static func readNote(identifier: String) throws -> String {
         var text = try runScript([

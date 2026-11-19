@@ -495,16 +495,106 @@ public final class PeopleModel {
     }
 
     #if os(macOS)
+    /// The picture on the clipboard: a screenshot, or a copied picture file.
+    private static func clipboardImage() -> Data? {
+        let board = NSPasteboard.general
+        let files = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingContentsConformToTypes: [UTType.image.identifier]]) as? [URL]
+        return files?.first.flatMap { try? Data(contentsOf: $0) } ?? board.data(forType: .png) ?? board.data(forType: .tiff)
+    }
+
     /// Offers the picture on the clipboard (a screenshot, or a copied picture file); `false` if there is none.
     @discardableResult
     public func offerCaptureFromClipboard() -> Bool {
-        let board = NSPasteboard.general
-        let files = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingContentsConformToTypes: [UTType.image.identifier]]) as? [URL]
-        guard let image = files?.first.flatMap({ try? Data(contentsOf: $0) }) ?? board.data(forType: .png) ?? board.data(forType: .tiff) else { return false }
+        guard let image = Self.clipboardImage() else { return false }
         offerCapture(image)
         return true
     }
+
+    /// Adds the picture on the clipboard to the selected person's photos. Not ⌘V: that is a capture.
+    public func addPhotoFromClipboard() async {
+        guard let image = Self.clipboardImage() else {
+            errorMessage = "There is no picture on the clipboard."
+            return
+        }
+        await addPhotos([image])
+    }
     #endif
+
+    // MARK: Photos
+
+    /// A picture that shows several faces: the user says which one is the person.
+    public struct FaceChoice: Identifiable, Equatable, Sendable {
+        public let id = UUID()
+        public var entry: PersonEntry
+        /// The crop around each face, left to right.
+        public var crops: [Data]
+    }
+
+    /// Pictures with several faces that wait for the user's choice, oldest first.
+    public private(set) var faceChoices: [FaceChoice] = []
+    public var faceChoice: FaceChoice? { faceChoices.first }
+
+    /// Whether a photo can become the contact's picture: the person has a contact, and it may be written.
+    public var canUseAsContactPicture: Bool { configuration.usesContacts && card?.entry.contactIdentifier != nil }
+
+    /// Adds pictures to the selected person's photos, cropped to the face in each. A picture with one face
+    /// is stored right away, one with several waits for `chooseFace`, one without is reported and left out.
+    public func addPhotos(_ images: [Data]) async {
+        guard let entry = card?.entry else { return }
+        var single: [Data] = []
+        var problems: [String] = []
+        for image in images {
+            do {
+                let crops = try await FacePhoto.faceCrops(in: image)
+                if crops.count == 1 { single += crops } else { faceChoices.append(FaceChoice(entry: entry, crops: crops)) }
+            } catch {
+                problems.append((error as? LocalizedError)?.errorDescription ?? "\(error)")
+            }
+        }
+        await storePhotos(single, of: entry)
+        if !problems.isEmpty {
+            errorMessage = images.count == 1 ? problems[0]
+                : "\(problems.count) of \(images.count) pictures were not added. " + Set(problems).sorted().joined(separator: " ")
+        }
+    }
+
+    /// Stores the face the user picked for the first waiting picture; `nil` skips the picture.
+    public func chooseFace(_ index: Int?) async {
+        guard !faceChoices.isEmpty else { return }
+        let choice = faceChoices.removeFirst()
+        if let index, choice.crops.indices.contains(index) { await storePhotos([choice.crops[index]], of: choice.entry) }
+    }
+
+    private func storePhotos(_ crops: [Data], of entry: PersonEntry) async {
+        guard let store, !crops.isEmpty else { return }
+        do {
+            guard let id = try personID(entry, store) else { return }
+            try store.addPhotos(crops, toPerson: id)
+            try syncContacts([id], store)
+            errorMessage = nil
+            await reload()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+        }
+    }
+
+    public func deletePhoto(_ id: UUID) async {
+        guard let store else { return }
+        await perform { try store.deletePhoto(id) }
+    }
+
+    /// Makes a photo the selected person's picture in Contacts.
+    public func useAsContactPicture(_ id: UUID) async {
+        guard canUseAsContactPicture, let store, let identifier = card?.entry.contactIdentifier else { return }
+        do {
+            let image = try store.photo(id).data
+            try await Task.detached { try SystemContacts.setPicture(image, forContact: identifier) }.value
+            errorMessage = nil
+            await reload()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+        }
+    }
 
     /// Handles a `pplz://person/<id>` link, e.g. clicked in the Contacts app.
     public func open(_ url: URL) async {

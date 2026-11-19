@@ -1,4 +1,6 @@
+import CoreGraphics
 import Foundation
+import ImageIO
 import PplzCore
 import Testing
 @testable import PplzUI
@@ -593,5 +595,58 @@ import Testing
         model.openPerson(key: anna.uuidString)
         #expect(model.mode == .people)
         #expect(model.selection == anna.uuidString)
+    }
+}
+
+@MainActor
+@Suite struct PersonPhotoModelTests {
+    /// A drawn picture has no face; Vision finds none.
+    func pictureWithoutFace() -> Data {
+        let context = CGContext(data: nil, width: 300, height: 200, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: 300, height: 200))
+        let data = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, context.makeImage()!, nil)
+        CGImageDestinationFinalize(destination)
+        return data as Data
+    }
+
+    @Test func aPictureWithoutAFaceIsRefusedAndNothingIsStored() async throws {
+        let (model, store) = try PeopleModelTests().makeModel(select: "Anna Example")
+        let anna = try store.createPerson(name: "Anna Example")
+        await model.reload()
+        await model.addPhotos([pictureWithoutFace()])
+        #expect(model.errorMessage == "No face found in this picture.")
+        #expect(try store.photos(of: anna).isEmpty)
+        #expect(model.faceChoice == nil)
+    }
+
+    @Test func severalPicturesWithoutFacesAreReportedTogether() async throws {
+        let (model, store) = try PeopleModelTests().makeModel(select: "Anna Example")
+        try store.createPerson(name: "Anna Example")
+        await model.reload()
+        await model.addPhotos([pictureWithoutFace(), pictureWithoutFace()])
+        #expect(model.errorMessage == "2 of 2 pictures were not added. No face found in this picture.")
+    }
+
+    @Test func theCardShowsThePhotosAndDeletingOneRemovesIt() async throws {
+        let (model, store) = try PeopleModelTests().makeModel(select: "Anna Example")
+        let anna = try store.createPerson(name: "Anna Example")
+        let ids = try store.addPhotos([pictureWithoutFace(), pictureWithoutFace()], toPerson: anna)
+        await model.reload()
+        #expect(model.card?.photos.count == 2)
+
+        await model.deletePhoto(ids[0])
+        #expect(model.card?.photos.map(\.id) == [ids[1]])
+        #expect(try store.photos(of: anna).map(\.id) == [ids[1]])
+    }
+
+    @Test func withoutContactsNothingCanBecomeAContactPicture() async throws {
+        let (model, store) = try PeopleModelTests().makeModel(select: "Anna Example")
+        try store.createPerson(name: "Anna Example")
+        await model.reload()
+        #expect(!model.canUseAsContactPicture)
     }
 }

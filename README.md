@@ -68,6 +68,8 @@ pplz contacts journal                              # every change pplz made to y
 pplz person rhythm "Anna Example" 3m               # keep in touch every 3 months
 pplz due                                           # who is overdue
 pplz capture profile.png --picture face.png        # read a profile screenshot: name, job, company, LinkedIn link, picture
+pplz person photo add "Anna Example" anna.jpg      # keep the face in it as a reference photo (--face 2 when several faces are found)
+pplz person photo list "Anna Example"              # also: photo remove <person> <id>, photo export <person> <id> <file>
 pplz --help
 ```
 
@@ -85,6 +87,8 @@ Run the tests with `swift test`.
 ## Apps
 
 The Mac app shows your people and each person's card, laid out like Contacts with pink highlights; next to a birthday it shows the age. You can browse and search people and events; log an event in a few seconds (the New Event button above the list, or + on a person's card): type two letters to pick one or several people — those you met most recently are offered right away — while time and the format you used last are already filled in; someone who is not in your contacts yet is added by typing the name and choosing "New person"; such a person lives in pplz only until you press "Add to Contacts" on their card, which creates the contact (name and `pplz` link) and opens it so you can enter phone, mail and the rest; edit their tags, notes, how you met and keep-in-touch rhythm (the pencil) — when tagging, the tags you already use are offered, and typing a new name creates one; add and remove relationships; edit and delete events, and add or remove their people ("Add people" in the event); and add and tick off follow-ups. Changes made with the CLI appear when the app comes to the front.
+
+**Photos of a person:** the "Photos" row on a person's card keeps pictures of their face, to recognise them in new photos later. Add them with + (photo library on iPhone / iPad, files or the clipboard on the Mac — "Paste Photo", because ⌘V stays "capture a profile") or drag pictures onto the row. pplz detects the face on the device and keeps only a crop around it, as a copy in its own store, so every device has it through your private iCloud. If a picture shows several faces you pick the right one; a picture without a face is refused. Tap a photo to delete it or, for a person with a contact, to use it as the contact's picture ("Use as contact picture", which replaces the picture in Contacts; on the Mac pplz asks the Contacts app when a contact with a note does not accept the save). There is no limit.
 
 **Map:** the third entry next to People and Events shows everyone with a postal address on a map — one pin per address, labelled home / work, nearby pins grouped with a count; open the callout of a pin to get to the person. The search field filters the map like the list. While the app runs it locates your contacts' addresses in the background (the street, postal code, city and country of each address are sent to Apple's geocoding service, at most 300 per hour; the status line at the bottom says how far it is and when it continues). Results stay on the device and are not synced; people with only a city appear at the city centre.
 

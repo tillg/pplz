@@ -26,6 +26,7 @@ final class Person {
     var tags: [Tag]? = []
     @Relationship(deleteRule: .cascade, inverse: \Connection.from) var outgoingConnections: [Connection]? = []
     @Relationship(deleteRule: .cascade, inverse: \Connection.to) var incomingConnections: [Connection]? = []
+    @Relationship(deleteRule: .cascade, inverse: \PersonPhoto.person) var photos: [PersonPhoto]? = []
 
     init(name: String, localContactIdentifier: String? = nil) {
         self.name = name
@@ -75,6 +76,19 @@ final class Connection {
     var to: Person?
 
     init(kind: String) { self.kind = kind }
+}
+
+/// A picture of a person for later face recognition: a real copy of the area around their face,
+/// kept in the synced store so that every device has it (SPEC §2.1).
+@Model
+final class PersonPhoto {
+    var uuid: UUID = UUID()
+    var createdAt: Date = Date()
+    /// JPEG; kept outside the database file, and synced as a CloudKit asset.
+    @Attribute(.externalStorage) var imageData: Data = Data()
+    var person: Person?
+
+    init(imageData: Data) { self.imageData = imageData }
 }
 
 /// A synced app setting.

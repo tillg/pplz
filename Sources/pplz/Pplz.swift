@@ -344,7 +344,7 @@ struct Locate: AsyncParsableCommand {
 struct PersonCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "person", abstract: "Show or edit one person.",
-        subcommands: [Show.self, Open.self, Add.self, Note.self, Met.self, TagAdd.self, TagRemove.self, Connect.self, Disconnect.self, Rhythm.self],
+        subcommands: [Show.self, Open.self, Add.self, Note.self, Met.self, TagAdd.self, TagRemove.self, Connect.self, Disconnect.self, Rhythm.self, Photo.self],
         defaultSubcommand: Show.self)
 
     struct Detail: Encodable {
@@ -492,6 +492,113 @@ struct PersonCommand: ParsableCommand {
 }
 
 extension PersonCommand {
+    struct Photo: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Pictures of a person, for recognising them in new photos.",
+            discussion: "Only the area around the face is kept, as a copy in pplz's store (and so in your private iCloud). A picture without a face is refused.",
+            subcommands: [Add.self, List.self, Remove.self, Export.self], defaultSubcommand: List.self)
+
+        struct Add: ParsableCommand {
+            static let configuration = CommandConfiguration(abstract: "Add pictures; each is cropped to the face in it.")
+            @Argument var person: String
+            @Argument(help: "Picture files.") var images: [String]
+            @Option(help: "Which face, counted from the left, when a picture shows several.") var face: Int?
+            @OptionGroup var common: Common
+
+            func run() throws {
+                try attempt {
+                    guard !images.isEmpty else { throw Failure("Give at least one picture file.") }
+                    let store = try common.open()
+                    let entry = try common.resolve(person, in: try common.directory(store))
+                    // every picture is checked before anything is stored
+                    var crops: [Data] = []
+                    for path in images {
+                        let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+                        guard let data = FileManager.default.contents(atPath: url.path) else { throw Failure("Cannot read \(url.path).") }
+                        let faces: [Data]
+                        do { faces = try blocking { try await FacePhoto.faceCrops(in: data) } } catch let error as PplzError {
+                            throw Failure("\(url.lastPathComponent): " + (error.errorDescription ?? "\(error)"))
+                        }
+                        if faces.count > 1, face == nil {
+                            throw Failure("\(url.lastPathComponent) shows \(faces.count) faces. Choose one with --face 1…\(faces.count), counted from the left.")
+                        }
+                        let index = (face ?? 1) - 1
+                        guard faces.indices.contains(index) else {
+                            throw Failure("\(url.lastPathComponent) shows \(faces.count) face\(faces.count == 1 ? "" : "s"); there is no --face \(face ?? 1).")
+                        }
+                        crops.append(faces[index])
+                    }
+                    let id = try common.personID(entry, store)
+                    let added = try store.addPhotos(crops, toPerson: id)
+                    common.report(common.syncHistory([id], store))
+                    let photos = try store.photos(of: id).filter { added.contains($0.id) }
+                    try common.emit(photos) { photos.map { "Added photo \(describe($0)) to \(entry.name)" }.joined(separator: "\n") }
+                }
+            }
+        }
+
+        struct List: ParsableCommand {
+            static let configuration = CommandConfiguration(abstract: "List a person's pictures, newest first.")
+            @Argument var person: String
+            @OptionGroup var common: Common
+
+            func run() throws {
+                try attempt {
+                    let store = try common.open()
+                    let entry = try common.resolve(person, in: try common.directory(store))
+                    let photos = try entry.id.map(store.photos(of:)) ?? []
+                    try common.emit(photos) { photos.isEmpty ? "No photos." : photos.map(describe).joined(separator: "\n") }
+                }
+            }
+        }
+
+        struct Remove: ParsableCommand {
+            static let configuration = CommandConfiguration(abstract: "Delete a picture.")
+            @Argument var person: String
+            @Argument(help: "The picture's ID or the start of it.") var photo: String
+            @OptionGroup var common: Common
+
+            func run() throws {
+                try attempt {
+                    let store = try common.open()
+                    let (entry, found) = try find(person, photo, store, common)
+                    try store.deletePhoto(found.id)
+                    try common.emit(found) { "Removed photo [\(short(found.id))] of \(entry.name)" }
+                }
+            }
+        }
+
+        struct Export: ParsableCommand {
+            static let configuration = CommandConfiguration(abstract: "Save a picture (the JPEG crop) to a file.")
+            @Argument var person: String
+            @Argument(help: "The picture's ID or the start of it.") var photo: String
+            @Argument(help: "The file to write.") var file: String
+            @OptionGroup var common: Common
+
+            func run() throws {
+                try attempt {
+                    let store = try common.open()
+                    let (_, found) = try find(person, photo, store, common)
+                    let url = URL(fileURLWithPath: (file as NSString).expandingTildeInPath)
+                    try found.data.write(to: url)
+                    try common.emit(found) { "Saved photo [\(short(found.id))] to \(url.path)" }
+                }
+            }
+        }
+
+        static func describe(_ photo: PhotoSnapshot) -> String {
+            "[\(short(photo.id))]  \(format(photo.createdAt))  \(photo.pixelWidth)×\(photo.pixelHeight) px"
+        }
+
+        /// One of the person's photos by ID prefix.
+        static func find(_ person: String, _ photo: String, _ store: PplzStore, _ common: Common) throws -> (PersonEntry, PhotoSnapshot) {
+            let entry = try common.resolve(person, in: try common.directory(store))
+            let photos = try entry.id.map(store.photos(of:)) ?? []
+            let id = try resolveID(photo, among: photos.map(\.id), what: "photo")
+            return (entry, photos.first { $0.id == id }!)
+        }
+    }
+
     struct Connect: ParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Connect two people.",

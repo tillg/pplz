@@ -15,7 +15,7 @@ public final class PplzStore {
     public init(url: URL, syncingWith container: String? = nil) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let config = ModelConfiguration(url: url, cloudKitDatabase: container.map { .private($0) } ?? .none)
-        let container = try ModelContainer(for: Person.self, Event.self, Tag.self, FollowUp.self, Connection.self, Setting.self, configurations: config)
+        let container = try ModelContainer(for: Person.self, Event.self, Tag.self, FollowUp.self, Connection.self, Setting.self, PersonPhoto.self, configurations: config)
         context = ModelContext(container)
         context.autosaveEnabled = false
     }
@@ -44,7 +44,7 @@ public final class PplzStore {
             return PersonCard(entry: entry, contact: contact, stored: nil, connections: [], history: [])
         }
         return PersonCard(entry: entry, contact: contact, stored: try person(id),
-                          connections: try connections(of: id), history: try history(of: id))
+                          connections: try connections(of: id), history: try history(of: id), photos: try photos(of: id))
     }
 
     // MARK: Settings
@@ -267,6 +267,37 @@ public final class PplzStore {
         }
     }
 
+    // MARK: Photos
+
+    /// Adds pictures — already cropped to a face, see `FacePhoto` — to a person; returns their IDs.
+    @discardableResult
+    public func addPhotos(_ images: [Data], toPerson id: UUID) throws -> [UUID] {
+        try atomically {
+            let person = try fetchPerson(id)
+            return try images.map { data in
+                guard !data.isEmpty else { throw PplzError.invalid("There is no picture to add.") }
+                let photo = PersonPhoto(imageData: data)
+                context.insert(photo)
+                photo.person = person
+                return photo.uuid
+            }
+        }
+    }
+
+    /// Newest first.
+    public func photos(of id: UUID) throws -> [PhotoSnapshot] {
+        (try fetchPerson(id).photos ?? []).sorted { $0.createdAt > $1.createdAt }.map(snapshot)
+    }
+
+    public func photo(_ id: UUID) throws -> PhotoSnapshot {
+        snapshot(try fetchPhoto(id))
+    }
+
+    public func deletePhoto(_ id: UUID) throws {
+        context.delete(try fetchPhoto(id))
+        try context.save()
+    }
+
     // MARK: Events
 
     /// The format of the event that was logged last (not the one that took place last).
@@ -447,6 +478,13 @@ public final class PplzStore {
         return event
     }
 
+    private func fetchPhoto(_ id: UUID) throws -> PersonPhoto {
+        guard let photo = try context.fetch(FetchDescriptor<PersonPhoto>(predicate: #Predicate { $0.uuid == id })).first else {
+            throw PplzError.notFound("photo \(id.uuidString)")
+        }
+        return photo
+    }
+
     private func findOrCreateTag(_ name: String) throws -> Tag {
         let display = try nonEmpty(name, "A tag needs a name.")
         let key = tagKey(display)
@@ -487,6 +525,10 @@ public final class PplzStore {
                               howWeMet: person.howWeMet, notes: person.notes, eventCount: events.count,
                               lastMet: events.map(\.start).max(), keepInTouchDays: person.keepInTouchDays,
                               tags: tagNames(person.tags), linkedInID: person.linkedInID)
+    }
+
+    private func snapshot(_ photo: PersonPhoto) -> PhotoSnapshot {
+        PhotoSnapshot(id: photo.uuid, createdAt: photo.createdAt, data: photo.imageData)
     }
 
     private func snapshot(_ event: Event) -> EventSnapshot {

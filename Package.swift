@@ -23,7 +23,7 @@ let package = Package(
         ),
         // SwiftUI views shared by the Mac and the iOS / iPadOS app (Xcode project in App/).
         .target(name: "PplzUI", dependencies: ["PplzCore"]),
-        .testTarget(name: "PplzCoreTests", dependencies: ["PplzCore"]),
+        .testTarget(name: "PplzCoreTests", dependencies: ["PplzCore"], resources: [.copy("Fixtures")]),
         .testTarget(name: "PplzUITests", dependencies: ["PplzUI"]),
     ]
 )

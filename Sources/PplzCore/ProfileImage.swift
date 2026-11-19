@@ -24,6 +24,14 @@ public enum ProfileImage {
     /// if its ring is found, otherwise a square around the face. `nameLine` is where the owner's
     /// name stands; see `face(among:aboveLine:)`.
     public static func picture(in image: CGImage, aboveLine nameLine: CGRect? = nil) async throws -> CGImage? {
+        guard let face = face(among: try await faceBoxes(in: image), aboveLine: nameLine) else { return nil }
+        return image.cropping(to: roundPicture(aroundFace: face, in: image)
+                              ?? pictureRect(aroundFace: face, width: image.width, height: image.height))
+    }
+
+    /// Every box Vision finds for a face in the image (origin top left); the same face usually
+    /// comes up several times, see `distinctFaces`.
+    static func faceBoxes(in image: CGImage) async throws -> [CGRect] {
         var faces: [CGRect] = []
         for band in tiles(width: image.width, height: image.height) {
             guard let part = image.cropping(to: band) else { continue }
@@ -31,9 +39,16 @@ public enum ProfileImage {
                 faces.append(face.boundingBox.toImageCoordinates(band.size, origin: .upperLeft).offsetBy(dx: band.minX, dy: band.minY))
             }
         }
-        guard let face = face(among: faces, aboveLine: nameLine) else { return nil }
-        return image.cropping(to: roundPicture(aroundFace: face, in: image)
-                              ?? pictureRect(aroundFace: face, width: image.width, height: image.height))
+        return faces
+    }
+
+    /// Several boxes for the same face count as the largest of them; largest first.
+    static func distinctFaces(_ faces: [CGRect]) -> [CGRect] {
+        var distinct: [CGRect] = []
+        for face in faces.sorted(by: { $0.width * $0.height > $1.width * $1.height }) where !distinct.contains(where: { $0.intersects(face) }) {
+            distinct.append(face)
+        }
+        return distinct
     }
 
     /// The owner's face: on a profile page the picture stands right above the name, so of the faces
@@ -41,10 +56,7 @@ public enum ProfileImage {
     /// that look like one, and the faces below belong to other people. Several boxes for the same face
     /// count as the largest of them. Without a name line (or a face above it) the largest face wins.
     static func face(among faces: [CGRect], aboveLine nameLine: CGRect?) -> CGRect? {
-        var distinct: [CGRect] = []
-        for face in faces.sorted(by: { $0.width * $0.height > $1.width * $1.height }) where !distinct.contains(where: { $0.intersects(face) }) {
-            distinct.append(face)
-        }
+        let distinct = distinctFaces(faces)
         if let nameLine, let above = distinct.filter({ $0.midY < nameLine.minY }).max(by: { $0.maxY < $1.maxY }) { return above }
         return distinct.first
     }

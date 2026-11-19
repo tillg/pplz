@@ -10,6 +10,12 @@ struct PersonCardView: View {
     var onShowPerson: (UUID) -> Void = { _ in }
     /// Set for a person who exists only in pplz and can get a card in Contacts.
     var onAddToContacts: (() -> Void)? = nil
+    var onAddPhotos: ([Data]) -> Void = { _ in }
+    /// Set where the clipboard can be pasted as a photo (Mac).
+    var onPastePhoto: (() -> Void)? = nil
+    /// Set for a person whose contact may get a photo as its picture.
+    var onUsePhoto: ((UUID) -> Void)? = nil
+    var onDeletePhoto: (UUID) -> Void = { _ in }
 
     var body: some View {
         ScrollView {
@@ -27,6 +33,7 @@ struct PersonCardView: View {
                 }
                 if let contact = card.contact { contactFields(contact) }
                 pplzFields
+                PhotosGroup(photos: card.photos, onAdd: onAddPhotos, onPaste: onPastePhoto, onUse: onUsePhoto, onDelete: onDeletePhoto)
                 connections
                 history
             }

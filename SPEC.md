@@ -60,6 +60,7 @@ A person I know. Normally linked 1:1 to a contact in the system address book **[
 | | Connections are mirrored into Contacts as related names (§3.2) **[S]** 2026-11-18. Tags and the rhythm live in pplz only **[A]** |
 | History | derived: all events this person participated in, newest first **[S]** |
 | Photos | derived: all photos this person was recognized in **[S]** |
+| Reference photos | 0..n pictures of the person's face, added by hand (Photos row on the card, `pplz person photo add`) **[S]** decided 2026-11-19. Only the cropped area around the face is kept (§2.3). One can be made the contact's picture by an explicit "Use as contact picture" (needs a contact; on the Mac, if Contacts refuses the save because of the note, pplz asks the Contacts app to set it) **[S]** 2026-11-19 |
 | Face reference data | for recognition, see §5 |
 
 **Persons without a contact** **[S]** decided 2026-11-18: allowed — a name is enough. "Add to Contacts" creates the system contact on demand, so my address book stays free of one-off acquaintances. pplz-only persons then need their own minimal core data (name, optional photo) **[A]**.
@@ -85,11 +86,13 @@ Anything where I could meet people. **[S]**
 
 ### 2.3 Photo
 
+**Reference pictures of a person (2026-11-19, supersedes the reference to the Photos library for these):** pplz keeps a real copy in its own iCloud-synced store (`PersonPhoto`: JPEG, external storage, so every device has it). Only the area around the face is kept — 40 % of the face's size on each side, long side at most 1024 px, JPEG 0.85 — because their purpose is later face recognition. One face found: crop to it. Several: the user chooses which. None: the picture is refused. No limit in the app (recognition will use the newest 20). Everything stays on the device and in the private iCloud. **[S]**
+
 A picture from an event, or just taken when I met someone (incl. selfies). **[S]**
 
 | Field | Notes |
 |---|---|
-| Image reference | reference to the Photos-library asset + pplz's own small thumbnail **[S]**. If the original is deleted in Photos, the thumbnail remains. Images that are not in the Photos library (dragged-in files) are kept as pplz's own copy **[A]** |
+| Image reference | (event pictures; not the reference pictures above) reference to the Photos-library asset + pplz's own small thumbnail **[S]**. If the original is deleted in Photos, the thumbnail remains. Images that are not in the Photos library (dragged-in files) are kept as pplz's own copy **[A]** |
 | EXIF | capture time, GPS, camera **[S]** |
 | Recognized people | 0..n, each with face region + confidence + confirmed-by-me flag **[A]** |
 | Event | the event this photo is attributed to **[S]** |

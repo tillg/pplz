@@ -110,6 +110,31 @@ public enum SystemContacts {
         }
     }
 
+    /// Makes this picture the contact's picture in Contacts, replacing the one it has.
+    /// On the Mac a contact that has a note refuses a direct save (SPEC §8.1, S4); then the Contacts app is asked to set it.
+    public static func setPicture(_ image: Data, forContact identifier: String) throws {
+        let store = CNContactStore()
+        try requestAccessIfNeeded(store)
+        guard let contact = try store.unifiedContact(withIdentifier: identifier, keysToFetch: [CNContactImageDataKey as CNKeyDescriptor])
+            .mutableCopy() as? CNMutableContact else { return }
+        contact.imageData = image
+        let request = CNSaveRequest()
+        request.update(contact)
+        do {
+            try store.execute(request)
+        } catch {
+            #if os(macOS)
+            do {
+                try ContactsApp.setImage(image, identifier: identifier)
+            } catch {
+                throw PplzError.invalid("Contacts did not accept the picture. On the Mac this happens for a contact that has a note, and pplz could not set it through the Contacts app either (\((error as? LocalizedError)?.errorDescription ?? "\(error)")).")
+            }
+            #else
+            throw error
+            #endif
+        }
+    }
+
     private static func apply(_ fill: ContactFill, to contact: CNMutableContact) {
         if let prefix = fill.namePrefix { contact.namePrefix = prefix }
         if let jobTitle = fill.jobTitle { contact.jobTitle = jobTitle }

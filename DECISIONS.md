@@ -23,6 +23,8 @@ edited: 2026-11-19
 - [2026-11-19 23:24 — Build the answered issues: map, photos, Contacts functions](#run-2026-11-19-2324)
   - [23:28 — Build 4, then 2, then 1 without deleting; ask again on 5 and on deleting](#run-2026-11-19-2324-1)
   - [23:29 — At most 300 addresses an hour go to Apple's map service](#run-2026-11-19-2324-2)
+  - [23:45 — Issue 4 is closed although the map background and clicking were not seen](#run-2026-11-19-2324-3)
+  - [23:47 — A picture without a face is refused; photos sync as a new record type](#run-2026-11-19-2324-4)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -202,3 +204,23 @@ edited: 2026-11-19
 - **Why:** 300 an hour is far below anything reported to trigger the limit, and a few thousand addresses are still done within a day. `CLGeocoder` works on all supported systems (macOS 15, iOS 18); its successor needs version 26. A cache outside the store means a test instance does not send every address again.
 - **Alternatives:** a higher number (faster first run, more likely to be throttled); the newer MapKit request (not available on the oldest supported systems).
 - **Consequences:** the first complete run over a large address book takes several hours of app time. `CLGeocoder` is marked as deprecated from version 26 and has to be replaced when the minimum system is raised. The "50 lookups a minute" in the first comment on the issue was not verified.
+
+## 23:45 — Issue 4 is closed although the map background and clicking were not seen {#run-2026-11-19-2324-3}
+
+- **Status:** open
+- **Context:** issue 4, commit `2147251`. The task says to close an issue when it is done. In the session's screenshots of the Mac app the pins, the groups and the status line show, but the map background stays blank, and the session cannot click.
+- **Question:** close the issue, or leave it open until a person has looked?
+- **Decision:** close it, and say in the closing comment what was not checked.
+- **Why:** everything that can be checked from the session passes (258 tests, a real search with `--near`, the pins from 210 located addresses). A blank background with pins in place points to the display being asleep, not to the code; the user sees it at the first look and can reopen.
+- **Alternatives:** leave it open with `wip` (accurate, but then every issue with a screen stays open in an unattended run).
+- **Consequences:** to check by the user: the map background, the callout that opens a person, grouped pins zooming in, and the map on iPhone / iPad with real contacts. While building, about 300 real addresses were sent to Apple's service (as the user allowed) and are now in the device's cache file.
+
+## 23:47 — A picture without a face is refused; photos sync as a new record type {#run-2026-11-19-2324-4}
+
+- **Status:** open
+- **Context:** issue 2. The user's answers: real copies in pplz's iCloud storage; only the face crop is kept; several faces: ask which one.
+- **Question:** what happens with a picture in which no face is found, and how is the synced data extended?
+- **Decision:** such a picture is refused with a message. The data model gets one new type (a photo belonging to a person, the image stored as an external file); nothing existing is changed. A store written before the change is kept as a test file, and a test opens it with the new model.
+- **Why:** the user wants only face crops, for later recognition; a picture without a face would be of no use there. An addition without changes to existing types is the only kind of change the iCloud sync accepts without a migration.
+- **Alternatives:** keep the whole picture when no face is found (nothing is lost, but it breaks "only the face"); let the user draw the face area by hand (more screen work).
+- **Consequences:** the first start of the new version on each device extends the local store, and the first device also adds the new type to the iCloud data (development environment). This cannot be taken back in iCloud once it is in the production environment; so far pplz only uses the development one. "Only the newest 20 are used for recognition" is not built: there is no recognition yet (issue 3).

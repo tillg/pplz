@@ -184,6 +184,9 @@ public struct PeopleView: View {
                 }
             }
         }
+        .sheet(item: Binding(get: { model.faceChoice }, set: { if $0 == nil { Task { await model.chooseFace(nil) } } })) { choice in
+            FaceChoiceSheet(personName: choice.entry.name, crops: choice.crops) { index in Task { await model.chooseFace(index) } }
+        }
         .confirmationDialog("Delete this event?", isPresented: $isConfirmingDelete) {
             Button("Delete Event", role: .destructive) { Task { await model.deleteSelectedEvent() } }
         } message: {
@@ -335,7 +338,11 @@ extension PeopleView {
                            onConnect: { sheet = .connect },
                            onDisconnect: { id in Task { await model.disconnect(from: id) } },
                            onShowPerson: { id in Task { await model.showPerson(id) } },
-                           onAddToContacts: card.entry.isPplzOnly && model.usesContacts ? { addToContacts() } : nil)
+                           onAddToContacts: card.entry.isPplzOnly && model.usesContacts ? { addToContacts() } : nil,
+                           onAddPhotos: { images in Task { await model.addPhotos(images) } },
+                           onPastePhoto: pastePhoto,
+                           onUsePhoto: model.canUseAsContactPicture ? { id in Task { await model.useAsContactPicture(id) } } : nil,
+                           onDeletePhoto: { id in Task { await model.deletePhoto(id) } })
                 .toolbar {
                     Button("Log Event", systemImage: "calendar.badge.plus") { sheet = .log }
                         .help("Log a meeting or call with \(card.entry.name)")
@@ -359,6 +366,14 @@ extension PeopleView {
         } else {
             ContentUnavailableView("No person selected", systemImage: "person.crop.circle")
         }
+    }
+
+    private var pastePhoto: (() -> Void)? {
+        #if os(macOS)
+        { Task { await model.addPhotoFromClipboard() } }
+        #else
+        nil
+        #endif
     }
 
     @ViewBuilder private var eventDetail: some View {
