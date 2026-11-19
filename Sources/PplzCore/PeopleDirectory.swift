@@ -82,6 +82,29 @@ public enum PeopleDirectory {
         return entries.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
+    /// Whom to offer while the user types a name, e.g. in the quick log. Without text: the people met
+    /// most recently. With text: names or nicknames with a word that starts with it come first, then
+    /// those that merely contain it; within each group people already met first (latest first), then by name.
+    public static func suggestions(for query: String, in entries: [PersonEntry], excluding: Set<String> = [], limit: Int = 5) -> [PersonEntry] {
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        let query = query.trimmed
+        let candidates = entries.filter { !excluding.contains($0.key) }
+        func byRecency(_ a: PersonEntry, _ b: PersonEntry) -> Bool {
+            if a.lastMet != b.lastMet { return (a.lastMet ?? .distantPast) > (b.lastMet ?? .distantPast) }
+            return a.name.compare(b.name, options: options) == .orderedAscending
+        }
+        guard !query.isEmpty else { return Array(candidates.filter { $0.lastMet != nil }.sorted(by: byRecency).prefix(limit)) }
+        func rank(_ entry: PersonEntry) -> Int? {
+            let words = (entry.name + " " + entry.nickname).split(whereSeparator: \.isWhitespace)
+            if words.contains(where: { $0.range(of: query, options: options.union(.anchored)) != nil }) { return 0 }
+            let whole = entry.name.range(of: query, options: options) ?? entry.nickname.range(of: query, options: options)
+            return whole == nil ? nil : 1
+        }
+        return Array(candidates.compactMap { entry in rank(entry).map { (rank: $0, entry: entry) } }
+            .sorted { $0.rank != $1.rank ? $0.rank < $1.rank : byRecency($0.entry, $1.entry) }
+            .prefix(limit).map(\.entry))
+    }
+
     /// A person that belongs to a contact of this device but is stored with another device's identifier.
     public struct Adoption: Equatable, Sendable {
         public var person: UUID

@@ -74,7 +74,7 @@ struct TagField: View {
     }
 }
 
-private extension View {
+extension View {
     func chip(filled: Bool) -> some View {
         font(.callout)
             .padding(.horizontal, 10).padding(.vertical, 4)

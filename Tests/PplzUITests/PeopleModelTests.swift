@@ -299,3 +299,94 @@ import Testing
         #expect(model.knownTags == ["client", "Sailing", "vip"])
     }
 }
+
+@MainActor @Suite struct QuickLogTests {
+    func makeModel() throws -> (PeopleModel, PplzStore) {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("pplz-ui-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("test.store")
+        return (PeopleModel(configuration: .init(storeURL: url, usesContacts: false)), try PplzStore(url: url))
+    }
+
+    @Test func logsAnEventWithSeveralPeopleWithoutACardBeingOpen() async throws {
+        let (model, store) = try makeModel()
+        let anna = try store.createPerson(name: "Anna Example")
+        let ben = try store.createPerson(name: "Ben Sample")
+        try store.createPerson(name: "Carl Other")
+        await model.reload()
+
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        await model.logEvent(.init(format: .liveMeeting, title: "Lunch", start: start, place: "Köln", notes: "", tags: "work, vip"),
+                             with: [anna.uuidString, ben.uuidString])
+
+        #expect(model.errorMessage == nil)
+        let events = try store.events()
+        #expect(events.count == 1)
+        #expect(events[0].participants.map(\.name) == ["Anna Example", "Ben Sample"])
+        #expect(events[0].tags == ["vip", "work"])
+        #expect(model.events.count == 1)
+        #expect(model.knownTags == ["vip", "work"])
+    }
+
+    @Test func nothingIsLoggedWithoutPeople() async throws {
+        let (model, store) = try makeModel()
+        try store.createPerson(name: "Anna Example")
+        await model.reload()
+        await model.logEvent(.init(format: .phoneCall, title: "X"), with: [])
+        await model.logEvent(.init(format: .phoneCall, title: "X"), with: ["no-such-key"])
+        #expect(try store.events().isEmpty)
+    }
+
+    @Test func theFormatUsedLastIsSuggested() async throws {
+        let (model, store) = try makeModel()
+        let anna = try store.createPerson(name: "Anna Example")
+        await model.reload()
+        #expect(model.suggestedFormat == .liveMeeting)
+        // logged last, although it took place earlier than the web call
+        try store.logEvent(EventDraft(title: "Later", format: .webCall, start: Date(timeIntervalSince1970: 1_800_000_000), participants: [anna]))
+        await model.logEvent(.init(format: .phoneCall, title: "Earlier", start: Date(timeIntervalSince1970: 1_700_000_000)), with: [anna.uuidString])
+        #expect(model.suggestedFormat == .phoneCall)
+    }
+}
+
+@MainActor @Suite struct EventParticipantsTests {
+    func setUp() async throws -> (PeopleModel, PplzStore, anna: UUID, ben: UUID, carl: UUID, event: UUID) {
+        let (model, store) = try PeopleModelTests().makeModel()
+        let anna = try store.createPerson(name: "Anna Example")
+        let ben = try store.createPerson(name: "Ben Sample")
+        let carl = try store.createPerson(name: "Carl Other")
+        let event = try store.logEvent(EventDraft(title: "Dialogue", format: .liveMeeting, start: Date(timeIntervalSince1970: 1_800_000_000),
+                                                  place: "Hanoi", participants: [anna, ben]))
+        await model.reload()
+        model.mode = .events
+        model.selectedEventID = event
+        return (model, store, anna, ben, carl, event)
+    }
+
+    @Test func theEditStartsWithTheEventsPeople() async throws {
+        let (model, _, anna, ben, _, _) = try await setUp()
+        #expect(model.selectedEventPeople.map(\.id) == [anna, ben])
+    }
+
+    @Test func peopleCanBeAddedToAndRemovedFromAnEvent() async throws {
+        let (model, store, anna, _, carl, event) = try await setUp()
+        await model.save(model.eventEdit!, participants: [anna.uuidString, carl.uuidString])
+        #expect(model.errorMessage == nil)
+        #expect(try store.event(event).participants.map(\.name) == ["Anna Example", "Carl Other"])
+        #expect(try store.event(event).place == "Hanoi")
+        #expect(model.selectedEvent?.participants.map(\.name) == ["Anna Example", "Carl Other"])
+        #expect(try store.person(carl).eventCount == 1)
+    }
+
+    @Test func savingWithoutAPeopleListLeavesThemAlone() async throws {
+        let (model, store, _, _, _, event) = try await setUp()
+        await model.save(model.eventEdit!)
+        #expect(try store.event(event).participants.count == 2)
+    }
+
+    @Test func anEventKeepsAtLeastOnePerson() async throws {
+        let (model, store, _, _, _, event) = try await setUp()
+        await model.save(model.eventEdit!, participants: [])
+        #expect(try store.event(event).participants.count == 2)
+    }
+}

@@ -256,6 +256,11 @@ public final class PplzStore {
 
     // MARK: Events
 
+    /// The format of the event that was logged last (not the one that took place last).
+    public func lastLoggedFormat() throws -> EventFormat? {
+        try context.fetch(FetchDescriptor<Event>()).max { $0.createdAt < $1.createdAt }.flatMap { EventFormat(rawValue: $0.formatRaw) }
+    }
+
     /// Validates everything first, then writes event, tags and any new persons in one save.
     @discardableResult
     public func logEvent(_ draft: EventDraft) throws -> UUID {

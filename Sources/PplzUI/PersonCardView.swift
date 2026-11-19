@@ -190,7 +190,7 @@ struct PersonCardView: View {
                 }
                 if !card.connections.isEmpty { Divider() }
                 Button(action: onConnect) {
-                    Label("Add connection", systemImage: "plus.circle").frame(maxWidth: .infinity, alignment: .leading)
+                    Label("Add connection", systemImage: "person.badge.plus").frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)

@@ -54,6 +54,8 @@ public final class PeopleModel {
     public private(set) var entries: [PersonEntry] = []
     /// Every tag in use, offered when tagging a person or an event.
     public private(set) var knownTags: [String] = []
+    /// The format offered when logging: the one used last.
+    public private(set) var suggestedFormat: EventFormat = .liveMeeting
     public private(set) var card: PersonCard?
     public private(set) var errorMessage: String?
     public private(set) var isLoading = false
@@ -147,6 +149,7 @@ public final class PeopleModel {
             #endif
             events = try store.events()
             knownTags = try store.tags().map(\.name)
+            suggestedFormat = try store.lastLoggedFormat() ?? .liveMeeting
             errorMessage = nil
             if let wanted = pendingSelection {
                 pendingSelection = nil
@@ -178,25 +181,40 @@ public final class PeopleModel {
         public var place: String
         public var notes: String
 
-        public init(format: EventFormat = .liveMeeting, title: String = "", start: Date = Date(), place: String = "", notes: String = "") {
+        /// Comma-separated, as in the edit sheets.
+        public var tags: String
+
+        public init(format: EventFormat = .liveMeeting, title: String = "", start: Date = Date(), place: String = "", notes: String = "",
+                    tags: String = "") {
             self.format = format
             self.title = title
             self.start = start
             self.place = place
             self.notes = notes
+            self.tags = tags
         }
     }
 
     /// Logs an event with the selected person, then refreshes the card and — if switched on —
     /// the history in the person's contact note.
     public func logEvent(_ input: LogInput) async {
-        guard let store, let entry = card?.entry else { return }
+        guard let entry = card?.entry else { return }
+        await logEvent(input, with: [entry.key])
+    }
+
+    /// Logs an event with the people given by their list keys — the quick log, which needs no open card.
+    public func logEvent(_ input: LogInput, with keys: [String]) async {
+        let people = keys.compactMap { key in entries.first { $0.key == key || $0.id?.uuidString == key } }
+        guard let store, !people.isEmpty else { return }
         do {
-            var draft = EventDraft(title: input.title, format: input.format, start: input.start, place: input.place, notes: input.notes)
-            if let id = entry.id {
-                draft.participants = [id]
-            } else if let identifier = entry.contactIdentifier {
-                draft.additionalParticipants = [.contact(ContactSummary(identifier: identifier, name: entry.name))]
+            var draft = EventDraft(title: input.title, format: input.format, start: input.start, place: input.place, notes: input.notes,
+                                   tags: TagInput.names(in: input.tags))
+            for entry in people {
+                if let id = entry.id {
+                    draft.participants.append(id)
+                } else if let identifier = entry.contactIdentifier {
+                    draft.additionalParticipants.append(.contact(ContactSummary(identifier: identifier, name: entry.name)))
+                }
             }
             let event = try store.event(try store.logEvent(draft))
             errorMessage = nil
@@ -269,16 +287,32 @@ public final class PeopleModel {
         }
     }
 
-    /// Saves the edited fields of the selected event; participants stay as they are.
-    public func save(_ edit: EventEdit) async {
+    /// The selected event's people as list entries, to start an edit from.
+    public var selectedEventPeople: [PersonEntry] {
+        (selectedEvent?.participants ?? []).compactMap { person in entries.first { $0.id == person.id } }
+    }
+
+    /// Saves the edited fields of the selected event. `keys` replaces its people (list keys, as in
+    /// the quick log); `nil` or an empty list leaves them as they are — an event keeps at least one person.
+    public func save(_ edit: EventEdit, participants keys: [String]? = nil) async {
         guard let store, let event = selectedEvent else { return }
+        let people = (keys ?? []).compactMap { key in entries.first { $0.key == key || $0.id?.uuidString == key } }
         await perform {
-            try store.updateEvent(event.id, EventChange(
+            var change = EventChange(
                 title: edit.title, format: edit.format, start: edit.start, end: edit.hasEnd ? edit.end : nil, clearEnd: !edit.hasEnd,
                 place: edit.place, notes: edit.notes.trimmingCharacters(in: .whitespacesAndNewlines),
                 tags: edit.tags.split(separator: ",").map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty },
-                links: edit.links.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }))
-            try self.syncContacts(event.participants.map(\.id), store)
+                links: edit.links.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
+            if !people.isEmpty {
+                change.participants = people.compactMap(\.id)
+                change.additionalParticipants = people.filter { $0.id == nil }.compactMap { entry in
+                    entry.contactIdentifier.map { .contact(ContactSummary(identifier: $0, name: entry.name)) }
+                }
+            }
+            try store.updateEvent(event.id, change)
+            // those who left need their history updated as much as those who joined
+            let now = try store.event(event.id).participants.map(\.id)
+            try self.syncContacts(Array(Set(event.participants.map(\.id) + now)), store)
         }
     }
 

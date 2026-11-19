@@ -36,6 +36,7 @@ struct EventListRow: View {
 struct EventDetailView: View {
     let event: EventSnapshot
     let onShowPerson: (UUID) -> Void
+    let onAddPeople: () -> Void
     let onComplete: (UUID) -> Void
     let onAddFollowUp: (String) -> Void
 
@@ -46,7 +47,7 @@ struct EventDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 header
                 facts
-                if !event.participants.isEmpty { participants }
+                participants
                 followUps
             }
             .padding(24)
@@ -110,6 +111,15 @@ struct EventDetailView: View {
                     .buttonStyle(.plain)
                     .help("Show \(person.name)")
                 }
+                if !event.participants.isEmpty { Divider() }
+                Button(action: onAddPeople) {
+                    Label("Add people", systemImage: "person.badge.plus").frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .padding(.vertical, 9)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.pink)
+                .help("Add or remove people of this event")
             }
         }
     }
@@ -154,26 +164,35 @@ struct EventDetailView: View {
     }
 }
 
-/// Edits an event's own fields. Participants are not changed here.
+/// Edits an event: its people and its own fields.
 struct EditEventSheet: View {
+    let people: [PersonEntry]
+    /// Opened to add people: the cursor starts in the name field.
+    var addsPeople = false
     let knownTags: [String]
-    let onSave: (PeopleModel.EventEdit) -> Void
+    let onSave: (PeopleModel.EventEdit, [String]) -> Void
 
     @State private var edit: PeopleModel.EventEdit
     @State private var pendingTag = ""
+    @State private var chosen: [PersonEntry]
 
-    init(knownTags: [String], edit: PeopleModel.EventEdit, onSave: @escaping (PeopleModel.EventEdit) -> Void) {
+    init(people: [PersonEntry], participants: [PersonEntry], addsPeople: Bool = false, knownTags: [String], edit: PeopleModel.EventEdit,
+         onSave: @escaping (PeopleModel.EventEdit, [String]) -> Void) {
+        self.people = people
+        self.addsPeople = addsPeople
         self.knownTags = knownTags
+        _chosen = State(initialValue: participants)
         self.onSave = onSave
         _edit = State(initialValue: edit)
     }
 
     var body: some View {
-        SheetScaffold(title: "Edit event", confirmTitle: "Save", onConfirm: {
+        SheetScaffold(title: "Edit event", confirmTitle: "Save", canConfirm: !chosen.isEmpty, onConfirm: {
             var edit = edit
             edit.tags = TagInput.adding(pendingTag, to: edit.tags, known: knownTags)   // typed but not added yet
-            onSave(edit)
+            onSave(edit, chosen.map(\.key))
         }) {
+            PeoplePickerField(people: people, chosen: $chosen, startsSearching: addsPeople)
             Picker("Format", selection: $edit.format) {
                 ForEach(EventFormat.allCases, id: \.self) { Text($0.displayName).tag($0) }
             }

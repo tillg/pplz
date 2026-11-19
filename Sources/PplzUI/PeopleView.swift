@@ -8,6 +8,8 @@ public struct PeopleView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var sheet: Sheet?
     @State private var isConfirmingDelete = false
+    /// The event edit sheet was opened through "Add people".
+    @State private var addsPeople = false
     #if os(iOS)
     /// The contact whose system card is shown.
     @State private var shownContact: ShownContact?
@@ -16,7 +18,7 @@ public struct PeopleView: View {
     private var opensEvents = false
 
     public enum Sheet: String, Identifiable, Sendable {
-        case log, edit, editEvent, connect
+        case log, quickLog, edit, editEvent, connect
         public var id: String { rawValue }
     }
 
@@ -26,7 +28,7 @@ public struct PeopleView: View {
         _sheet = State(initialValue: initialSheet)
     }
 
-    /// Reads the launch options `-show log|edit|editEvent|connect` and `-mode events`.
+    /// Reads the launch options `-show log|quickLog|edit|editEvent|connect` and `-mode events`.
     public init(model: PeopleModel, defaults: UserDefaults) {
         self.init(model: model, initialSheet: defaults.string(forKey: "show").flatMap(Sheet.init))
         opensEvents = defaults.string(forKey: "mode") == "events"
@@ -49,6 +51,12 @@ public struct PeopleView: View {
                 .padding(.horizontal, 10).padding(.bottom, 8)
             }
             .searchable(text: $model.search, placement: .sidebar, prompt: "Search")
+            .toolbar {
+                ToolbarItem {
+                    Button("New Event", systemImage: "calendar.badge.plus") { sheet = .quickLog }
+                        .help("Log a meeting or call you just had")
+                }
+            }
             .navigationSplitViewColumnWidth(min: 230, ideal: 290)
         } detail: {
             switch model.mode {
@@ -60,8 +68,13 @@ public struct PeopleView: View {
         .sheet(item: Binding(get: { sheetIfPossible }, set: { sheet = $0 })) { sheet in
             switch sheet {
             case .log:
-                LogEventSheet(personName: model.card?.entry.name ?? "") { input in
-                    Task { await model.logEvent(input) }
+                LogEventSheet(people: model.entries, preselected: model.card.map { [$0.entry] } ?? [],
+                              format: model.suggestedFormat, knownTags: model.knownTags) { input, keys in
+                    Task { await model.logEvent(input, with: keys) }
+                }
+            case .quickLog:
+                LogEventSheet(people: model.entries, preselected: [], format: model.suggestedFormat, knownTags: model.knownTags) { input, keys in
+                    Task { await model.logEvent(input, with: keys) }
                 }
             case .edit:
                 EditPersonSheet(personName: model.card?.entry.name ?? "", knownTags: model.knownTags, edit: model.personEdit) { edit in
@@ -69,7 +82,9 @@ public struct PeopleView: View {
                 }
             case .editEvent:
                 if let edit = model.eventEdit {
-                    EditEventSheet(knownTags: model.knownTags, edit: edit) { edit in Task { await model.save(edit) } }
+                    EditEventSheet(people: model.entries, participants: model.selectedEventPeople, addsPeople: addsPeople, knownTags: model.knownTags, edit: edit) { edit, keys in
+                        Task { await model.save(edit, participants: keys) }
+                    }
                 }
             case .connect:
                 ConnectSheet(personName: model.card?.title ?? "", candidates: model.connectionCandidates) { role, other in
@@ -121,6 +136,7 @@ extension PeopleView {
         switch sheet {
         case .log, .edit, .connect: model.card == nil ? nil : sheet
         case .editEvent: model.selectedEvent == nil ? nil : sheet
+        case .quickLog: model.entries.isEmpty ? nil : sheet
         case nil: nil
         }
     }
@@ -169,7 +185,7 @@ extension PeopleView {
                            onDisconnect: { id in Task { await model.disconnect(from: id) } },
                            onShowPerson: { id in Task { await model.showPerson(id) } })
                 .toolbar {
-                    Button("Log Event", systemImage: "plus") { sheet = .log }
+                    Button("Log Event", systemImage: "calendar.badge.plus") { sheet = .log }
                         .help("Log a meeting or call with \(card.entry.name)")
                     Button("Edit", systemImage: "pencil") { sheet = .edit }
                         .help("Edit tags, notes, how you met and the keep-in-touch rhythm")
@@ -197,10 +213,11 @@ extension PeopleView {
         if let event = model.selectedEvent {
             EventDetailView(event: event,
                             onShowPerson: { id in Task { await model.showPerson(id) } },
+                            onAddPeople: { addsPeople = true; sheet = .editEvent },
                             onComplete: { id in Task { await model.completeFollowUp(id) } },
                             onAddFollowUp: { text in Task { await model.addFollowUp(text) } })
                 .toolbar {
-                    Button("Edit", systemImage: "pencil") { sheet = .editEvent }
+                    Button("Edit", systemImage: "pencil") { addsPeople = false; sheet = .editEvent }
                         .help("Edit this event")
                     Button("Delete", systemImage: "trash") { isConfirmingDelete = true }
                         .help("Delete this event")
