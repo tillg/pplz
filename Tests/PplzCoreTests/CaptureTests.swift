@@ -200,3 +200,63 @@ import Testing
         #expect(CalendarEntry.relevant([entry("", 11, 13), entry("Later", 15, 16)], now: now).isEmpty)
     }
 }
+
+/// Helping the on-device model: it gets only the part of the recognised text that is about the
+/// profile's owner, and the place is taken apart by rule, not by the model.
+@Suite struct ProfileTextTests {
+    @Test func theTextIsCutToTheProfileHeader() {
+        let lines = ["11:22", "Search", "Dr. OLIVER MASSMANN", "THANK YOU", "Dr. Oliver Massmann ø • 2nd",
+                     "Architect of Market Access | Partner at Duane Morris LLP", "Some Society + 8 more • Some University", "Vietnam",
+                     "Daniel, Jan and 32 other mutual connections", "Connect", "Message", "About", "CHECK ME OUT"]
+        #expect(ProfileReader.header(of: lines) == ["Dr. Oliver Massmann ø • 2nd", "Architect of Market Access | Partner at Duane Morris LLP",
+                                                    "Some Society + 8 more • Some University", "Vietnam"])
+    }
+
+    @Test func withoutTheUsualMarkersEverythingIsKept() {
+        let lines = ["Anna Example", "Head of Sales at Example GmbH", "Cologne"]
+        #expect(ProfileReader.header(of: lines) == lines)
+        // a first-degree connection and a profile cut off before the buttons
+        #expect(ProfileReader.header(of: ["Home", "Anna Example · 1st", "Head of Sales", "Cologne, Germany"])
+                == ["Anna Example · 1st", "Head of Sales", "Cologne, Germany"])
+    }
+
+    @Test func thePlaceIsTheLastLineOfTheHeaderBeforeTheConnections() {
+        let lines = ["Search", "Dr. Oliver Massmann ø • 2nd", "Architect of Market Access | Partner at Duane Morris LLP",
+                     "Some Society + 8 more • Ruhruniversitaet Bochum Germany - St. Thomas University Miami Florida USA", "Vietnam",
+                     "Daniel, Jan and 32 other mutual connections", "Connect"]
+        #expect(ProfileReader.locationLine(in: lines) == "Vietnam")
+        // desktop layout: the place shares its line with a link
+        #expect(ProfileReader.locationLine(in: ["Anna Example · 1st", "Head of Sales at Example GmbH", "Cologne, Germany • Contact info", "500+ connections"])
+                == "Cologne, Germany • Contact info")
+    }
+
+    @Test func noPlaceIsReadWhereTheLayoutIsNotRecognised() {
+        #expect(ProfileReader.locationLine(in: ["Anna Example", "Head of Sales at Example GmbH", "Cologne"]) == "")
+        // name and headline only, then the buttons: the headline is not a place
+        #expect(ProfileReader.locationLine(in: ["Anna Example · 1st", "Head of Sales at Example GmbH", "Message"]) == "")
+        // a line of organisations is not a place either
+        #expect(ProfileReader.locationLine(in: ["Anna Example · 1st", "Head of Sales", "Example GmbH + 3 more • Some University", "Connect"]) == "")
+    }
+
+    @Test func theRoleIsWhatStandsBeforeAtTheCompany() {
+        let header = ["Dr. Oliver Massmann ø • 2nd", "Architect of Market Access Vietnam | Capital",
+                      "Markets, M&A & Foreign Investment - International", "Attorney at Law - Certified Financial Accountant",
+                      "and Auditor - Partner at Duane Morris LLP", "Vietnam"]
+        #expect(ProfileReader.role(at: "Duane Morris LLP", in: header) == "Partner")
+        #expect(ProfileReader.role(at: "Example GmbH", in: ["Anna Example", "Head of Sales @ Example GmbH · Speaker"]) == "Head of Sales")
+        #expect(ProfileReader.role(at: "Beispiel AG", in: ["Anna Example", "Leiterin Vertrieb bei Beispiel AG"]) == "Leiterin Vertrieb")
+    }
+
+    @Test func noRoleIsMadeUpWhenTheHeadlineDoesNotSaySo() {
+        #expect(ProfileReader.role(at: "Example GmbH", in: ["Anna Example", "Sales, coffee and sailing"]) == nil)
+        #expect(ProfileReader.role(at: "", in: ["Anna Example", "Partner at Duane Morris LLP"]) == nil)
+    }
+
+    @Test func aPlaceIsSplitIntoCityAndCountry() {
+        #expect(ProfileReader.place("Cologne, North Rhine-Westphalia, Germany") == ProfileReader.Place(city: "Cologne", country: "Germany"))
+        #expect(ProfileReader.place("Hanoi, Vietnam") == ProfileReader.Place(city: "Hanoi", country: "Vietnam"))
+        #expect(ProfileReader.place("Vietnam • Contact info") == ProfileReader.Place(city: "", country: "Vietnam"))
+        #expect(ProfileReader.place("Greater Hamburg Area") == ProfileReader.Place(city: "Greater Hamburg Area", country: ""))
+        #expect(ProfileReader.place("  ") == ProfileReader.Place(city: "", country: ""))
+    }
+}

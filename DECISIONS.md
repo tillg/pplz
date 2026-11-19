@@ -73,7 +73,7 @@ edited: 2026-11-19
 - **Decision:** the text, for now.
 - **Why:** it works one system version earlier, text recognition already proved good on all three sample screenshots, and it could be written without the model. The comparison is still owed.
 - **Alternatives:** the image itself (may read layout better, e.g. tell the name from banner text; needs iOS 27).
-- **Consequences:** compare both on the sample screenshots once the model is ready and switch if the image is clearly better.
+- **Consequences:** compare both on the sample screenshots once the model is ready and switch if the image is clearly better. Compared at 12:40 on the three sample screenshots (iPhone, iPad, Mac): the text was clearly better. Given the image, the model invented a company name and an employer that are not on the page and copied an example from the instructions as the location; given the text it got name, title and company right every time. So the text stays. Two things the model kept getting wrong even from text are now found by rule instead: the place (the last line of the profile header, above the connections) and the role (what stands before "at <company>" in the headline). Result: all fields correct on all three screenshots in three runs each. Only one person's profile was tested.
 
 ## 12:03 — "Meetings in my calendar" means the system calendar, plus recent pplz events {#run-2026-11-19-1154-6}
 
