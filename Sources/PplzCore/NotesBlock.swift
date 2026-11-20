@@ -3,8 +3,11 @@ import Foundation
 /// The block pplz owns inside a contact's note (SPEC §3.3). Everything outside the block
 /// belongs to the user and is never changed.
 public enum NotesBlock {
-    public static let startMarker = "── pplz ──"
-    public static let endMarker = "── /pplz ──"
+    public static let startMarker = "── cardxchange ──"
+    public static let endMarker = "── /cardxchange ──"
+    /// The markers written before the rename. A block with them is still found, and replaced by the new form.
+    static let oldStartMarker = "── pplz ──"
+    static let oldEndMarker = "── /pplz ──"
     public static let maxEvents = 10
 
     /// Summary line plus the most recent events (history is newest first); `nil` if there is no history.
@@ -25,15 +28,26 @@ public enum NotesBlock {
         return lines.joined(separator: "\n")
     }
 
-    public static func containsBlock(_ note: String) -> Bool { blockRange(in: note) != nil }
+    public static func containsBlock(_ note: String) -> Bool {
+        blockRange(in: note, startMarker, endMarker) != nil || blockRange(in: note, oldStartMarker, oldEndMarker) != nil
+    }
 
     /// Puts `block` into the note: replaces pplz's existing block in place, or appends it after a blank line.
     /// With `block == nil` the existing block is removed. Text outside the block is returned unchanged.
+    /// A block with the old markers is replaced like a new one; next to a new block it is removed.
     public static func merge(note: String, block: String?) -> String {
-        guard let range = blockRange(in: note) else {
-            guard let block else { return note }
-            return note.isEmpty ? block : note + "\n\n" + block
+        if let range = blockRange(in: note, startMarker, endMarker) {
+            let merged = place(block, in: note, at: range)
+            return blockRange(in: merged, oldStartMarker, oldEndMarker).map { place(nil, in: merged, at: $0) } ?? merged
         }
+        if let range = blockRange(in: note, oldStartMarker, oldEndMarker) {
+            return place(block, in: note, at: range)
+        }
+        guard let block else { return note }
+        return note.isEmpty ? block : note + "\n\n" + block
+    }
+
+    private static func place(_ block: String?, in note: String, at range: Range<String.Index>) -> String {
         if let block {
             return note.replacingCharacters(in: range, with: block)
         }
@@ -42,11 +56,11 @@ public enum NotesBlock {
         return before + note[range.upperBound...]
     }
 
-    /// The last complete block: the last end marker and the nearest start marker before it.
+    /// The last complete block of one form: the last end marker and the nearest start marker before it.
     /// A start marker without an end marker is not a block and is left alone.
-    private static func blockRange(in note: String) -> Range<String.Index>? {
-        guard let end = note.range(of: endMarker, options: .backwards),
-              let start = note.range(of: startMarker, options: .backwards, range: note.startIndex..<end.lowerBound) else { return nil }
-        return start.lowerBound..<end.upperBound
+    private static func blockRange(in note: String, _ start: String, _ end: String) -> Range<String.Index>? {
+        guard let endRange = note.range(of: end, options: .backwards),
+              let startRange = note.range(of: start, options: .backwards, range: note.startIndex..<endRange.lowerBound) else { return nil }
+        return startRange.lowerBound..<endRange.upperBound
     }
 }

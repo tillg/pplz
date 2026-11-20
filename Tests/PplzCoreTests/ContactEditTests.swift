@@ -153,15 +153,24 @@ import Testing
     }
 
     @Test func thePplzLinkIsNeverPartOfADiff() {
-        let link = Item(id: "L1", label: "pplz", value: "pplz://person/6f1c5a52-0000-4000-8000-000000000001")
+        let link = Item(id: "L1", label: "cardxchange", value: "cx://person/6f1c5a52-0000-4000-8000-000000000001")
         var before = anna()
         before.urls.append(link)
         // removed from the form, or changed in it: no change for the link
         #expect(ContactEdit.changes(from: before, to: anna()).isEmpty)
         var changed = before
-        changed.urls[1].value = "pplz://person/6f1c5a52-0000-4000-8000-000000000002"
+        changed.urls[1].value = "cx://person/6f1c5a52-0000-4000-8000-000000000002"
         #expect(ContactEdit.changes(from: before, to: changed).isEmpty)
         // a link that is only in the form is not added either
+        #expect(ContactEdit.changes(from: anna(), to: before).isEmpty)
+    }
+
+    @Test func anOldLinkIsNeverPartOfADiff() {
+        let link = Item(id: "L1", label: "pplz", value: "pplz://person/6f1c5a52-0000-4000-8000-000000000001")
+        var before = anna()
+        before.urls.append(link)
+        #expect(ContactEdit.isPplzLink(link))
+        #expect(ContactEdit.changes(from: before, to: anna()).isEmpty)
         #expect(ContactEdit.changes(from: anna(), to: before).isEmpty)
     }
 

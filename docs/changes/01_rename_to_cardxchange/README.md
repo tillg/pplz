@@ -1,6 +1,6 @@
 # Change 01: rename pplz to cardXchange
 
-Status: draft, 2026-11-20. No code is changed yet.
+Status: approved 2026-11-20. Phases 2 and 3 are done by Claude; the phases of the user follow.
 
 Marks, as in `docs/SPEC.md`: **[S]** stated by the user, **[A]** assumption with a recommendation, **[?]** open.
 
@@ -29,7 +29,7 @@ The user's data stays complete: the store, the photos, the links in Contacts and
 
 ## 3. Decisions
 
-The user confirmed D1, D2, D3, D5, D6, D11 and D13 on 2026-11-20. The other items are assumptions.
+The user confirmed D1, D2, D3, D5, D6, D11 and D13 on 2026-11-20, and the other items with the recommended answers on the same day.
 Items D1 to D3 are permanent at Apple: an identifier cannot be renamed after it is registered.
 
 | # | Decision | Answer or recommendation | Why | Mark |
@@ -37,20 +37,20 @@ Items D1 to D3 are permanent at Apple: an identifier cannot be renamed after it 
 | D1 | Bundle ID: new or keep `com.tillg.pplz` | New: `me.cardxchange.app` | A change is not possible after a release. The reverse of the website domain is the usual form. Cost of "new": a new request for the notes entitlement (the wait starts again), new permission prompts, a new app container on iOS (data comes back through iCloud). "Keep" has none of these costs, but the old name stays in the identifier for all time. | [S] 2026-11-20 |
 | D2 | iCloud container: new or keep | New: `iCloud.me.cardxchange.app` | Sync uses only the CloudKit Development environment. Apple documents no way to delete a container, so the old one stays as an unused entry. A container name is not tied to the bundle ID; "keep" is possible with a new bundle ID. | [S] 2026-11-20 |
 | D3 | App Group: new or keep | New, same pattern as today | The inbox holds items for a short time only. | [S] 2026-11-20 |
-| D4 | Written form of the name | `cardXchange` where people read it, `cardxchange` in identifiers, paths and URLs | The logo files already use `cardXchange`. | [A] |
+| D4 | Written form of the name | `cardXchange` where people read it, `cardxchange` in identifiers, paths and URLs | The logo files already use `cardXchange`. | [S] 2026-11-20 |
 | D5 | Where `cx` applies | The command line tool `cx`, the URL scheme `cx://`, environment variables `CX_*`, module and type prefix `CX` | `cx` is short to type. No `cx` command is on the PATH of the development Mac. Known points: a different app can register the same two-letter scheme, and iOS then opens one of the two. Apple's CallKit uses the prefix `CX` and has a type `CXError`; pplz does not import CallKit. | [S] 2026-11-20 |
 | D6 | Where the long name applies | Label of the link row in Contacts, markers of the note block, store folder and store file | These names are visible to the user in Contacts and in Finder. | [S] 2026-11-20 |
-| D7 | Old link rows and old note blocks | The new build reads the old and the new form and writes only the new form | Without this, each contact gets a second link and a second block. See `02-data-migration.md`. | [A] |
-| D8 | Old names in the CLI | No alias. `cx` stops with an error when a variable `PPLZ_STORE` or `PPLZ_NO_CONTACTS` is set. The JSON key `isPplzOnly` becomes `isCXOnly`. | The owner is the only user. An old variable that is silently ignored makes `cx` use the real store or the real address book. | [A] |
-| D9 | Store migration | One script, run one time. No permanent migration code. | There is one real store. See `02-data-migration.md` §2. | [A] |
-| D10 | The owner is the only person with real data | Yes | The repository is public, but no release exists. | [A] |
+| D7 | Old link rows and old note blocks | The new build reads the old and the new form and writes only the new form | Without this, each contact gets a second link and a second block. See `02-data-migration.md`. | [S] 2026-11-20 |
+| D8 | Old names in the CLI | No alias. `cx` stops with an error when a variable `PPLZ_STORE` or `PPLZ_NO_CONTACTS` is set. The JSON key `isPplzOnly` becomes `isCXOnly`. | The owner is the only user. An old variable that is silently ignored makes `cx` use the real store or the real address book. | [S] 2026-11-20 |
+| D9 | Store migration | One script, run one time. No permanent migration code. | There is one real store. See `02-data-migration.md` §2. | [S] 2026-11-20 |
+| D10 | The owner is the only person with real data | Yes | The repository is public, but no release exists. | [S] 2026-11-20 |
 | D11 | Pending request for the notes entitlement | Send a new request for the new bundle ID that refers to the old request | The request names the old bundle ID. See `03-apple-guide.md` A6. | [S] 2026-11-20 |
-| D12 | `docs/DECISIONS.md` | Keep the old entries as written. Add one line at the top that pplz is the old name. | The file is a record of past runs. | [A] |
+| D12 | `docs/DECISIONS.md` | Keep the old entries as written. Add one line at the top that pplz is the old name. | The file is a record of past runs. | [S] 2026-11-20 |
 | D13 | Who owns an old link row | A URL row with the label `pplz` and a value `pplz://person/<uuid>` is always a row that pplz wrote. The new build replaces it without a journal entry as proof. | The journal cannot prove it: it is different on each device, and the journal on iOS goes away with the old app. No person writes such a row by hand. | [S] 2026-11-20 |
 
 D13 is an exception to the rule "pplz owns only what it wrote and recorded". The user agreed to it.
 
-Still without an answer: the change of expected values in existing tests (`02-data-migration.md` §3.5).
+The user agreed to the change of expected values in existing tests (`02-data-migration.md` §3.5) on 2026-11-20.
 
 Not part of this change:
 

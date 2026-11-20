@@ -101,10 +101,10 @@ Step 7 is the only change to old data, and one `mv` undoes it.
 
 ### 3.3 New code
 
-- The reading of contacts gives the link rows of each contact to the planning function, not only the first person ID.
+- The reading of contacts gives the link rows of each contact to the planning function, not only the first person ID. Built 2026-11-20: `ContactsSync.applyLinks` reads the URL rows of the contact just before it writes, and `PersonLink.changes` plans them.
 - A function that removes one URL row, on the Mac (through the Contacts app) and on iOS (through `CNContactStore`). An update of the row in place is permitted in place of "add and remove", if it is simpler on a platform. The result in the address book is the same.
-- **[A] L2:** The Mac and iOS both write link rows today; this stays.
-- **[A] L3:** The old scheme and the old parser branch stay in the code without an end date. An old backup of the address book can bring old rows back, and the table in §3.2 repairs them.
+- **[S] 2026-11-20, L2:** The Mac and iOS both write link rows today; this stays.
+- **[S] 2026-11-20, L3:** The old scheme and the old parser branch stay in the code without an end date. An old backup of the address book can bring old rows back, and the table in §3.2 repairs them.
 
 ### 3.4 Tests first (phase 2)
 
@@ -117,7 +117,7 @@ Write these before the code. They must fail for the expected reason.
 
 ### 3.5 Existing tests that change
 
-The rename changes what the app writes. These existing assertions change with it. This needs the user's agreement, because the rule is that a test is not changed to make it pass:
+The rename changes what the app writes. These existing assertions change with it. The user agreed on 2026-11-20, because the rule is that a test is not changed to make it pass:
 
 - link form and label: `PersonLinkTests.swift`, `ContactEditTests.swift:156-162`, `CardPresentationTests.swift:56`, `PeopleModelTests.swift:145`
 - markers: `NotesBlockTests.swift`

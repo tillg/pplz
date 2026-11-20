@@ -649,9 +649,9 @@ public final class PeopleModel {
         }
     }
 
-    /// Handles a `pplz://person/<id>` link, e.g. clicked in the Contacts app.
+    /// Handles a `cx://person/<id>` link, e.g. clicked in the Contacts app. The old scheme `pplz` works too.
     public func open(_ url: URL) async {
-        if url.scheme == "pplz", url.host == "capture" {
+        if url.scheme == "cx" || url.scheme == "pplz", url.host == "capture" {
             captureRequests += 1      // the share extension has put something into the inbox
             return
         }

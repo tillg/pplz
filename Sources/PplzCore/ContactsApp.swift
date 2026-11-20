@@ -106,21 +106,6 @@ public enum ContactsApp {
         ], text: [row.contactIdentifier, row.label, row.value])
     }
 
-    /// Adds a labelled URL row to a contact, unless a row with the same address is already there.
-    public static func addURL(_ row: ContactMirror.Row) throws -> WriteResult {
-        try write([
-            "tell application \"Contacts\"",
-            "set p to person id a1",
-            "repeat with u in (get urls of p)",
-            "if ((value of u) as text) is a3 then return \"alreadyThere\"",
-            "end repeat",
-            "make new url at end of urls of p with properties {label:a2, value:a3}",
-            "save",
-            "return \"added\"",
-            "end tell",
-        ], text: [row.contactIdentifier, row.label, row.value])
-    }
-
     /// Applies the user's edits through the Contacts app, which accepts them for contacts with a note too.
     /// Changes only what the changes name: rows are found by their identifier (the address book's own, which
     /// scripting reports as `id`) or, failing that, by label and value. If a row to change or remove cannot be

@@ -53,7 +53,7 @@ import Testing
         #expect(ContactAction.mail.url(for: " anna@example.com ")?.absoluteString == "mailto:anna@example.com")
         #expect(ContactAction.map.url(for: "Musterstr. 1, 50667 Köln")?.absoluteString == "maps://?q=Musterstr.%201,%2050667%20K%C3%B6ln")
         #expect(ContactAction.web.url(for: "example.com/page")?.absoluteString == "https://example.com/page")
-        #expect(ContactAction.web.url(for: "pplz://person/x")?.absoluteString == "pplz://person/x")
+        #expect(ContactAction.web.url(for: "cx://person/x")?.absoluteString == "cx://person/x")
         #expect(ContactAction.call.url(for: "   ") == nil)
     }
 }

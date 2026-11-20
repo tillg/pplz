@@ -46,6 +46,30 @@ extension SystemContacts {
             birthday: birthday)
     }
 
+    /// All URL rows of one contact, the link rows included; `nil` if the contact no longer exists.
+    /// Reading works on the Mac also for a contact that has a note; only a save is refused there (SPEC §8.1, S4).
+    public static func urlRows(identifier: String) throws -> [ContactEdit.Item]? {
+        let store = CNContactStore()
+        try requestAccessIfNeeded(store)
+        guard let contact = try store.unifiedContacts(matching: CNContact.predicateForContacts(withIdentifiers: [identifier]),
+                                                      keysToFetch: [CNContactUrlAddressesKey as CNKeyDescriptor]).first else { return nil }
+        return contact.urlAddresses.map { ContactEdit.Item(id: $0.identifier, label: $0.label ?? "", value: $0.value as String) }
+    }
+
+    /// Writes the changes of `PersonLink.changes` to the link rows of one contact. Used on iPhone and iPad; the Mac
+    /// goes through the Contacts app. `apply(_:toContact:)` does not fit: it leaves the link rows out of its check.
+    public static func applyLinkChanges(_ changes: [ContactChange], toContact identifier: String) throws {
+        guard !changes.isEmpty else { return }
+        let store = CNContactStore()
+        try requestAccessIfNeeded(store)
+        guard let contact = try store.unifiedContact(withIdentifier: identifier, keysToFetch: [CNContactUrlAddressesKey as CNKeyDescriptor])
+            .mutableCopy() as? CNMutableContact else { return }
+        apply(changes, to: contact)
+        let request = CNSaveRequest()
+        request.update(contact)
+        try store.execute(request)
+    }
+
     /// Creates a contact with these fields and returns its identifier. A new contact has no note, so this works
     /// on every platform (SPEC §8.1, S1).
     public static func createContact(_ edit: ContactEdit) throws -> String {

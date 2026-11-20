@@ -142,8 +142,24 @@ import Testing
         #expect(model.mode == .people)
         #expect(model.card?.entry.name == "Ben Sample")
 
-        await model.open(URL(string: "pplz://person/\(UUID().uuidString)")!)   // unknown person: stay
+        await model.open(URL(string: "cx://person/\(UUID().uuidString)")!)   // unknown person: stay
         #expect(model.card?.entry.name == "Ben Sample")
+    }
+
+    @Test func anOldPersonLinkStillShowsThatPerson() async throws {
+        let (model, store) = try PeopleModelTests().makeModel()
+        try store.createPerson(name: "Anna Example")
+        let ben = try store.createPerson(name: "Ben Sample")
+        await model.open(URL(string: "pplz://person/\(ben.uuidString.lowercased())")!)
+        #expect(model.card?.entry.name == "Ben Sample")
+    }
+
+    @Test func aCaptureLinkInEitherSchemeAsksForTheInbox() async throws {
+        let (model, _) = try PeopleModelTests().makeModel()
+        let before = model.captureRequests
+        await model.open(URL(string: "cx://capture")!)
+        await model.open(URL(string: "pplz://capture")!)
+        #expect(model.captureRequests == before + 2)
     }
 }
 

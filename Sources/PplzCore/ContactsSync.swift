@@ -37,20 +37,37 @@ public enum ContactsSync {
         }
     }
 
-    /// Writes link rows. Rows the journal already knows are skipped without asking Contacts, unless `recheck`.
+    /// Writes link rows: gives each contact one link in the new form and removes the old form (`PersonLink.changes`).
+    /// The changes of one contact are written together and recorded in the journal after the write.
+    /// Rows the journal already knows are skipped without asking Contacts, unless `recheck`.
     public static func applyLinks(_ rows: [ContactMirror.Row], journal: ContactJournal, recheck: Bool = false) -> [String] {
         rows.compactMap { row in
             do {
                 if try !recheck && journal.pplzAdded(row, field: "url") { return nil }
+                guard let person = URL(string: row.value).flatMap(PersonLink.personID),
+                      let urls = try SystemContacts.urlRows(identifier: row.contactIdentifier) else { return nil }
+                let changes = PersonLink.changes(urls: urls, person: person)
+                guard !changes.isEmpty else { return nil }
                 #if os(macOS)
-                guard try ContactsApp.addURL(row) == .added else { return nil }
+                try ContactsApp.apply(changes, identifier: row.contactIdentifier)
                 #else
-                guard try SystemContacts.addURL(row) else { return nil }
+                try SystemContacts.applyLinkChanges(changes, toContact: row.contactIdentifier)
                 #endif
-                try journal.record(.added, row, field: "url")
-                return "Contacts: added the pplz link"
+                var added = false
+                for change in changes {
+                    switch change {
+                    case .addItem(_, let item):
+                        added = true
+                        try journal.record(.added, ContactMirror.Row(contactIdentifier: row.contactIdentifier, label: item.label, value: item.value), field: "url")
+                    case .removeItem(_, let item):
+                        try journal.record(.removed, ContactMirror.Row(contactIdentifier: row.contactIdentifier, label: item.label, value: item.value), field: "url")
+                    default:
+                        break
+                    }
+                }
+                return added ? "Contacts: added the pplz link" : "Contacts: removed an old or second pplz link"
             } catch {
-                return "Contacts: could not add the pplz link — \(describe(error))"
+                return "Contacts: could not update the pplz link — \(describe(error))"
             }
         }
     }

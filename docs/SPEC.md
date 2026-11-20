@@ -120,7 +120,7 @@ Not stored separately — it is the per-person view over events (and their photo
 | Enrichment | Where in the contact | Status |
 |---|---|---|
 | Contact history (events I met the person at) | Notes ("comment") field, see §3.3 | **[S]** built for the Mac CLI 2026-11-18 |
-| Deep link back to the person in pplz | URL field with custom label `pplz` → `pplz://person/<id>`; Contacts shows it as a tappable row that opens the person in pplz. Also serves as the cross-device identity link (R3). **Built 2026-11-18 (Mac):** written for every person pplz has a record of, the first time something is stored about them and by `pplz contacts sync`; the Mac app opens the person when the link is clicked. Contacts pplz has stored nothing about get no link yet. | **[S]** decided 2026-11-18 |
+| Deep link back to the person in pplz | URL field with custom label `cardxchange` → `cx://person/<id>`; Contacts shows it as a tappable row that opens the person in pplz. Also serves as the cross-device identity link (R3). **Built 2026-11-18 (Mac):** written for every person pplz has a record of, the first time something is stored about them and by `pplz contacts sync`; the Mac app opens the person when the link is clicked. Contacts pplz has stored nothing about get no link yet. **Rename 2026-11-20:** the link before the rename was `pplz://person/<id>` with the label `pplz`. The old form is still read and gives the same person. A sync gives each contact exactly one link in the new form: it adds the new row if there is none, removes a second identical new row, and removes each row with the label `pplz` and the scheme `pplz` (also without a journal entry, D13 in `docs/changes/01_rename_to_cardxchange/README.md`). A row with the old scheme and another label is not removed. Every other row is never touched. The old scheme is read without an end date. | **[S]** decided 2026-11-18, rename **[S]** 2026-11-20 |
 | Contact photo | contact image — for contacts without a picture pplz offers the best recognised face crop (or the LinkedIn picture, §4.4); set only after I confirm | **[S]** decided 2026-11-18 |
 | LinkedIn / other social-media links | the contact's social-profile fields; kept in sync both ways: a profile added in Contacts shows in pplz, one added in pplz is written to the contact | **[S]** decided 2026-11-18 |
 | Connections between people | the contact's **related names** (the field that holds e.g. "spouse"), as plain text `label: name`. The app offers **the same relationships as Contacts** (mother, father, parent, son, daughter, brother, sister, child, friend, spouse, partner, assistant, manager, other, plus colleague and a custom one) **[S]** 2026-11-18, phrased the same way: on Anna's card, "manager: Ben" means Ben is Anna's manager. Rows are written with Apple's own labels, so Contacts shows and translates them like its built-in ones. The matching row goes on the other card where it is unambiguous (friend ↔ friend, mother ↔ child, sister ↔ sibling, assistant ↔ manager); "manager" and "other" get none. Free-text kinds without "… of" ("introduced by", CLI only) go on the first person's card. pplz only removes rows it added itself: every write is recorded in a journal (`contact-writes.jsonl` next to the store, `pplz contacts journal`). Built 2026-11-18 on the Mac via Contacts scripting (§8.1 S6) until the notes entitlement arrives. | **[S]** 2026-11-18; the both-cards rule is **[A]** |
@@ -135,14 +135,16 @@ pplz owns **one clearly delimited block** inside the note; everything outside it
 ```
 <my own notes stay here, untouched>
 
-── pplz ──
+── cardxchange ──
 Met 7× · last 2026-11-12
 2026-11-12  Live meeting · Dinner at Luigi's, Köln
 2026-10-03  Web call · Project kickoff
 2026-08-21  Phone call
 …
-── /pplz ──
+── /cardxchange ──
 ```
+
+- Old markers **[S]** 2026-11-20: before the rename the markers were `── pplz ──` and `── /pplz ──`. A block with the old markers is replaced by the new block in the same place. If a note has both forms, the new block is updated and the old block is removed. "Off" removes both forms. A start marker and an end marker of different forms are never one block.
 
 - Direction is **one-way** pplz → Contacts for this block. Manual edits inside the block are overwritten on next sync. **[S]** decided 2026-11-18
 - Length: summary line + the 10 most recent events; full history lives in pplz. **[S]**
