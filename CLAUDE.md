@@ -158,6 +158,12 @@ Use the skills in `.claude/skills/` and the user's personal skills (`~/.claude/s
   - All four: no protocol, mock or fake only to make code testable, without the user's permission. This applies to each skill, also where it recommends an injected dependency.
   - `swift-concurrency-pro`: pplz does not enable `NonisolatedNonsendingByDefault`. A `nonisolated` async function leaves the actor of its caller, as before Swift 6.2; ignore the rules of the skill that assume the opposite. Grand Central Dispatch stays where the code uses it for framework interop; here this skill wins over the "never" of `swiftui-pro`.
   - `swiftdata-pro`: the CloudKit rules in "Store" win. The skill recommends a versioned migration schema, and pplz has none: report that as a suggestion, and do not add one without the user's decision. Its class inheritance reference needs iOS 26 and does not apply.
+  - Decided 2026-11-20, so do not ask again: five rules of the skills are accepted for new code. Existing code changes only when the user asks for it.
+    - `#Index` for an attribute that a lookup uses. In the model that exists, an index is a change of the schema: report it, and add it only with the user's decision.
+    - An explicit delete rule on each new relationship. The same limit applies to the relationships that exist.
+    - New text for the user is written so that it can be translated (`LocalizedStringResource`, no text built from parts). The text of the history block in the contact notes stays English.
+    - No hard-coded padding or spacing in new views: use a named constant.
+    - `Date.now` in place of `Date()`.
   - `swift-testing-pro`: it recommends mocks for the network layer. pplz tests use no mocks or fakes without the user's permission. UI tests in `App/UITests` stay XCTest. Each suite keeps its `@Suite`. Do not change a test that exists only to satisfy a rule of the skill.
 - For `two-axis-review`, the spec source is the GitHub issue named in the commits, else the section of `docs/SPEC.md` for the area. The standards sources are this file and `docs/agents/domain.md`.
 
