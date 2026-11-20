@@ -37,9 +37,15 @@ struct Common: ParsableArguments {
     func open() throws -> CXStore { try CXStore(url: storeURL) }
 
     /// Runs before every subcommand: refuses the variables of the old name and a default store next to data that is not migrated.
+    /// Like `attempt`: the message goes to stderr, with exit code 2.
     func validate() throws {
-        try CXStore.checkOldVariables()
-        if store == nil { try CXStore.checkMigrated(storeURL) }
+        do {
+            try CXStore.checkOldVariables()
+            if store == nil { try CXStore.checkMigrated(storeURL) }
+        } catch let error as CXError {
+            FileHandle.standardError.write(Data(((error.errorDescription ?? "\(error)") + "\n").utf8))
+            throw ExitCode(2)
+        }
     }
 
     /// False with --no-contacts: then the address book is neither read nor written.

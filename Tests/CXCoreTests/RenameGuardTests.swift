@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import CXCore
 
-/// The guards of the rename from cardXchange (`docs/changes/01_rename_to_cardxchange/02-data-migration.md` §2.4).
+/// The guards of the rename from pplz (`docs/changes/01_rename_to_cardxchange/02-data-migration.md` §2.4).
 @Suite struct RenameGuardTests {
     func folder() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("cx-guard-\(UUID().uuidString)")

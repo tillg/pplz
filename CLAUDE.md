@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-cardXchange is a personal contact manager (Mac, iPhone, iPad) that enriches Apple Contacts with a history of meetings, calls, events and photos. Its old name is pplz: the code still reads the old link, the old note markers and the old URL scheme, and `scripts/migrate-from-pplz.sh` moves the old store folder (`docs/changes/01_rename_to_cardxchange/`). `README.md` describes the product and the full CLI, `docs/SPEC.md` the design, `docs/DECISIONS.md` the decisions taken during autonomous runs.
+cardXchange is a personal contact manager (Mac, iPhone, iPad) that enriches Apple Contacts with a history of meetings, calls, events and photos. Its old name is pplz. The code still reads the old link, the old note markers and the old URL scheme. `scripts/migrate-from-pplz.sh` moves the old store folder (`docs/changes/01_rename_to_cardxchange/`). `README.md` describes the product and the full CLI, `docs/SPEC.md` the design, `docs/DECISIONS.md` the decisions taken during autonomous runs.
 
 ## Commands
 

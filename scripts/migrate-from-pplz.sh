@@ -54,7 +54,13 @@ counts() {
     sqlite3 -readonly "$1" "SELECT (SELECT COUNT(*) FROM ZPERSON), (SELECT COUNT(*) FROM ZEVENT), (SELECT COUNT(*) FROM ZTAG),
         (SELECT COUNT(*) FROM ZCONNECTION), (SELECT COUNT(*) FROM ZPERSONPHOTO);"
 }
-before="$(counts "$OLD/pplz.store")" || { undo; fail "could not read $OLD/pplz.store. The copy was deleted."; }
+# the old store is counted through a second copy: SQLite can write to the -shm file of a store in WAL mode, also read-only
+PROBE="$(mktemp -d)"
+for suffix in "" -wal -shm; do
+    [ -f "$OLD/pplz.store$suffix" ] && cp -p "$OLD/pplz.store$suffix" "$PROBE/old.store$suffix"
+done
+before="$(counts "$PROBE/old.store")" || { rm -rf "$PROBE"; undo; fail "could not read $OLD/pplz.store. The copy was deleted."; }
+rm -rf "$PROBE"
 after="$(counts "$NEW/cardxchange.store")" || { undo; fail "could not read the copy. The copy was deleted."; }
 if [ "$before" != "$after" ]; then
     undo
