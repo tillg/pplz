@@ -4,6 +4,8 @@ created: 2026-11-19
 edited: 2026-11-20
 ---
 
+pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). The entries below keep the old name as written.
+
 **Contents**
 
 - [2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch](#run-2026-11-19-1154)

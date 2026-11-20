@@ -15,7 +15,7 @@ These skills are part of the repository. Each person who clones the repository g
 | `swift-concurrency-pro` | [twostraws/Swift-Concurrency-Agent-Skill](https://github.com/twostraws/Swift-Concurrency-Agent-Skill), version 1.0, commit `bee3f69` |
 | `swift-testing-pro` | [twostraws/Swift-Testing-Agent-Skill](https://github.com/twostraws/Swift-Testing-Agent-Skill), version 1.0, commit `2d6bba1` |
 
-The skills from mattpocock/skills are copies of version 1.3.2 (commit `abeeaf9`), under the MIT licence in `LICENSE-mattpocock-skills`. They are unchanged, with one exception: `code-review` has the name `two-axis-review` here, because Claude Code has its own `code-review` command, and its line about the issue tracker points to `CLAUDE.md`. The four skills by Paul Hudson are unchanged copies, each with all its reference files, under the MIT licence in `LICENSE-paul-hudson-skills`. The rules that adapt the skills to pplz are in `CLAUDE.md`, not in the copies.
+The skills from mattpocock/skills are copies of version 1.3.2 (commit `abeeaf9`), under the MIT licence in `LICENSE-mattpocock-skills`. They are unchanged, with one exception: `code-review` has the name `two-axis-review` here, because Claude Code has its own `code-review` command, and its line about the issue tracker points to `CLAUDE.md`. The four skills by Paul Hudson are unchanged copies, each with all its reference files, under the MIT licence in `LICENSE-paul-hudson-skills`. The rules that adapt the skills to cardXchange are in `CLAUDE.md`, not in the copies.
 
 Start Claude Code with `scripts/claude.sh` to use these skills and nothing from outside the repository. Plain `claude` adds your personal skills.
 

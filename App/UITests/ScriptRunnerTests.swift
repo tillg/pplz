@@ -13,10 +13,10 @@ final class ScriptRunnerTests: XCTestCase {
     func testRunScript() throws {
         let environment = ProcessInfo.processInfo.environment
         let app = XCUIApplication()
-        app.launchArguments = (environment["PPLZ_APP_ARGS"] ?? "").split(separator: "|").map(String.init)
+        app.launchArguments = (environment["CX_APP_ARGS"] ?? "").split(separator: "|").map(String.init)
         app.launch()
 
-        for step in (environment["PPLZ_UI_SCRIPT"] ?? "screenshot:start").split(separator: ";") {
+        for step in (environment["CX_UI_SCRIPT"] ?? "screenshot:start").split(separator: ";") {
             let parts = step.split(separator: ":", maxSplits: 1).map(String.init)
             let argument = parts.count > 1 ? parts[1] : ""
             switch parts[0] {

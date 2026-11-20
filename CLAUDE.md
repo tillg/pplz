@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-pplz is a personal contact manager (Mac, iPhone, iPad) that enriches Apple Contacts with a history of meetings, calls, events and photos. `README.md` describes the product and the full CLI, `docs/SPEC.md` the design, `docs/DECISIONS.md` the decisions taken during autonomous runs.
+cardXchange is a personal contact manager (Mac, iPhone, iPad) that enriches Apple Contacts with a history of meetings, calls, events and photos. Its old name is pplz: the code still reads the old link, the old note markers and the old URL scheme, and `scripts/migrate-from-pplz.sh` moves the old store folder (`docs/changes/01_rename_to_cardxchange/`). `README.md` describes the product and the full CLI, `docs/SPEC.md` the design, `docs/DECISIONS.md` the decisions taken during autonomous runs.
 
 ## Commands
 
@@ -13,9 +13,9 @@ swift build                                   # core, UI and CLI
 swift test                                    # all tests
 swift test --filter NotesBlockTests           # one suite
 swift test --filter NotesBlockTests/noHistoryMeansNoBlock   # one test
-swift build -c release                        # the binary a `pplz` symlink on the PATH points to
+swift build -c release                        # the binary a `cx` symlink on the PATH points to
 
-scripts/build-app.sh mac                      # builds pplz.app and installs it in /Applications
+scripts/build-app.sh mac                      # builds cardXchange.app and installs it in /Applications
 scripts/build-app.sh simulator                # iOS simulator build
 scripts/build-app.sh iphone "<device name>"   # build and install on a connected, unlocked device
 ```
@@ -26,39 +26,39 @@ scripts/build-app.sh iphone "<device name>"   # build and install on a connected
 
 ## Do not touch the user's real data
 
-The default store (`~/Library/Application Support/pplz/pplz.store`) is the user's real data and syncs through iCloud; the address book is real too.
+The default store (`~/Library/Application Support/cardxchange/cardxchange.store`) is the user's real data and syncs through iCloud; the address book is real too.
 
-- Every manual CLI run gets `--store <temp file> --no-contacts` **on the command itself**. Do not rely on an `export PPLZ_STORE=…` earlier in a `&&` chain: if an earlier step fails, the export never runs and the command writes to the real store.
+- Every manual CLI run gets `--store <temp file> --no-contacts` **on the command itself**. Do not rely on an `export CX_STORE=…` earlier in a `&&` chain: if an earlier step fails, the export never runs and the command writes to the real store.
 - Launch the app for a check with `-store <temp file>` (and `-noContacts YES` where contacts are not needed).
-- Opening a store with a newer build migrates it in place. Open `Tests/PplzCoreTests/Fixtures/before-photos.store` only through a copy; a test checks that the original still has the old schema.
+- Opening a store with a newer build migrates it in place. Open `Tests/CXCoreTests/Fixtures/before-photos.store` only through a copy; a test checks that the original still has the old schema.
 - An `/autonomous` run may install the app with `scripts/build-app.sh mac` or `iphone`. The installed app then opens the real store and migrates it; this is accepted.
-- After a change to the data model, rebuild the release binary, so that an old `pplz` on the PATH does not open the store.
-- `geocache.json` (the hourly geocoding budget) sits next to the default store and does not follow `PPLZ_STORE`.
+- After a change to the data model, rebuild the release binary, so that an old `cx` on the PATH does not open the store.
+- `geocache.json` (the hourly geocoding budget) sits next to the default store and does not follow `CX_STORE`.
 - The repository is public: nothing from `private/` and no real person's data goes into code, fixtures, commits or docs.
 
 ## Architecture
 
 Swift 6 package with three targets, plus the apps in `App/`:
 
-- **PplzCore** — model, store, Contacts and calendar access, capture (Vision, on-device language model), geocoding. No UI.
-- **PplzUI** — the SwiftUI screens shared by the Mac and the iOS / iPadOS app. The app targets in `App/Mac` and `App/iOS` are only an entry point each.
-- **pplz** — the command line (`Sources/pplz/Pplz.swift`, swift-argument-parser), Mac only.
+- **CXCore** — model, store, Contacts and calendar access, capture (Vision, on-device language model), geocoding. No UI.
+- **CXUI** — the SwiftUI screens shared by the Mac and the iOS / iPadOS app. The app targets in `App/Mac` and `App/iOS` are only an entry point each.
+- **cx** — the command line (`Sources/cx/CX.swift`, swift-argument-parser), Mac only.
 - **Share extensions** (`App/Share`, `App/ShareMac`, `App/ShareCommon`) only deliver a screenshot or link into an App Group inbox (`CaptureInbox`); the app does the reading and asking.
 
 ### Store
 
-- `PplzStore` is a plain class (no actor) around one `ModelContext` with autosave off: every mutator saves itself, multi-step writes go through `atomically {}`, which rolls back on error.
+- `CXStore` is a plain class (no actor) around one `ModelContext` with autosave off: every mutator saves itself, multi-step writes go through `atomically {}`, which rolls back on error.
 - The `@Model` classes in `Model.swift` are internal. Callers get snapshots and records, never model objects.
 - CloudKit rules for the model (header of `Model.swift`, SPEC §8.2/§8.3): every attribute has a default or is optional, every relationship is optional and has an inverse, no unique constraints, additive changes only. There is no versioned schema or migration plan; the store relies on lightweight migration, guarded by the fixture test in `PhotoTests.swift`.
 - App and CLI share one store file. Only the apps sync with CloudKit, and only their default store; the CLI, the tests and a store given with `-store` / `--store` never sync.
 
 ### Contacts
 
-- pplz never imports contacts: `PeopleDirectory.merge` joins the live address book with the pplz persons on every load.
-- Identity is the `pplz://person/<uuid>` URL row in the contact (`PersonLink`), then the stored local contact identifier, which differs on every device. A name never decides a match.
+- cardXchange never imports contacts: `PeopleDirectory.merge` joins the live address book with the cardXchange persons on every load.
+- Identity is the `cx://person/<uuid>` URL row in the contact (`PersonLink`), then the stored local contact identifier, which differs on every device. A name never decides a match.
 - Contacts access is a set of caseless enums with static functions; there is no protocol and no fake. Logic is kept testable by splitting **planning** (pure: `ContactsSync.historyPlan` / `linkPlan`, `ContactMirror`, `NotesBlock`, `ContactEdit`) from **applying**.
 - Writes go two ways. On the Mac a contact that has a note cannot be saved through `CNContactStore` without Apple's notes entitlement (SPEC R1), so writes go through the Contacts app by AppleScript (`ContactsApp`); iOS / iPadOS writes directly (`SystemContacts`). Relationships and the history block are written by the Mac only.
-- pplz owns only what it wrote: the `pplz` link row, related-name rows recorded in `ContactJournal` (append-only JSONL), and the note block between `── pplz ──` and `── /pplz ──`. Text around the block is never changed, and note text never leaves the device.
+- cardXchange owns only what it wrote: the `cardxchange` link row, related-name rows recorded in `ContactJournal` (append-only JSONL), and the note block between `── cardxchange ──` and `── /cardxchange ──`. Text around the block is never changed, and note text never leaves the device.
 
 ### UI
 
@@ -99,7 +99,7 @@ Adapted from [TDD with Claude Code](https://github.com/FlorianBruniaux/claude-co
 
   | Document | Holds | Written by |
   |---|---|---|
-  | `docs/SPEC.md` | what pplz does and what is still assumed or open | any change of behaviour |
+  | `docs/SPEC.md` | what cardXchange does and what is still assumed or open | any change of behaviour |
   | `docs/GLOSSARY.md` | the project's words, one or two sentences each; no behaviour, no implementation | a grilling session (below) |
   | `docs/adr/NNNN-<slug>.md` | why a decision was taken, only if it is hard to reverse **and** surprising without context **and** a real trade-off | a grilling session, rarely |
   | `docs/DECISIONS.md` | what Claude decided alone during an `/autonomous` run, for the user's review | `/autonomous` only |
@@ -147,24 +147,24 @@ Use the skills in `.claude/skills/` and the user's personal skills (`~/.claude/s
 | `swift-testing-pro` | Paul Hudson's rules for Swift Testing |
 
 - Start Claude Code with plain `claude` for the skills of the repository and the personal skills. `.claude/settings.json` switches off five plugins that overlap with the skills of the repository; other plugins stay active there. `scripts/claude.sh` starts a session with the repository only: plugins, personal skills, hooks and settings from `~/.claude` stay out. In both cases the personal `~/.claude/CLAUDE.md` and the memory of the project are read.
-- `.claude/skills/README.md` gives the source and version of each skill. The copies stay unchanged; rules that adapt a skill to pplz belong in this file.
-- Where a skill and this file disagree, this file wins. Known differences: `tdd` puts refactoring into the review stage, here a small cleanup directly after green is part of the cycle. `tdd` asks the user to confirm the seams before each test; here, agree the seams one time for a change, and state them when the user is away. `tdd` allows mocks at system boundaries; pplz tests use real stores in temporary files and no mocks or fakes without the user's permission. Where `tdd` says `code-review`, use `two-axis-review`. Where `autonomous` says `docs/agents/issue-tracker.md`, use "Issue tracker" below. `autonomous` names skills of the `spec` plugin (`/spec:*`); these are not in the repository, so use the fallback that the skill describes. Where it says `/spec:adversarial-code-review`, use `two-axis-review`. `tdd` names `codebase-design`, which is not in the repository: skip that step. The four Swift skills name each other by GitHub address: use the copy in `.claude/skills/`, and do not install a skill.
+- `.claude/skills/README.md` gives the source and version of each skill. The copies stay unchanged; rules that adapt a skill to cardXchange belong in this file.
+- Where a skill and this file disagree, this file wins. Known differences: `tdd` puts refactoring into the review stage, here a small cleanup directly after green is part of the cycle. `tdd` asks the user to confirm the seams before each test; here, agree the seams one time for a change, and state them when the user is away. `tdd` allows mocks at system boundaries; cardXchange tests use real stores in temporary files and no mocks or fakes without the user's permission. Where `tdd` says `code-review`, use `two-axis-review`. Where `autonomous` says `docs/agents/issue-tracker.md`, use "Issue tracker" below. `autonomous` names skills of the `spec` plugin (`/spec:*`); these are not in the repository, so use the fallback that the skill describes. Where it says `/spec:adversarial-code-review`, use `two-axis-review`. `tdd` names `codebase-design`, which is not in the repository: skip that step. The four Swift skills name each other by GitHub address: use the copy in `.claude/skills/`, and do not install a skill.
 - `two-axis-review` reads commits only (`<fixed point>...HEAD`) and does not look for defects. For changes that are not committed, and to find defects, use the built-in `/code-review`.
 - `docs/DECISIONS.md`: the user sets each `Status`. `/spec:archive` and `/spec:overview` are not in the repository, so run the review flow of `.claude/skills/autonomous/decisions-format.md` when the user asks for it. Its "Promotion" rule does not apply: a decision stays in `docs/DECISIONS.md` and does not become an ADR. Do not delete or rewrite the entries that exist.
 - When to load a skill: load a Swift skill when a change adds or restructures code in its area, or for a review. A change of a few lines that follows the code around it needs no skill. Load only the skills for the areas that the change touches, and read only the reference files for its topic. Load `tdd` when you plan the seams of a new feature or the user asks for it; for the loop itself, "TDD workflow" above is sufficient.
-- `swiftui-pro` is for code in `Sources/PplzUI` and `App/`. Its limits here: the deployment targets are macOS 15 and iOS 18, so an API of a later release needs `#available` and a fallback; the minimum toolchain is Xcode 27, so language features of its compiler are allowed; the Swift language mode stays 6.0; UIKit and AppKit stay where the code uses them today (camera, share extensions, system contact card, the map in `PersonMap.swift`). During a feature or a fix, report its other findings as suggestions and do not apply them.
-- The other three: `swiftdata-pro` for `Model.swift`, `PplzStore.swift` and each query; `swift-concurrency-pro` for code with `async`, actors or tasks; `swift-testing-pro` for a new suite or a test API that the tests do not use yet. The limits of `swiftui-pro` above apply to all three. More limits:
+- `swiftui-pro` is for code in `Sources/CXUI` and `App/`. Its limits here: the deployment targets are macOS 15 and iOS 18, so an API of a later release needs `#available` and a fallback; the minimum toolchain is Xcode 27, so language features of its compiler are allowed; the Swift language mode stays 6.0; UIKit and AppKit stay where the code uses them today (camera, share extensions, system contact card, the map in `PersonMap.swift`). During a feature or a fix, report its other findings as suggestions and do not apply them.
+- The other three: `swiftdata-pro` for `Model.swift`, `CXStore.swift` and each query; `swift-concurrency-pro` for code with `async`, actors or tasks; `swift-testing-pro` for a new suite or a test API that the tests do not use yet. The limits of `swiftui-pro` above apply to all three. More limits:
   - All four: new code follows the file layout that exists (some files hold more than one type, folders are the targets). Do not split a file or move a type because a skill says so.
   - All four: no protocol, mock or fake only to make code testable, without the user's permission. This applies to each skill, also where it recommends an injected dependency.
-  - `swift-concurrency-pro`: pplz does not enable `NonisolatedNonsendingByDefault`. A `nonisolated` async function leaves the actor of its caller, as before Swift 6.2; ignore the rules of the skill that assume the opposite. Grand Central Dispatch stays where the code uses it for framework interop; here this skill wins over the "never" of `swiftui-pro`.
-  - `swiftdata-pro`: the CloudKit rules in "Store" win. The skill recommends a versioned migration schema, and pplz has none: report that as a suggestion, and do not add one without the user's decision. Its class inheritance reference needs iOS 26 and does not apply.
+  - `swift-concurrency-pro`: cardXchange does not enable `NonisolatedNonsendingByDefault`. A `nonisolated` async function leaves the actor of its caller, as before Swift 6.2; ignore the rules of the skill that assume the opposite. Grand Central Dispatch stays where the code uses it for framework interop; here this skill wins over the "never" of `swiftui-pro`.
+  - `swiftdata-pro`: the CloudKit rules in "Store" win. The skill recommends a versioned migration schema, and cardXchange has none: report that as a suggestion, and do not add one without the user's decision. Its class inheritance reference needs iOS 26 and does not apply.
   - Decided 2026-11-20, so do not ask again: five rules of the skills are accepted for new code. Existing code changes only when the user asks for it.
     - `#Index` for an attribute that a lookup uses. In the model that exists, an index is a change of the schema: report it, and add it only with the user's decision.
     - An explicit delete rule on each new relationship. The same limit applies to the relationships that exist.
     - New text for the user is written so that it can be translated (`LocalizedStringResource`, no text built from parts). The text of the history block in the contact notes stays English.
     - No hard-coded padding or spacing in new views: use a named constant.
     - `Date.now` in place of `Date()`.
-  - `swift-testing-pro`: it recommends mocks for the network layer. pplz tests use no mocks or fakes without the user's permission. UI tests in `App/UITests` stay XCTest. Each suite keeps its `@Suite`. Do not change a test that exists only to satisfy a rule of the skill.
+  - `swift-testing-pro`: it recommends mocks for the network layer. cardXchange tests use no mocks or fakes without the user's permission. UI tests in `App/UITests` stay XCTest. Each suite keeps its `@Suite`. Do not change a test that exists only to satisfy a rule of the skill.
 - For `two-axis-review`, the spec source is the GitHub issue named in the commits, else the section of `docs/SPEC.md` for the area. The standards sources are this file and `docs/agents/domain.md`.
 
 ### Issue tracker

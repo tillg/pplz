@@ -1,8 +1,8 @@
 import Foundation
-import PplzCore
+import CXCore
 import UniformTypeIdentifiers
 
-/// What "Share → pplz" does with the things it is handed, on iPhone, iPad and Mac alike: a picture
+/// What "Share → cardXchange" does with the things it is handed, on iPhone, iPad and Mac alike: a picture
 /// or a link to a LinkedIn profile goes into the inbox that the extension shares with the app.
 @MainActor
 enum SharedItems {

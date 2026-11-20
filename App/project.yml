@@ -1,6 +1,6 @@
-# Xcode project for the pplz apps. The project file itself is generated and not committed:
+# Xcode project for the cardXchange apps. The project file itself is generated and not committed:
 #   cd App && xcodegen generate
-name: pplz
+name: cardxchange
 options:
   deploymentTarget:
     macOS: "15.0"
@@ -10,26 +10,26 @@ configFiles:
   Debug: Local.xcconfig
   Release: Local.xcconfig
 packages:
-  pplz:
+  cardxchange:
     path: ..
 settings:
   base:
-    PRODUCT_BUNDLE_IDENTIFIER: com.tillg.pplz
-    PRODUCT_NAME: pplz
+    PRODUCT_BUNDLE_IDENTIFIER: me.cardxchange.app
+    PRODUCT_NAME: cardXchange
     MARKETING_VERSION: "0.1"
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "6.0"
     ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
 targets:
-  pplzMac:
+  cardxchangeMac:
     type: application
     platform: macOS
     sources: [Mac, Shared]
     dependencies:
-      - package: pplz
-        product: PplzUI
-      - target: pplzShareMac
+      - package: cardxchange
+        product: CXUI
+      - target: cardxchangeShareMac
     settings:
       base:
         # No sandbox and no hardened runtime yet: the app shares its store with the CLI and
@@ -38,86 +38,86 @@ targets:
         ENABLE_HARDENED_RUNTIME: NO
         CODE_SIGN_STYLE: Automatic
     entitlements:
-      path: Mac/pplz.entitlements
+      path: Mac/cardxchange.entitlements
       properties:
-        com.apple.developer.icloud-container-identifiers: [iCloud.com.tillg.pplz]
+        com.apple.developer.icloud-container-identifiers: [iCloud.me.cardxchange.app]
         com.apple.developer.icloud-services: [CloudKit]
         com.apple.developer.aps-environment: development
         # shared with the Mac share extension; a team-prefixed group needs no provisioning on the Mac
-        com.apple.security.application-groups: [$(TeamIdentifierPrefix)com.tillg.pplz]
+        com.apple.security.application-groups: [$(TeamIdentifierPrefix)me.cardxchange.app]
     info:
       path: Mac/Info.plist
       properties:
-        PplzAppGroup: $(TeamIdentifierPrefix)com.tillg.pplz
-        CFBundleDisplayName: pplz
+        CXAppGroup: $(TeamIdentifierPrefix)me.cardxchange.app
+        CFBundleDisplayName: cardXchange
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.productivity
-        NSContactsUsageDescription: "pplz shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and pplz does not share them with anyone."
-        NSAppleEventsUsageDescription: "pplz asks the Contacts app to show a person's card and to add what you record in pplz."
-        NSCalendarsFullAccessUsageDescription: "pplz offers your current and recent calendar entries when you record whom you met."
+        NSContactsUsageDescription: "cardXchange shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and cardXchange does not share them with anyone."
+        NSAppleEventsUsageDescription: "cardXchange asks the Contacts app to show a person's card and to add what you record in cardXchange."
+        NSCalendarsFullAccessUsageDescription: "cardXchange offers your current and recent calendar entries when you record whom you met."
         CFBundleURLTypes:
-          - CFBundleURLName: com.tillg.pplz
-            CFBundleURLSchemes: [pplz]
-  pplziOS:
+          - CFBundleURLName: me.cardxchange.app
+            CFBundleURLSchemes: [cx, pplz]
+  cardxchangeiOS:
     type: application
     platform: iOS
     sources: [iOS, Shared]
     dependencies:
-      - package: pplz
-        product: PplzUI
-      - target: pplzShare
+      - package: cardxchange
+        product: CXUI
+      - target: cardxchangeShare
     settings:
       base:
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
     entitlements:
-      path: iOS/pplz.entitlements
+      path: iOS/cardxchange.entitlements
       properties:
-        com.apple.developer.icloud-container-identifiers: [iCloud.com.tillg.pplz]
+        com.apple.developer.icloud-container-identifiers: [iCloud.me.cardxchange.app]
         com.apple.developer.icloud-services: [CloudKit]
         aps-environment: development
         # shared with the share extension: the inbox for captured screenshots and links
-        com.apple.security.application-groups: [group.com.tillg.pplz]
+        com.apple.security.application-groups: [group.me.cardxchange.app]
     info:
       path: iOS/Info.plist
       properties:
         UIBackgroundModes: [remote-notification]
-        CFBundleDisplayName: pplz
+        CFBundleDisplayName: cardXchange
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
-        NSContactsUsageDescription: "pplz shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and pplz does not share them with anyone."
-        NSCalendarsFullAccessUsageDescription: "pplz offers your current and recent calendar entries when you record whom you met."
-        NSCameraUsageDescription: "pplz takes a picture of a business card and reads the contact details from it on this device."
+        NSContactsUsageDescription: "cardXchange shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and cardXchange does not share them with anyone."
+        NSCalendarsFullAccessUsageDescription: "cardXchange offers your current and recent calendar entries when you record whom you met."
+        NSCameraUsageDescription: "cardXchange takes a picture of a business card and reads the contact details from it on this device."
         CFBundleURLTypes:
-          - CFBundleURLName: com.tillg.pplz
-            CFBundleURLSchemes: [pplz]
-  # "Share → pplz" for a screenshot or a profile link; hands it to the app through the App Group inbox.
-  pplzShare:
+          - CFBundleURLName: me.cardxchange.app
+            CFBundleURLSchemes: [cx, pplz]
+  # "Share → cardXchange" for a screenshot or a profile link; hands it to the app through the App Group inbox.
+  cardxchangeShare:
     type: app-extension
     platform: iOS
     sources: [Share, ShareCommon]
     dependencies:
-      - package: pplz
-        product: PplzCore
+      - package: cardxchange
+        product: CXCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.tillg.pplz.share
-        PRODUCT_NAME: pplzShare
+        PRODUCT_BUNDLE_IDENTIFIER: me.cardxchange.app.share
+        PRODUCT_NAME: cardxchangeShare
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: ""
     entitlements:
-      path: Share/pplzShare.entitlements
+      path: Share/cardxchangeShare.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.tillg.pplz]
+        com.apple.security.application-groups: [group.me.cardxchange.app]
     info:
       path: Share/Info.plist
       properties:
-        CFBundleDisplayName: pplz
+        CFBundleDisplayName: cardXchange
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
@@ -129,33 +129,33 @@ targets:
               NSExtensionActivationSupportsWebURLWithMaxCount: 1
               NSExtensionActivationSupportsText: true
   # The same for the Mac's share menu.
-  pplzShareMac:
+  cardxchangeShareMac:
     type: app-extension
     platform: macOS
     sources: [ShareMac, ShareCommon]
     dependencies:
-      - package: pplz
-        product: PplzCore
+      - package: cardxchange
+        product: CXCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.tillg.pplz.sharemac
-        PRODUCT_NAME: pplzShareMac
+        PRODUCT_BUNDLE_IDENTIFIER: me.cardxchange.app.sharemac
+        PRODUCT_NAME: cardxchangeShareMac
         CODE_SIGN_STYLE: Automatic
         ENABLE_APP_SANDBOX: YES
         ENABLE_HARDENED_RUNTIME: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: ""
     entitlements:
-      path: ShareMac/pplzShareMac.entitlements
+      path: ShareMac/cardxchangeShareMac.entitlements
       properties:
         com.apple.security.app-sandbox: true
-        com.apple.security.application-groups: [$(TeamIdentifierPrefix)com.tillg.pplz]
+        com.apple.security.application-groups: [$(TeamIdentifierPrefix)me.cardxchange.app]
     info:
       path: ShareMac/Info.plist
       properties:
-        CFBundleDisplayName: pplz
+        CFBundleDisplayName: cardXchange
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        PplzAppGroup: $(TeamIdentifierPrefix)com.tillg.pplz
+        CXAppGroup: $(TeamIdentifierPrefix)me.cardxchange.app
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
@@ -165,27 +165,27 @@ targets:
               NSExtensionActivationSupportsWebURLWithMaxCount: 1
               NSExtensionActivationSupportsText: true
   # Clicks through the iOS app from the command line, see scripts/ui.sh.
-  pplzUITests:
+  cardxchangeUITests:
     type: bundle.ui-testing
     platform: iOS
     sources: [UITests]
     dependencies:
-      - target: pplziOS
+      - target: cardxchangeiOS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.tillg.pplz.uitests
-        PRODUCT_NAME: pplzUITests
+        PRODUCT_BUNDLE_IDENTIFIER: me.cardxchange.app.uitests
+        PRODUCT_NAME: cardxchangeUITests
         GENERATE_INFOPLIST_FILE: YES
-        TEST_TARGET_NAME: pplziOS
+        TEST_TARGET_NAME: cardxchangeiOS
         CODE_SIGN_STYLE: Automatic
 schemes:
-  pplzMac:
+  cardxchangeMac:
     build:
       targets:
-        pplzMac: all
-  pplziOS:
+        cardxchangeMac: all
+  cardxchangeiOS:
     build:
       targets:
-        pplziOS: all
+        cardxchangeiOS: all
     test:
-      targets: [pplzUITests]
+      targets: [cardxchangeUITests]

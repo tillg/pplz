@@ -2,28 +2,28 @@
 import PackageDescription
 
 let package = Package(
-    name: "pplz",
+    name: "cardxchange",
     platforms: [.macOS(.v15), .iOS(.v18)],
     products: [
-        .library(name: "PplzCore", targets: ["PplzCore"]),
-        .library(name: "PplzUI", targets: ["PplzUI"]),
-        .executable(name: "pplz", targets: ["pplz"]),
+        .library(name: "CXCore", targets: ["CXCore"]),
+        .library(name: "CXUI", targets: ["CXUI"]),
+        .executable(name: "cx", targets: ["cx"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
     ],
     targets: [
-        .target(name: "PplzCore"),
+        .target(name: "CXCore"),
         .executableTarget(
-            name: "pplz",
+            name: "cx",
             dependencies: [
-                "PplzCore",
+                "CXCore",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
         // SwiftUI views shared by the Mac and the iOS / iPadOS app (Xcode project in App/).
-        .target(name: "PplzUI", dependencies: ["PplzCore"]),
-        .testTarget(name: "PplzCoreTests", dependencies: ["PplzCore"], resources: [.copy("Fixtures")]),
-        .testTarget(name: "PplzUITests", dependencies: ["PplzUI"]),
+        .target(name: "CXUI", dependencies: ["CXCore"]),
+        .testTarget(name: "CXCoreTests", dependencies: ["CXCore"], resources: [.copy("Fixtures")]),
+        .testTarget(name: "CXUITests", dependencies: ["CXUI"]),
     ]
 )
