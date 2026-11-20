@@ -186,8 +186,12 @@ public enum ContactsApp {
                 "set m\(n) to (every \(singular) of p whose id is \(i))",
                 "if (count of m\(n)) is 0 then set m\(n) to (every \(singular) of p whose label is \(l) and \(valueProperty) is \(v))",
                 "if (count of m\(n)) is 0 then return \"missing \" & \(d)",
+                "set i\(n) to id of item 1 of m\(n)",
             ]
         }
+        /// Contacts hands rows out by position, and positions move when an earlier row is deleted:
+        /// so the row is fetched again by its id right before it is changed or deleted.
+        func again(_ n: Int, _ singular: String) -> String { "set m\(n) to (every \(singular) of p whose id is i\(n))" }
         var lookups: [String] = [], edits: [String] = []
         for (index, change) in changes.enumerated() {
             let n = index + 1
@@ -206,6 +210,7 @@ public enum ContactsApp {
             case .updateItem(let kind, let from, let to):
                 let k = scriptKind(kind)
                 lookups += find(n, k.single, id: from.id, label: from.label, value: from.value, description: "\(from.value)")
+                edits.append(again(n, k.single))
                 if kind == .socialProfile {
                     if from.label != to.label { edits.append("set service name of item 1 of m\(n) to \(arg(to.label))") }
                     if from.value.trimmed != to.value {
@@ -220,19 +225,20 @@ public enum ContactsApp {
             case .removeItem(let kind, let item):
                 let k = scriptKind(kind)
                 lookups += find(n, k.single, id: item.id, label: item.label, value: item.value, description: item.value)
-                edits.append("delete item 1 of m\(n)")
+                edits += [again(n, k.single), "delete item 1 of m\(n)"]
             case .addAddress(let address):
                 let label = address.label.isEmpty ? [] : [("label", arg(address.label))]
                 edits.append("make new address at end of addresses of p with properties \(properties(label + [("street", arg(address.street)), ("zip", arg(address.postalCode)), ("city", arg(address.city)), ("country", arg(address.country))]))")
             case .updateAddress(let from, let to):
                 lookups += find(n, "address", id: from.id, label: from.label, valueProperty: "street", value: from.street, description: from.summary)
+                edits.append(again(n, "address"))
                 for (property, old, new) in [("label", from.label, to.label), ("street", from.street, to.street), ("zip", from.postalCode, to.postalCode),
                                              ("city", from.city, to.city), ("country", from.country, to.country)] where old.trimmed != new {
                     edits.append("set \(property) of item 1 of m\(n) to \(arg(new))")
                 }
             case .removeAddress(let address):
                 lookups += find(n, "address", id: address.id, label: address.label, valueProperty: "street", value: address.street, description: address.summary)
-                edits.append("delete item 1 of m\(n)")
+                edits += [again(n, "address"), "delete item 1 of m\(n)"]
             case .birthday(_, let new):
                 if let new {
                     // Contacts takes a full date; the year 1604 is how it stores a birthday without a year

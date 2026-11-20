@@ -242,8 +242,10 @@ extension People {
     func listNear(_ place: String, in entries: [PersonEntry]) async throws {
         let km = try within.map(Distance.parseKm) ?? 50
         let geocodes = GeocodeStore(url: GeocodeStore.defaultURL())
-        let center = try await coordinate(of: place, in: geocodes)
-        let state = try geocodes.load()
+        let store = try common.open()
+        try geocodes.handOverIfDefault(store: common.storeURL, to: store)
+        let center = try await coordinate(of: place, in: geocodes, store)
+        let state = try geocodes.state(with: store)
         let hits = LocatedPeople.near(center, within: km, entries: entries, in: state)
         let outstanding = LocatedPeople.outstanding(in: entries, state: state).count
         if outstanding > 0 {
@@ -260,19 +262,21 @@ extension People {
         }
     }
 
-    /// The place's coordinate from the cache, or from the geocoder (which counts against the hourly budget).
-    private func coordinate(of place: String, in geocodes: GeocodeStore) async throws -> Coordinate {
+    /// The place's coordinate from the store, or from the geocoder (which counts against the hourly budget).
+    private func coordinate(of place: String, in geocodes: GeocodeStore, _ store: PplzStore) async throws -> Coordinate {
         let address = PostalAddress(city: place)
-        if try !geocodes.load().isKnown(address.key) {
-            switch try await AddressLocator.locate([address], in: geocodes) {
-            case .done: break
-            case .paused(let until):
+        if try !geocodes.state(with: store).isKnown(address.key) {
+            switch try await AddressLocator.lookUp(address, budget: geocodes) {
+            case .located(let coordinate):
+                try store.recordLocations([address.key: .init(coordinate: coordinate, checkedAt: Date())])
+            case .stopped(.paused(let until)):
                 throw Failure("Cannot look up \"\(place)\" now: this hour's budget for Apple's geocoder is spent. Try again after \(format(until)).")
-            case .unreachable(let until):
+            case .stopped(.unreachable(let until)):
                 throw Failure("Cannot look up \"\(place)\" now: Apple's geocoder cannot be reached (are you offline?). Try again after \(format(until)).")
+            case .stopped(.done): break
             }
         }
-        guard let center = try geocodes.load().coordinate(for: address.key) else { throw Failure("Apple's geocoder does not know a place called \"\(place)\".") }
+        guard let center = try store.locations()[address.key]?.coordinate else { throw Failure("Apple's geocoder does not know a place called \"\(place)\".") }
         return center
     }
 }
@@ -284,7 +288,8 @@ struct Locate: AsyncParsableCommand {
         abstract: "Locate the addresses of your contacts with Apple's geocoder, for `people --near` and the map.",
         discussion: """
             Sends at most \(GeocodeBudget.hourlyLimit) addresses per clock hour, one per second. When the hour's budget is spent it says \
-            when it can continue, in local time, and stops; run it again then. Results are kept on this Mac, whichever store is used. \
+            when it can continue, in local time, and stops; run it again then. It takes the cards in random order, and the results are \
+            part of the pplz data that syncs through iCloud, so that several devices share the work. \
             The street, postal code, city and country of an address are sent to Apple.
             """)
     @Flag(help: "Only show how many addresses are located and what is left of this hour's budget.") var status = false
@@ -302,24 +307,42 @@ struct Locate: AsyncParsableCommand {
 
     func run() async throws {
         try await attemptAsync {
-            let entries = try common.directory(try common.open())
+            let store = try common.open()
+            let entries = try common.directory(store)
             let geocodes = GeocodeStore(url: GeocodeStore.defaultURL())
+            try geocodes.handOverIfDefault(store: common.storeURL, to: store)
             if status {
-                try showStatus(entries, geocodes)
+                try showStatus(entries, geocodes, store)
                 return
             }
-            let todo = LocatedPeople.outstanding(in: entries, state: try geocodes.load())
-            guard !todo.isEmpty else {
+            let total = LocatedPeople.outstanding(in: entries, state: try geocodes.state(with: store)).count
+            guard total > 0 else {
                 common.report(["Nothing to locate."])
-                try showStatus(entries, geocodes)
+                try showStatus(entries, geocodes, store)
                 return
             }
             // progress goes to stderr, so that --json keeps stdout clean
-            common.report(["Locating \(todo.count) addresses …"])
-            let outcome = try await AddressLocator.locate(todo, in: geocodes) { done in
-                FileHandle.standardError.write(Data("Located \(done) of \(todo.count)\n".utf8))
+            common.report(["Locating \(total) addresses …"])
+            var outcome = AddressLocator.Outcome.done, done = 0
+            var generator = SystemRandomNumberGenerator()
+            run: while true {
+                // read again for every card: another device may have located some in the meantime
+                let card = LocatedPeople.nextCard(in: entries, state: try geocodes.state(with: store), using: &generator)
+                if card.isEmpty { break }
+                for address in card {
+                    switch try await AddressLocator.lookUp(address, budget: geocodes) {
+                    case .located(let coordinate):
+                        try store.recordLocations([address.key: .init(coordinate: coordinate, checkedAt: Date())])
+                    case .stopped(let reason):
+                        outcome = reason
+                        break run
+                    }
+                    done += 1
+                    FileHandle.standardError.write(Data("Located \(done) of \(total)\n".utf8))
+                    try await Task.sleep(for: AddressLocator.spacing)
+                }
             }
-            try showStatus(entries, geocodes)
+            try showStatus(entries, geocodes, store)
             switch outcome {
             case .done: break
             case .paused(let until):
@@ -330,8 +353,8 @@ struct Locate: AsyncParsableCommand {
         }
     }
 
-    private func showStatus(_ entries: [PersonEntry], _ geocodes: GeocodeStore) throws {
-        let state = try geocodes.load()
+    private func showStatus(_ entries: [PersonEntry], _ geocodes: GeocodeStore, _ store: PplzStore) throws {
+        let state = try geocodes.state(with: store)
         let counts = LocatedPeople.counts(in: entries, state: state)
         var continuesAt: Date?
         if case .wait(let until) = state.budget() { continuesAt = until }
@@ -341,7 +364,7 @@ struct Locate: AsyncParsableCommand {
         try common.emit(status) {
             var lines = ["\(counts.located) of \(counts.total) addresses located, \(counts.notFound) not found, \(counts.outstanding) outstanding."]
             lines.append("This hour: \(status.sentThisHour) of \(GeocodeBudget.hourlyLimit) requests sent."
-                         + (continuesAt.map { " Spent; continues at \(format($0))." } ?? ""))
+                         + (continuesAt.map { " Spent; pausing until \(format($0))." } ?? ""))
             return lines.joined(separator: "\n")
         }
     }

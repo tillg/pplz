@@ -40,6 +40,9 @@ public struct PeopleView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     #endif
 
+    /// The person whose card is being edited in place.
+    @State private var editedEntry: PersonEntry?
+
     public enum Sheet: String, Identifiable, Sendable {
         case log, quickLog, edit, editEvent, connect, editContact, newContact
         public var id: String { rawValue }
@@ -106,6 +109,7 @@ public struct PeopleView: View {
                 }
             }
             .navigationSplitViewColumnWidth(min: 230, ideal: 290)
+            .disabled(isEditing)     // an edit ends with Cancel or Done, not by wandering off
         } detail: {
             switch model.mode {
             case .people: personDetail
@@ -174,10 +178,8 @@ public struct PeopleView: View {
                 LogEventSheet(people: model.entries, preselected: [], format: model.suggestedFormat, knownTags: model.knownTags) { input, keys, new in
                     Task { await model.logEvent(input, with: keys, newPeople: new) }
                 }
-            case .edit:
-                EditPersonSheet(personName: model.card?.entry.name ?? "", knownTags: model.knownTags, edit: model.personEdit) { edit in
-                    Task { await model.save(edit) }
-                }
+            case .edit, .editContact:
+                EmptyView()      // edited in place of the card, see `personDetail`
             case .editEvent:
                 if let edit = model.eventEdit {
                     EditEventSheet(people: model.entries, participants: model.selectedEventPeople, addsPeople: addsPeople, knownTags: model.knownTags, edit: edit) { edit, keys, new in
@@ -188,10 +190,11 @@ public struct PeopleView: View {
                 ConnectSheet(personName: model.card?.title ?? "", candidates: model.connectionCandidates) { role, other in
                     Task { await model.connect(role: role, to: other) }
                 }
-            case .editContact:
-                ContactEditSheet(model: model, isEditing: true)
             case .newContact:
-                ContactEditSheet(model: model, isEditing: false)
+                NavigationStack { PersonEditor(model: model, entry: nil) { self.sheet = nil } }
+                    #if os(macOS)
+                    .frame(width: 520, height: 600)
+                    #endif
             }
         }
         .sheet(item: Binding(get: { model.faceChoice }, set: { if $0 == nil { Task { await model.chooseFace(nil) } } })) { choice in
@@ -269,8 +272,8 @@ extension PeopleView {
     /// A sheet only opens once the thing it edits is loaded.
     private var sheetIfPossible: Sheet? {
         switch sheet {
-        case .log, .edit, .connect: model.card == nil ? nil : sheet
-        case .editContact: model.card?.contact == nil ? nil : sheet
+        case .log, .connect: model.card == nil ? nil : sheet
+        case .edit, .editContact: nil      // not a sheet: shown in place of the card
         case .newContact: model.usesContacts ? sheet : nil
         case .editEvent: model.selectedEvent == nil ? nil : sheet
         case .quickLog: model.entries.isEmpty ? nil : sheet
@@ -344,10 +347,24 @@ extension PeopleView {
         }
     }
 
+    /// The pencil was pressed (or the app was started with `-show edit`): the editor takes the card's place.
+    private var isEditing: Bool { sheet == .edit || sheet == .editContact }
+
     @ViewBuilder private var personDetail: some View {
-        if let card = model.card {
+        if isEditing {
+            // the person is kept from the moment the editor opens: a reload of the card must not restart the editor
+            if let entry = editedEntry {
+                PersonEditor(model: model, entry: entry) {
+                    sheet = nil
+                    editedEntry = nil
+                }
+            } else {
+                ProgressView().task(id: model.card?.entry) { editedEntry = model.card?.entry }
+            }
+        } else if let card = model.card {
             PersonCardView(card: card,
                            onConnect: { sheet = .connect },
+                           onLogEvent: { sheet = .log },
                            onDisconnect: { id in Task { await model.disconnect(from: id) } },
                            onShowPerson: { id in Task { await model.showPerson(id) } },
                            onAddToContacts: card.entry.isPplzOnly && model.usesContacts ? { addToContacts() } : nil,
@@ -358,16 +375,9 @@ extension PeopleView {
                 .toolbar {
                     Button("Log Event", systemImage: "calendar.badge.plus") { sheet = .log }
                         .help("Log a meeting or call with \(card.entry.name)")
-                    if card.contact != nil {
-                        Menu("Edit", systemImage: "pencil") {
-                            Button("Edit Contact…") { sheet = .editContact }
-                            Button("Edit pplz Details…") { sheet = .edit }
-                        }
-                        .help("Edit the contact's fields, or what pplz keeps about \(card.entry.name)")
-                    } else {
-                        Button("Edit", systemImage: "pencil") { sheet = .edit }
-                            .help("Edit tags, notes, how you met and the keep-in-touch rhythm")
-                    }
+                    Button("Edit", systemImage: "pencil") { sheet = .edit }
+                        .help(card.contact != nil ? "Edit the contact card and what pplz keeps about \(card.entry.name)"
+                                                  : "Edit tags, notes, how you met and the keep-in-touch rhythm")
                     #if os(macOS)
                     if !card.entry.isPplzOnly {
                         Button("Open in Contacts", systemImage: "person.crop.square") { model.openInContacts() }

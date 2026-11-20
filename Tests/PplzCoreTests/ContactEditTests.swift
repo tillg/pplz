@@ -238,3 +238,54 @@ import Testing
 private extension ContactEdit.Item {
     func with(value: String) -> Self { var copy = self; copy.value = value; return copy }
 }
+
+@Suite struct BirthdayTextTests {
+    let german = Locale(identifier: "de_DE"), british = Locale(identifier: "en_GB"), american = Locale(identifier: "en_US")
+
+    @Test func aBirthdayIsWrittenOutAndReadBackTheSame() {
+        for locale in [german, british, american] {
+            for birthday in [ContactEdit.Birthday(day: 2, month: 9, year: 1963), ContactEdit.Birthday(day: 2, month: 9),
+                             ContactEdit.Birthday(day: 29, month: 2), ContactEdit.Birthday(day: 29, month: 2, year: 1980)] {
+                #expect(ContactEdit.Birthday.parse(birthday.text(locale: locale), locale: locale) == birthday)
+            }
+        }
+        #expect(ContactEdit.Birthday(day: 2, month: 9, year: 1963).text(locale: german) == "2. September 1963")
+        #expect(ContactEdit.Birthday(day: 2, month: 9).text(locale: german) == "2. September")
+    }
+
+    @Test func readsTheUsualWaysOfTypingADate() {
+        let full = ContactEdit.Birthday(day: 2, month: 9, year: 1963), short = ContactEdit.Birthday(day: 2, month: 9)
+        #expect(ContactEdit.Birthday.parse("2. September 1963", locale: german) == full)
+        #expect(ContactEdit.Birthday.parse("2.9.1963", locale: german) == full)
+        #expect(ContactEdit.Birthday.parse("02.09.1963", locale: german) == full)
+        #expect(ContactEdit.Birthday.parse("1963-09-02", locale: german) == full)
+        #expect(ContactEdit.Birthday.parse("2.9.", locale: german) == short)
+        #expect(ContactEdit.Birthday.parse("2 Sep", locale: british) == short)
+        #expect(ContactEdit.Birthday.parse("2 sept 1963", locale: german) == full)       // English names are read everywhere
+        #expect(ContactEdit.Birthday.parse("September 2, 1963", locale: american) == full)
+        #expect(ContactEdit.Birthday.parse("9/2/1963", locale: american) == full)         // numbers alone follow the region's order
+        #expect(ContactEdit.Birthday.parse("2/9/1963", locale: british) == full)
+        #expect(ContactEdit.Birthday.parse("29.2.", locale: german) == ContactEdit.Birthday(day: 29, month: 2))
+    }
+
+    @Test func refusesWhatIsNotADate() {
+        for text in ["", "soon", "31.2.", "29.2.1981", "2.13.1963", "2.9.63", "2", "2.9.1963.4", "0.9."] {
+            #expect(ContactEdit.Birthday.parse(text, locale: german) == nil, "\(text)")
+        }
+    }
+}
+
+@Suite struct EmptyRowTests {
+    /// The edit screen always keeps one empty row of each kind ready to type in; it must never count as a change.
+    @Test func emptyRowsWaitingForInputAreNoChange() {
+        let loaded = ContactEdit(givenName: "Anna", phones: [.init(id: "p1", label: "mobile", value: "+49 30 1234567")],
+                                 addresses: [.init(id: "a1", label: "home", street: "Beispielweg 1", city: "Köln")])
+        var shown = loaded
+        shown.phones.append(.init(label: "home"))
+        shown.emails.append(.init(label: "work"))
+        shown.urls.append(.init(label: "homepage"))
+        shown.socialProfiles.append(.init(label: "LinkedIn"))
+        shown.addresses.append(.init(label: "work"))
+        #expect(ContactEdit.changes(from: loaded, to: shown).isEmpty)
+    }
+}

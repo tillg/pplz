@@ -9,8 +9,14 @@ struct TagField: View {
     @Binding var text: String
     @Binding var pending: String
     let known: [String]
+    /// False where the surrounding row already says "tags".
+    var showsTitle = true
 
-    var body: some View {
+    @ViewBuilder var body: some View {
+        if showsTitle { titled } else { content }
+    }
+
+    @ViewBuilder private var titled: some View {
         #if os(macOS)
         LabeledContent(title) { content }
         #else

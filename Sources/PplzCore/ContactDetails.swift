@@ -28,6 +28,8 @@ public struct ContactDetails: Codable, Equatable, Sendable {
     public var birthday: String?
     /// The contact's picture. Shown in the app; left out of JSON output.
     public var imageData: Data? = nil
+    /// The related names on the contact card ("spouse — Eva Example"). Shown in the app; left out of JSON output.
+    public var relatedNames: [LabeledValue] = []
 
     private enum CodingKeys: String, CodingKey {
         case identifier, givenName, familyName, nickname, organization, jobTitle, phones, emails, addresses, urls, socialProfiles, birthday
@@ -36,7 +38,9 @@ public struct ContactDetails: Codable, Equatable, Sendable {
     public init(identifier: String, givenName: String = "", familyName: String = "", nickname: String = "",
                 organization: String = "", jobTitle: String = "",
                 phones: [LabeledValue] = [], emails: [LabeledValue] = [], addresses: [LabeledValue] = [], urls: [LabeledValue] = [],
-                socialProfiles: [LabeledValue] = [], birthday: String? = nil, imageData: Data? = nil) {
+                socialProfiles: [LabeledValue] = [], birthday: String? = nil, imageData: Data? = nil,
+                relatedNames: [LabeledValue] = []) {
+        self.relatedNames = relatedNames
         self.nickname = nickname
         self.imageData = imageData
         self.identifier = identifier
@@ -166,6 +170,16 @@ extension ContactDetails {
 }
 
 extension PersonCard {
+    /// The related names on the contact card that no pplz connection stands for: pplz writes a row for each of its
+    /// connections into the contact, and those are shown as connections already.
+    public var relatedNamesOnlyInContacts: [LabeledValue] {
+        let connected = Set(connections.map { $0.other.name.trimmed.lowercased() })
+        return (contact?.relatedNames ?? []).compactMap {
+            let name = $0.value.trimmed
+            return name.isEmpty || connected.contains(name.lowercased()) ? nil : LabeledValue(label: $0.label, value: name)
+        }
+    }
+
     /// The big line on the card: the nickname if the contact has one, as in Contacts.
     public var title: String {
         let nickname = contact?.nickname.trimmed ?? ""

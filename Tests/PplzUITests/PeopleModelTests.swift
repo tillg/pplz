@@ -680,6 +680,39 @@ import Testing
         #expect(await model.saveContactEdit(edit, original: original) == "This form was not loaded from a contact.")
     }
 
+    /// The pplz fields go to the person the edit screen was opened for, also when another one is selected by now.
+    @Test func pplzFieldsAreSavedForThePersonTheScreenWasOpenedFor() async throws {
+        let (model, store) = try PeopleModelTests().makeModel(select: "Anna Example")
+        let anna = try store.createPerson(name: "Anna Example")
+        let ben = try store.createPerson(name: "Ben Example")
+        await model.reload()
+        let entry = try #require(model.card?.entry)
+        #expect(entry.id == anna)
+
+        await model.showPerson(ben)
+        #expect(model.card?.entry.id == ben)
+        let reason = await model.saveEdit(for: entry, contact: nil, originalContact: nil,
+                                          person: .init(notes: "Likes sailing", tags: "client"), originalPerson: .init())
+        #expect(reason == nil)
+        #expect(try store.person(anna).notes == "Likes sailing")
+        #expect(try store.person(ben).notes == "")
+    }
+
+    /// The contact is written first: if it is refused, the pplz fields are not written either.
+    @Test func nothingIsSavedWhenTheContactIsRefused() async throws {
+        let (model, store) = try PeopleModelTests().makeModel(select: "Anna Example")
+        let anna = try store.createPerson(name: "Anna Example")
+        await model.reload()
+        let entry = try #require(model.card?.entry)
+        let original = ContactEdit(givenName: "Anna", contactIdentifier: "C-1")
+        var edit = original
+        edit.nickname = "Anni"
+        let reason = await model.saveEdit(for: entry, contact: edit, originalContact: original,
+                                          person: .init(notes: "Likes sailing"), originalPerson: .init())
+        #expect(reason == "pplz is not using Contacts.")
+        #expect(try store.person(anna).notes == "")
+    }
+
     @Test func aContactNeedsANameOrACompany() async throws {
         let (model, _) = try PeopleModelTests().makeModel()
         await model.reload()

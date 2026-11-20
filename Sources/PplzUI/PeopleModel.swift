@@ -18,8 +18,11 @@ public final class PeopleModel {
         public var initialSelection: String?
         /// Whether the store syncs through the user's private iCloud.
         public var syncsWithICloud = false
-        /// Where the geocoded addresses are kept: per device, whichever store is open.
+        /// Where the device counts its geocoder requests, whichever store is open.
         public var geocodeURL = GeocodeStore.defaultURL()
+        /// Whether addresses are located in the background. Like iCloud sync, only for the app's own default
+        /// store: a store given with `-store` (demo data, tests) must not send the whole address book again.
+        public var locatesAddresses = false
 
         /// Launch options, given the Apple way as `-key value` pairs:
         /// `-store <path>`, `-noContacts YES`, `-select <name or id>`, `-noSync YES`, `-forceSync YES`.
@@ -33,6 +36,7 @@ public final class PeopleModel {
                       initialSelection: defaults.string(forKey: "select"))
             syncsWithICloud = defaults.bool(forKey: "forceSync")
                 || (defaults.string(forKey: "store") == nil && !defaults.bool(forKey: "noSync"))
+            locatesAddresses = defaults.string(forKey: "store") == nil
         }
 
         public init(storeURL: URL = PplzStore.defaultURL(), usesContacts: Bool = true, initialSelection: String? = nil) {
@@ -82,7 +86,7 @@ public final class PeopleModel {
     /// One pin per located address of the people the search finds — the list's filter.
     public var mapPins: [LocatedPin] { LocatedPeople.pins(for: PeopleSections.matching(entries, search: search), in: geocodes) }
 
-    /// "1 234 of 2 000 addresses located · continues at 14:10"; `nil` if nobody has an address.
+    /// "1 234 of 2 000 addresses located · pausing until 14:10"; `nil` if nobody has an address.
     public var locateStatus: String? {
         let counts = LocatedPeople.counts(in: entries, state: geocodes)
         var resumesAt: Date?
@@ -96,28 +100,55 @@ public final class PeopleModel {
         selection = key
     }
 
+    /// The device's budget from its file, the answers from the store plus those not saved yet.
     private func refreshGeocodes() {
-        if let state = try? GeocodeStore(url: configuration.geocodeURL).load() { geocodes = state }
+        guard let store, var state = try? GeocodeStore(url: configuration.geocodeURL).state(with: store) else { return }
+        state.entries.merge(unsavedLocations) { _, new in new }
+        geocodes = state
     }
 
-    /// Geocodes the addresses that are still open, in the background, for as long as the app runs: after
-    /// a pause it carries on by itself, and new pins appear as they are located. People appear only with
-    /// contacts on, so with `-noContacts` nothing is ever sent.
+    /// Answers are saved in batches: every save is sent to iCloud and makes the other devices reload.
+    private var unsavedLocations: [String: GeocodeState.Entry] = [:]
+    private static let locationsPerSave = 25
+
+    private func saveLocations() {
+        guard let store, !unsavedLocations.isEmpty, (try? store.recordLocations(unsavedLocations)) != nil else { return }
+        unsavedLocations = [:]
+    }
+
+    /// Geocodes the addresses that are still open, in the background, for as long as the app runs: one card
+    /// after the other in random order (so that several devices share the work), carrying on by itself after
+    /// a pause; new pins appear as they are located. The answers go into the synced store. People appear only
+    /// with contacts on, so with `-noContacts` nothing is ever sent.
     private func startLocating() {
+        let budget = GeocodeStore(url: configuration.geocodeURL)
+        if let store { _ = try? budget.handOverIfDefault(store: configuration.storeURL, to: store) }
         refreshGeocodes()
-        guard locating == nil, !LocatedPeople.outstanding(in: entries, state: geocodes).isEmpty else { return }
-        let store = GeocodeStore(url: configuration.geocodeURL)
+        guard configuration.locatesAddresses, locating == nil, !LocatedPeople.outstanding(in: entries, state: geocodes).isEmpty else { return }
         locating = Task { [weak self] in
-            while !Task.isCancelled, let self {
-                let todo = LocatedPeople.outstanding(in: self.entries, state: self.geocodes)
-                if todo.isEmpty { break }
-                let outcome = try? await AddressLocator.locate(todo, in: store) { _ in
-                    Task { @MainActor in self.refreshGeocodes() }
+            var generator = SystemRandomNumberGenerator()
+            run: while !Task.isCancelled, let self {
+                self.refreshGeocodes()       // also what other devices located in the meantime
+                let card = LocatedPeople.nextCard(in: self.entries, state: self.geocodes, using: &generator)
+                if card.isEmpty { break }
+                for address in card {
+                    guard let answer = try? await AddressLocator.lookUp(address, budget: budget) else { break run }
+                    switch answer {
+                    case .located(let coordinate):
+                        self.unsavedLocations[address.key] = .init(coordinate: coordinate, checkedAt: Date())
+                        if self.unsavedLocations.count >= Self.locationsPerSave { self.saveLocations() }
+                        self.refreshGeocodes()
+                        try? await Task.sleep(for: AddressLocator.spacing)
+                    case .stopped(let outcome):
+                        self.saveLocations()
+                        self.refreshGeocodes()
+                        guard let until = outcome.resumesAt else { break run }
+                        try? await Task.sleep(for: .seconds(max(1, until.timeIntervalSinceNow)))
+                        continue run
+                    }
                 }
-                self.refreshGeocodes()
-                guard let until = outcome?.resumesAt else { break }
-                try? await Task.sleep(for: .seconds(max(1, until.timeIntervalSinceNow)))
             }
+            self?.saveLocations()
             self?.locating = nil
         }
     }
@@ -284,7 +315,29 @@ public final class PeopleModel {
 
     /// Saves the edited pplz fields of the selected person.
     public func save(_ edit: PersonEdit) async {
-        guard let store, let entry = card?.entry else { return }
+        guard let entry = card?.entry else { return }
+        await save(edit, for: entry)
+    }
+
+    /// Saves what the edit screen holds for the person it was opened for (`entry`), whoever is selected by now:
+    /// the contact's fields first, as that save can be refused, then pplz's own fields; each only if it was changed.
+    /// Returns the reason if something was not saved, `nil` on success.
+    public func saveEdit(for entry: PersonEntry, contact: ContactEdit?, originalContact: ContactEdit?,
+                         person: PersonEdit, originalPerson: PersonEdit) async -> String? {
+        var contactWasWritten = false
+        if let contact, let originalContact {
+            if let reason = await saveContactEdit(contact, original: originalContact) { return reason }
+            contactWasWritten = !ContactEdit.changes(from: originalContact, to: contact).isEmpty
+        }
+        guard person != originalPerson else { return nil }
+        errorMessage = nil
+        await save(person, for: entry)
+        guard let message = errorMessage else { return nil }
+        return contactWasWritten ? "The contact card was saved, but what pplz keeps was not: \(message)" : message
+    }
+
+    private func save(_ edit: PersonEdit, for entry: PersonEntry) async {
+        guard let store else { return }
         do {
             let id: UUID
             if let existing = entry.id {
@@ -779,6 +832,17 @@ public final class PeopleModel {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
             return nil
         }
+    }
+
+    /// The selected person's contact note, to show it; `nil` where pplz cannot read it
+    /// (iPhone and iPad without Apple's notes entitlement, or the Contacts app did not answer).
+    public func loadContactNote() async -> String? {
+        #if os(macOS)
+        guard configuration.usesContacts, let identifier = card?.entry.contactIdentifier else { return nil }
+        return await Task.detached { try? ContactsApp.readNote(identifier: identifier) }.value
+        #else
+        return nil
+        #endif
     }
 
     /// Writes what the user changed in the selected person's contact (`original` is what the form loaded)

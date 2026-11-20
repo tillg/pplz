@@ -6,6 +6,7 @@ struct PersonCardView: View {
     let card: PersonCard
     @Environment(\.openURL) private var openURL
     var onConnect: () -> Void = {}
+    var onLogEvent: () -> Void = {}
     var onDisconnect: (UUID) -> Void = { _ in }
     var onShowPerson: (UUID) -> Void = { _ in }
     /// Set for a person who exists only in pplz and can get a card in Contacts.
@@ -178,7 +179,21 @@ struct PersonCardView: View {
                     }
                     .padding(.vertical, 8)
                 }
-                if !card.connections.isEmpty { Divider() }
+                // related names that are on the contact card only: pplz has no connection for them
+                ForEach(Array(card.relatedNamesOnlyInContacts.enumerated()), id: \.offset) { index, related in
+                    if index > 0 || !card.connections.isEmpty { Divider() }
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(related.label).font(.caption).foregroundStyle(.secondary)
+                            Text(related.value)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Text("in Contacts").font(.caption).foregroundStyle(.tertiary)
+                    }
+                    .padding(.vertical, 8)
+                    .accessibilityElement(children: .combine)
+                }
+                if !card.connections.isEmpty || !card.relatedNamesOnlyInContacts.isEmpty { Divider() }
                 Button(action: onConnect) {
                     Label("Add connection", systemImage: "person.badge.plus").frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
@@ -193,6 +208,15 @@ struct PersonCardView: View {
     private var history: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionTitle("History")
+            FieldGroup {
+                Button(action: onLogEvent) {
+                    Label("Add event", systemImage: "calendar.badge.plus").frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.pink)
+                .padding(.vertical, 9)
+            }
             if card.history.isEmpty {
                 Text("No events yet").foregroundStyle(.secondary).padding(.vertical, 4)
             } else {

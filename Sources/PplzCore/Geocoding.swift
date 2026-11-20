@@ -144,13 +144,19 @@ public enum GeocodeErrorPolicy {
     }
 }
 
-/// What has been geocoded so far, and how much of this hour's budget is used. One file per device,
-/// shared by the app and the command line.
+/// What has been geocoded so far, and how much of this hour's budget is used. The budget is counted per device,
+/// in a file shared by the app and the command line (`GeocodeStore`); the answers (`entries`) are part of the
+/// synced pplz data (`PplzStore.locations()`), so that several devices share the work.
 public struct GeocodeState: Codable, Equatable, Sendable {
     public struct Entry: Codable, Equatable, Sendable {
         /// `nil` = the service does not know the address.
         public var coordinate: Coordinate?
         public var checkedAt: Date
+
+        public init(coordinate: Coordinate?, checkedAt: Date) {
+            self.coordinate = coordinate
+            self.checkedAt = checkedAt
+        }
     }
 
     /// Addresses not found are asked again after this long.
@@ -186,15 +192,16 @@ public struct GeocodeState: Codable, Equatable, Sendable {
     }
 }
 
-/// The geocode cache file. Every change is read, changed and written back under a lock on a second
-/// file, so the app and the command line can work at the same time without losing each other's entries.
+/// The device's count of geocoder requests, in a file. Every change is read, changed and written back under a lock
+/// on a second file, so the app and the command line can work at the same time without losing each other's counts.
+/// Until 2026-11-20 the file also held the answers; those are handed over to the synced store (`handOver`).
 public final class GeocodeStore: Sendable {
     public let url: URL
 
     public init(url: URL) { self.url = url }
 
     /// `geocache.json` next to the default store. Deliberately not tied to `PPLZ_STORE` or `--store`:
-    /// the cache belongs to this device, whichever store is open.
+    /// the hour's budget belongs to this device, whichever store is open.
     public static func defaultURL() -> URL {
         URL.applicationSupportDirectory.appendingPathComponent("pplz/geocache.json")
     }
@@ -218,12 +225,42 @@ public final class GeocodeStore: Sendable {
         }
     }
 
-    /// Notes the answer for an address; `nil` = not found.
-    public func record(_ key: String, _ coordinate: Coordinate?, now: Date = Date()) throws {
-        try update {
-            $0.entries[key] = .init(coordinate: coordinate, checkedAt: now)
-            $0.networkFailures = 0
-        }
+    /// The service answered (found or not): the row of network errors is over.
+    public func noteAnswer() throws {
+        try update { $0.networkFailures = 0 }
+    }
+
+    /// The budget from this file with the answers from the synced store.
+    public func state(with store: PplzStore) throws -> GeocodeState {
+        var state = try load()
+        state.entries = try store.locations()
+        return state
+    }
+
+    /// Moves the answers this file still holds into the store (first the store, then the file) and returns how
+    /// many were new there. An address the store already knows keeps its answer.
+    @discardableResult
+    public func handOver(to store: PplzStore) throws -> Int {
+        let old = try load().entries
+        guard !old.isEmpty else { return 0 }
+        let known = try store.locations()
+        let new = old.filter { known[$0.key] == nil }
+        try store.recordLocations(new)
+        try update { $0.entries = [:] }
+        return new.count
+    }
+
+    /// Whether these are the device's own store and its own cache file (not ones named for a test or a demo).
+    public static func isDefaultPair(store: URL, cache: URL) -> Bool {
+        store.standardizedFileURL == PplzStore.defaultURL(environment: [:]).standardizedFileURL
+            && cache.standardizedFileURL == defaultURL().standardizedFileURL
+    }
+
+    /// `handOver`, but only from the device's own cache into the device's own store: a store opened for a test
+    /// must not take the device's answers away.
+    @discardableResult
+    public func handOverIfDefault(store storeURL: URL, to store: PplzStore) throws -> Int {
+        Self.isDefaultPair(store: storeURL, cache: url) ? try handOver(to: store) : 0
     }
 
     /// Counts a network error; returns how many came in a row, this one included.
@@ -332,6 +369,14 @@ public enum LocatedPeople {
         return entries.flatMap(\.addresses).filter { !$0.query.isEmpty && !state.isKnown($0.key, now: now) && seen.insert($0.key).inserted }
     }
 
+    /// The open addresses of one card, picked at random among the cards that have any — so that devices working
+    /// at the same time rarely take the same one. Empty when nothing is left.
+    public static func nextCard(in entries: [PersonEntry], state: GeocodeState, now: Date = Date(),
+                                using generator: inout some RandomNumberGenerator) -> [PostalAddress] {
+        let open = entries.map { outstanding(in: [$0], state: state, now: now) }.filter { !$0.isEmpty }
+        return open.randomElement(using: &generator) ?? []
+    }
+
     public struct Counts: Equatable, Sendable {
         public var located: Int
         public var notFound: Int
@@ -355,7 +400,7 @@ public enum LocatedPeople {
         return counts
     }
 
-    /// "1 234 of 2 000 addresses located · 12 not found · continues at 14:10"; `nil` without addresses.
+    /// "1 234 of 2 000 addresses located · 12 not found · pausing until 14:10"; `nil` without addresses.
     public static func statusLine(_ counts: Counts, resumesAt: Date?) -> String? {
         guard counts.total > 0 else { return nil }
         let numbers = NumberFormatter()
@@ -368,7 +413,7 @@ public enum LocatedPeople {
             let time = DateFormatter()
             time.locale = Locale(identifier: "en_US_POSIX")
             time.dateFormat = "HH:mm"
-            parts.append("continues at \(time.string(from: resumesAt))")
+            parts.append("pausing until \(time.string(from: resumesAt))")
         }
         return parts.joined(separator: " · ")
     }

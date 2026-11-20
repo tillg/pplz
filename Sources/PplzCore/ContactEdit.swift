@@ -166,6 +166,81 @@ public enum ContactChange: Equatable, Sendable {
     case birthday(from: ContactEdit.Birthday?, to: ContactEdit.Birthday?)
 }
 
+extension ContactEdit.Birthday {
+    /// Written out the way the region does it: "2. September 1963", or "2. September" without a year.
+    public func text(locale: Locale) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .gmt
+        // 2000 is a leap year, so 29 February without a year can be written too
+        guard let date = calendar.date(from: DateComponents(year: year ?? 2000, month: month, day: day)) else { return "" }
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = .gmt
+        formatter.locale = locale
+        formatter.setLocalizedDateFormatFromTemplate(year == nil ? "dMMMM" : "dMMMMy")
+        return formatter.string(from: date)
+    }
+
+    /// Reads a typed date, with or without a year: "2. September 1963", "2 Sep", "2.9.", "1963-09-02".
+    /// Month names are read in the region's language and in English; numbers alone follow the region's order
+    /// (day first in Germany, month first in the US). A year has four digits. `nil` for anything that is not a date.
+    public static func parse(_ text: String, locale: Locale) -> ContactEdit.Birthday? {
+        let tokens = text.split { !$0.isLetter && !$0.isNumber }.map(String.init)
+        var numbers: [Int] = [], year: Int?, namedMonth: Int?, startsWithYear = false
+        for (index, token) in tokens.enumerated() {
+            if let number = Int(token) {
+                if token.count == 4 {
+                    guard year == nil else { return nil }
+                    year = number
+                    startsWithYear = index == 0
+                } else if token.count <= 2 {
+                    numbers.append(number)
+                } else {
+                    return nil
+                }
+            } else if let month = month(named: token, locale: locale), namedMonth == nil {
+                namedMonth = month
+            } else {
+                return nil
+            }
+        }
+        let day: Int, month: Int
+        if let namedMonth, numbers.count == 1 {
+            (day, month) = (numbers[0], namedMonth)
+        } else if namedMonth == nil, numbers.count == 2 {
+            let monthFirst = startsWithYear || monthComesFirst(in: locale)
+            (day, month) = monthFirst ? (numbers[1], numbers[0]) : (numbers[0], numbers[1])
+        } else {
+            return nil
+        }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .gmt
+        let components = DateComponents(year: year ?? 2000, month: month, day: day)
+        guard (1...12).contains(month), day >= 1, components.isValidDate(in: calendar) else { return nil }
+        return ContactEdit.Birthday(day: day, month: month, year: year)
+    }
+
+    private static func month(named token: String, locale: Locale) -> Int? {
+        let word = token.lowercased()
+        for identifier in [locale.identifier, "en_GB"] {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: identifier)
+            let names = (formatter.monthSymbols ?? []).map { $0.lowercased() }
+            if let index = names.firstIndex(of: word) { return index + 1 }
+            // a shortened name, from three letters on: "Sep", "Sept", "Okt"
+            let matches = names.indices.filter { word.count >= 3 && names[$0].hasPrefix(word) }
+            if matches.count == 1 { return matches[0] + 1 }
+        }
+        return nil
+    }
+
+    private static func monthComesFirst(in locale: Locale) -> Bool {
+        let format = DateFormatter.dateFormat(fromTemplate: "Md", options: 0, locale: locale) ?? "dM"
+        guard let month = format.firstIndex(of: "M"), let day = format.firstIndex(of: "d") else { return false }
+        return month < day
+    }
+}
+
 extension ContactEdit {
     /// What the user changed: the differences between the form as loaded and as saved, nothing for what is the same.
     /// Whitespace around values does not count; a row whose value was emptied is removed, an empty new row is ignored;

@@ -15,7 +15,7 @@ public final class PplzStore {
     public init(url: URL, syncingWith container: String? = nil) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let config = ModelConfiguration(url: url, cloudKitDatabase: container.map { .private($0) } ?? .none)
-        let container = try ModelContainer(for: Person.self, Event.self, Tag.self, FollowUp.self, Connection.self, Setting.self, PersonPhoto.self, configurations: config)
+        let container = try ModelContainer(for: Person.self, Event.self, Tag.self, FollowUp.self, Connection.self, Setting.self, PersonPhoto.self, LocatedAddress.self, configurations: config)
         context = ModelContext(container)
         context.autosaveEnabled = false
     }
@@ -280,6 +280,39 @@ public final class PplzStore {
                 context.insert(photo)
                 photo.person = person
                 return photo.uuid
+            }
+        }
+    }
+
+    // MARK: Located addresses
+
+    /// What is known about each address, by `PostalAddress.key`. Where two devices each stored an answer for the
+    /// same address, every device picks the same one: found beats not found, then the earlier answer.
+    public func locations() throws -> [String: GeocodeState.Entry] {
+        var result: [String: GeocodeState.Entry] = [:]
+        for row in try context.fetch(FetchDescriptor<LocatedAddress>()) {
+            let entry = GeocodeState.Entry(coordinate: row.coordinate, checkedAt: row.checkedAt)
+            guard let known = result[row.key] else { result[row.key] = entry; continue }
+            let wins = (entry.coordinate != nil) != (known.coordinate != nil) ? entry.coordinate != nil : entry.checkedAt < known.checkedAt
+            if wins { result[row.key] = entry }
+        }
+        return result
+    }
+
+    /// Notes answers of the geocoder. An address that has a row gets its row changed; a second row from another
+    /// device is never deleted here — if two devices each deleted the other's, both would be gone.
+    public func recordLocations(_ entries: [String: GeocodeState.Entry]) throws {
+        guard !entries.isEmpty else { return }
+        try atomically {
+            let rows = Dictionary(grouping: try context.fetch(FetchDescriptor<LocatedAddress>()), by: \.key)
+            for (key, entry) in entries {
+                if let row = rows[key]?.min(by: { $0.checkedAt < $1.checkedAt }) {
+                    row.latitude = entry.coordinate?.latitude
+                    row.longitude = entry.coordinate?.longitude
+                    row.checkedAt = entry.checkedAt
+                } else {
+                    context.insert(LocatedAddress(key: key, coordinate: entry.coordinate, checkedAt: entry.checkedAt))
+                }
             }
         }
     }

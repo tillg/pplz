@@ -8,6 +8,17 @@ import Testing
                    contact: contact, stored: nil, connections: [], history: [])
     }
 
+    /// The contact's own related names are shown too; the ones pplz mirrored from a connection only once.
+    @Test func relatedNamesOfTheContactAreListedUnlessAConnectionCoversThem() {
+        var c = card(name: "Anna Example", contact: ContactDetails(identifier: "C", relatedNames: [
+            LabeledValue(label: "spouse", value: "Eva Example"), LabeledValue(label: "colleague", value: " ben example "),
+            LabeledValue(label: "friend", value: ""),
+        ]))
+        c.connections = [ConnectionSnapshot(id: UUID(), kind: "colleague", other: PersonRef(id: UUID(), name: "Ben Example"), direction: .outgoing)]
+        #expect(c.relatedNamesOnlyInContacts == [LabeledValue(label: "spouse", value: "Eva Example")])
+        #expect(card(name: "Zoe", contact: nil).relatedNamesOnlyInContacts.isEmpty)
+    }
+
     @Test func nicknameIsTheTitleAndTheFullNameMovesBelow() {
         let c = card(name: "Anna Example", contact: ContactDetails(identifier: "C", givenName: "Anna", familyName: "Example",
                                                                    nickname: "Annie", organization: "Example GmbH", jobTitle: "CTO"))

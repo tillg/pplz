@@ -171,7 +171,7 @@ public enum SystemContacts {
             CNContactGivenNameKey, CNContactFamilyNameKey, CNContactNicknameKey, CNContactOrganizationNameKey, CNContactJobTitleKey,
             CNContactImageDataKey, CNContactThumbnailImageDataKey,
             CNContactPhoneNumbersKey, CNContactEmailAddressesKey, CNContactPostalAddressesKey, CNContactUrlAddressesKey,
-            CNContactSocialProfilesKey, CNContactBirthdayKey,
+            CNContactSocialProfilesKey, CNContactBirthdayKey, CNContactRelationsKey,
         ] as [CNKeyDescriptor]
         guard let contact = try store.unifiedContacts(matching: CNContact.predicateForContacts(withIdentifiers: [identifier]),
                                                       keysToFetch: keys).first else { return nil }
@@ -197,7 +197,8 @@ public enum SystemContacts {
             socialProfiles: contact.socialProfiles.map {
                 LabeledValue(label: $0.value.service, value: $0.value.urlString.isEmpty ? $0.value.username : $0.value.urlString)
             },
-            birthday: birthday, imageData: contact.imageData ?? contact.thumbnailImageData)   // some contacts only carry the thumbnail
+            birthday: birthday, imageData: contact.imageData ?? contact.thumbnailImageData,   // some contacts only carry the thumbnail
+            relatedNames: contact.contactRelations.map { LabeledValue(label: label($0.label), value: $0.value.name) })
     }
 
     static func requestAccessIfNeeded(_ store: CNContactStore) throws {

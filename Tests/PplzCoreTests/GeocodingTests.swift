@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import PplzCore
 
@@ -61,19 +62,6 @@ import Testing
         #expect(state.sent == 0)
     }
 
-    @Test func resultsAndNotFoundSurviveARelaunch() throws {
-        let store = makeStore()
-        try store.record("köln, germany", cologne)
-        try store.record("nowhere 1, atlantis", nil)
-
-        let again = GeocodeStore(url: store.url)       // the next launch
-        let state = try again.load()
-        #expect(state.coordinate(for: "köln, germany") == cologne)
-        #expect(state.isKnown("nowhere 1, atlantis"))
-        #expect(state.coordinate(for: "nowhere 1, atlantis") == nil)
-        #expect(!state.isKnown("bonn, germany"))
-    }
-
     /// A relaunch in the middle of an hour carries on counting where the last run stopped.
     @Test func theCountIsKeptAcrossLaunches() throws {
         let store = makeStore()
@@ -110,13 +98,13 @@ import Testing
 
     @Test func aFileThatExistsButCannotBeReadIsAnErrorNotAnEmptyCache() throws {
         let store = makeStore()
-        try store.record("koeln", cologne)
+        _ = try store.reserve()
         try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: store.url.path)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: store.url.path) }
         #expect(throws: (any Error).self) { try store.load() }
-        #expect(throws: (any Error).self) { try store.record("bonn", cologne) }   // and nothing is written over it
+        #expect(throws: (any Error).self) { try store.reserve() }   // and nothing is written over it
         try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: store.url.path)
-        #expect(try store.load().coordinate(for: "koeln") == cologne)
+        #expect(try store.load().sent == 1)
     }
 
     @Test func aFileThatDoesNotDecodeIsMovedAsideAndTheCacheStartsEmpty() throws {
@@ -128,7 +116,7 @@ import Testing
         #expect(!FileManager.default.fileExists(atPath: store.url.path))
         #expect(try String(contentsOf: broken, encoding: .utf8) == "this is not json")
         // writing works again, and a second broken file replaces the first one aside
-        try store.record("koeln", cologne)
+        _ = try store.reserve()
         try Data("again broken".utf8).write(to: store.url)
         #expect(try store.load().entries.isEmpty)
         #expect(try String(contentsOf: broken, encoding: .utf8) == "again broken")
@@ -139,7 +127,7 @@ import Testing
         #expect(try store.recordNetworkFailure() == 1)
         #expect(try store.recordNetworkFailure() == 2)
         #expect(try GeocodeStore(url: store.url).recordNetworkFailure() == 3)   // kept across launches
-        try store.record("koeln", cologne)
+        try store.noteAnswer()
         #expect(try store.recordNetworkFailure() == 1)
         try store.markThrottled()
         #expect(try store.recordNetworkFailure() == 1)
@@ -152,29 +140,15 @@ import Testing
         #expect(try store.load().sent == 5)
     }
 
-    @Test func notFoundIsAskedAgainAfterThirtyDays() throws {
-        let store = makeStore()
-        let then = Date(timeIntervalSince1970: 1_800_000_000)
-        try store.record("nowhere 1, atlantis", nil, now: then)
-        try store.record("köln, germany", cologne, now: then)
-        let state = try store.load()
-        #expect(state.isKnown("nowhere 1, atlantis", now: then.addingTimeInterval(29 * 86_400)))
-        #expect(!state.isKnown("nowhere 1, atlantis", now: then.addingTimeInterval(31 * 86_400)))
-        #expect(state.isKnown("köln, germany", now: then.addingTimeInterval(400 * 86_400)))
-    }
-
-    /// The app and the CLI write the same file: nothing one of them wrote may get lost.
+    /// The app and the CLI count in the same file: no request one of them counted may get lost.
     @Test func concurrentWritersLoseNothing() throws {
         let store = makeStore()
         let other = GeocodeStore(url: store.url)
         DispatchQueue.concurrentPerform(iterations: 40) { index in
             let target = index.isMultiple(of: 2) ? store : other
-            try? target.record("address \(index)", Coordinate(latitude: Double(index), longitude: 0))
             _ = try? target.reserve(now: Date(), limit: 1000)
         }
-        let state = try store.load()
-        #expect(state.entries.count == 40)
-        #expect(state.sent == 40)
+        #expect(try store.load().sent == 40)
     }
 
     @Test func theDefaultFileSitsNextToTheDefaultStore() {
@@ -265,6 +239,98 @@ import Testing
     }
 }
 
+/// The located addresses are part of the pplz data that syncs through iCloud.
+@Suite struct LocationStoreTests {
+    let cologne = Coordinate(latitude: 50.9375, longitude: 6.9603)
+    let bonn = Coordinate(latitude: 50.7374, longitude: 7.0982)
+
+    func cache() -> GeocodeStore {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("pplz-geo-tests-\(UUID().uuidString)")
+        return GeocodeStore(url: dir.appendingPathComponent("geocache.json"))
+    }
+
+    @Test func resultsAndNotFoundSurviveARelaunch() throws {
+        let (store, url) = try makeStore()
+        try store.recordLocations(["köln, germany": .init(coordinate: cologne, checkedAt: Date()),
+                                   "nowhere 1, atlantis": .init(coordinate: nil, checkedAt: Date())])
+
+        var state = GeocodeState()
+        state.entries = try PplzStore(url: url).locations()       // the next launch
+        #expect(state.coordinate(for: "köln, germany") == cologne)
+        #expect(state.isKnown("nowhere 1, atlantis"))
+        #expect(state.coordinate(for: "nowhere 1, atlantis") == nil)
+        #expect(!state.isKnown("bonn, germany"))
+    }
+
+    @Test func notFoundIsAskedAgainAfterThirtyDays() throws {
+        let (store, _) = try makeStore()
+        let then = Date(timeIntervalSince1970: 1_800_000_000)
+        try store.recordLocations(["nowhere 1, atlantis": .init(coordinate: nil, checkedAt: then),
+                                   "köln, germany": .init(coordinate: cologne, checkedAt: then)])
+        var state = GeocodeState()
+        state.entries = try store.locations()
+        #expect(state.isKnown("nowhere 1, atlantis", now: then.addingTimeInterval(29 * 86_400)))
+        #expect(!state.isKnown("nowhere 1, atlantis", now: then.addingTimeInterval(31 * 86_400)))
+        #expect(state.isKnown("köln, germany", now: then.addingTimeInterval(400 * 86_400)))
+    }
+
+    /// Asking again after the thirty days changes the row that is there; it does not add another.
+    @Test func aNewAnswerReplacesTheOldOne() throws {
+        let (store, _) = try makeStore()
+        let then = Date(timeIntervalSince1970: 1_800_000_000)
+        try store.recordLocations(["köln, germany": .init(coordinate: nil, checkedAt: then)])
+        try store.recordLocations(["köln, germany": .init(coordinate: cologne, checkedAt: then.addingTimeInterval(60))])
+        #expect(try store.locations() == ["köln, germany": .init(coordinate: cologne, checkedAt: then.addingTimeInterval(60))])
+        #expect(try store.context.fetch(FetchDescriptor<LocatedAddress>()).count == 1)
+    }
+
+    /// Two devices located the same address before they synced: both rows stay (deleting could remove both),
+    /// and every device reads the same one — found beats not found, then the earlier answer.
+    @Test func twoRowsForOneAddressAreReadTheSameEverywhere() throws {
+        let (store, _) = try makeStore()
+        let then = Date(timeIntervalSince1970: 1_800_000_000)
+        for (coordinate, date) in [(nil, then), (bonn, then.addingTimeInterval(20)), (cologne, then.addingTimeInterval(10))] as [(Coordinate?, Date)] {
+            store.context.insert(LocatedAddress(key: "köln, germany", coordinate: coordinate, checkedAt: date))
+        }
+        try store.context.save()
+        #expect(try store.locations() == ["köln, germany": .init(coordinate: cologne, checkedAt: then.addingTimeInterval(10))])
+        try store.recordLocations(["köln, germany": .init(coordinate: bonn, checkedAt: then.addingTimeInterval(99))])
+        #expect(try store.context.fetch(FetchDescriptor<LocatedAddress>()).count == 3)
+    }
+
+    /// What a device located before the coordinates were synced moves into the store once.
+    @Test func theOldCacheFileIsHandedOverToTheStore() throws {
+        let (store, _) = try makeStore()
+        let cache = cache()
+        try FileManager.default.createDirectory(at: cache.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"entries":{"köln, germany":{"coordinate":{"latitude":50.9375,"longitude":6.9603},"checkedAt":"2026-11-19T22:00:00Z"},"bonn, germany":{"checkedAt":"2026-11-19T22:00:01Z"}},"sent":7,"slotStart":"2026-11-19T22:00:00Z"}"#.utf8)
+            .write(to: cache.url)
+        try store.recordLocations(["bonn, germany": .init(coordinate: bonn, checkedAt: Date(timeIntervalSince1970: 1_800_000_000))])
+
+        #expect(try cache.handOver(to: store) == 1)                       // Bonn is in the store already and stays as it is
+        #expect(try store.locations()["köln, germany"]?.coordinate == cologne)
+        #expect(try store.locations()["bonn, germany"]?.coordinate == bonn)
+        let left = try cache.load()
+        #expect(left.entries.isEmpty)
+        #expect(left.sent == 7)                                            // the hour's count stays on the device
+        #expect(try cache.handOver(to: store) == 0)
+    }
+
+    /// Only the device's own cache goes into the device's own store: a test store must not swallow it.
+    @Test func handingOverHappensOnlyBetweenTheDefaultFiles() throws {
+        let (store, url) = try makeStore()
+        let cache = cache()
+        try FileManager.default.createDirectory(at: cache.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"entries":{"bonn, germany":{"checkedAt":"2026-11-19T22:00:01Z"}},"sent":0}"#.utf8).write(to: cache.url)
+        #expect(!GeocodeStore.isDefaultPair(store: url, cache: GeocodeStore.defaultURL()))
+        #expect(!GeocodeStore.isDefaultPair(store: PplzStore.defaultURL(environment: [:]), cache: cache.url))
+        #expect(GeocodeStore.isDefaultPair(store: PplzStore.defaultURL(environment: [:]), cache: GeocodeStore.defaultURL()))
+        #expect(try cache.handOverIfDefault(store: url, to: store) == 0)
+        #expect(try cache.load().entries.count == 1)
+        #expect(try store.locations().isEmpty)
+    }
+}
+
 @Suite struct LocatedPeopleTests {
     let cologne = Coordinate(latitude: 50.9375, longitude: 6.9603)
     let bonn = Coordinate(latitude: 50.7374, longitude: 7.0982)
@@ -320,10 +386,27 @@ import Testing
         #expect(counts.total == 3)
     }
 
+    /// Every device picks a card at random, so that two devices rarely work on the same one.
+    @Test func theNextCardIsARandomOneWithOpenAddresses() {
+        var state = self.state
+        state.entries[capital.key] = nil
+        let hamburg = PostalAddress(label: "work", city: "Hamburg", country: "Germany")
+        let entries = [entry("Anna Example", [home, capital]), entry("Ben Sample", [hamburg, unknown, hamburg]), entry("Cy Done", [work]),
+                       entry("Di Empty", [PostalAddress(label: "x")])]
+        var generator = SystemRandomNumberGenerator()
+        var seen: Set<[String]> = []
+        for _ in 0..<200 { seen.insert(LocatedPeople.nextCard(in: entries, state: state, using: &generator).map(\.key)) }
+        #expect(seen == [[capital.key], [hamburg.key]])       // only the open addresses of one card, each once; both cards get their turn
+
+        state.entries[capital.key] = .init(coordinate: berlin, checkedAt: Date())
+        state.entries[hamburg.key] = .init(coordinate: nil, checkedAt: Date())
+        #expect(LocatedPeople.nextCard(in: entries, state: state, using: &generator).isEmpty)
+    }
+
     @Test func theStatusLineSaysHowFarLocatingIsAndWhenItContinues() {
         let resumes = Calendar.current.date(from: DateComponents(year: 2026, month: 11, day: 19, hour: 14, minute: 10))!
         let counts = LocatedPeople.Counts(located: 1234, notFound: 0, outstanding: 766)
-        #expect(LocatedPeople.statusLine(counts, resumesAt: resumes) == "1 234 of 2 000 addresses located · continues at 14:10")
+        #expect(LocatedPeople.statusLine(counts, resumesAt: resumes) == "1 234 of 2 000 addresses located · pausing until 14:10")
         #expect(LocatedPeople.statusLine(counts, resumesAt: nil) == "1 234 of 2 000 addresses located")
         #expect(LocatedPeople.statusLine(.init(located: 5, notFound: 2, outstanding: 0), resumesAt: resumes) == "5 of 7 addresses located · 2 not found")
         #expect(LocatedPeople.statusLine(.init(located: 0, notFound: 0, outstanding: 0), resumesAt: nil) == nil)

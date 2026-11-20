@@ -113,3 +113,27 @@ final class FollowUp {
 
     init(text: String) { self.text = text }
 }
+
+/// What Apple's geocoder said about one address, so that every device locates an address only once (synced).
+/// `key` is `PostalAddress.key`. Two devices may each add a row for the same address before they sync;
+/// both rows stay, and `PplzStore.locations()` reads them the same way everywhere.
+@Model
+final class LocatedAddress {
+    var key: String = ""
+    /// Both `nil` = the service does not know the address.
+    var latitude: Double?
+    var longitude: Double?
+    var checkedAt: Date = Date()
+
+    init(key: String, coordinate: Coordinate?, checkedAt: Date) {
+        self.key = key
+        self.latitude = coordinate?.latitude
+        self.longitude = coordinate?.longitude
+        self.checkedAt = checkedAt
+    }
+
+    var coordinate: Coordinate? {
+        guard let latitude, let longitude else { return nil }
+        return Coordinate(latitude: latitude, longitude: longitude)
+    }
+}

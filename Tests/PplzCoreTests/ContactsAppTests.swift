@@ -61,6 +61,25 @@ import Testing
         #expect(halfway.contains("boom") && halfway.contains("may already be applied") && !halfway.contains("Nothing was saved"))
     }
 
+    /// Contacts hands out rows by position ("email 5 of person …"). Once a row is deleted the later positions move,
+    /// so every row is looked up again by its id right before it is changed or deleted.
+    @Test func rowsAreLookedUpAgainByIdAfterEarlierRowsWereDeleted() {
+        let (body, _) = ContactsApp.editScript(for: [
+            .removeItem(.email, ContactEdit.Item(id: "E2", label: "work", value: "old@example.com")),
+            .removeItem(.email, ContactEdit.Item(id: "E5", label: "home", value: "double@example.com")),
+            .removeAddress(ContactEdit.Address(id: "A1", label: "home", street: "Beispielweg 1")),
+        ], identifier: "C-1")
+        let try0 = body.firstIndex(of: "try")!
+        for n in 1...3 {
+            // before anything changes, the row's id is noted …
+            #expect(body.firstIndex { $0.hasPrefix("set i\(n) to id of item 1 of m\(n)") }! < try0)
+            // … and the row is fetched again by it directly before its deletion
+            let delete = body.firstIndex(of: "delete item 1 of m\(n)")!
+            #expect(body[delete - 1].hasPrefix("set m\(n) to (every ") && body[delete - 1].hasSuffix("whose id is i\(n))"))
+            #expect(delete > try0)
+        }
+    }
+
     @Test func editScriptOnlySetsWhatChangedOnAnItem() {
         let work = ContactEdit.Item(id: "P2", label: "_$!<Work>!$_", value: "+49 221 0000000")
         var relabelled = work
