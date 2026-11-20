@@ -27,15 +27,14 @@ All new names are in `01-names.md` §1. File and line references are to the code
 | Item | Old name | New name |
 |---|---|---|
 | Folder | `pplz/` | `cardxchange/` |
-| Store | `pplz.store` | `cardxchange.store` |
-| SQLite side files | `pplz.store-wal`, `pplz.store-shm` | `cardxchange.store-wal`, `cardxchange.store-shm` |
-| Photo data (external storage) | `.pplz_SUPPORT/` | `.cardxchange_SUPPORT/` |
+| Store, with its SQLite side files | `pplz.store`, `pplz.store-wal`, `pplz.store-shm` | a new `cardxchange.store` that receives a copy of each record (§2.5) |
+| Photo data (external storage) | `.pplz_SUPPORT/` | the new store writes its own `.cardxchange_SUPPORT/` |
 | CloudKit asset cache | `pplz_ckAssets/` | not copied; it is a cache |
 | Contact journal | `contact-writes.jsonl` | the same name, new folder |
 | Geocoding budget | `geocache.json`, `.lock`, `.broken` | `geocache.json` only, new folder |
 | Backups made by hand | `backup-…/` | stay in the old folder |
 
-Core Data derives the name of the photo folder and of the asset cache from the name of the store file. Thus the store file and `.pplz_SUPPORT` change their names in one step.
+Core Data derives the name of the photo folder and of the asset cache from the name of the store file. Thus the temporary copy of the old store keeps the name `pplz.store`, so that Core Data finds `.pplz_SUPPORT` next to it.
 
 ### 2.2 Open points
 
@@ -59,6 +58,14 @@ The script takes the old folder and the new folder as arguments. The defaults ar
 
 Step 7 is the only change to old data, and one `mv` undoes it.
 
+### 2.4 Code (phase 3)
+
+- `CXStore.defaultURL`: the new path; `CX_STORE` in place of `PPLZ_STORE`.
+- `Geocoding.swift`: `cardxchange/geocache.json`. `isDefaultPair` follows `defaultURL`.
+- Guard 1: `cx` stops with an error if `PPLZ_STORE` or `PPLZ_NO_CONTACTS` is set (D8). The check does not depend on the new variables. Reason: an ignored `PPLZ_NO_CONTACTS=1` lets `cx` write to the real address book.
+- Guard 2: if the new default store does not exist and the old folder `pplz/` exists, `cx` and the app stop with an error that names the migration script. They do not create an empty store next to data that is not migrated. The guard applies only to the default store, not to `--store` / `-store`.
+- Tests first: one test for each guard, with the environment and the folder given as parameters (as `defaultURL(environment:)` does today).
+
 ### 2.5 Copy into a new store (decided 2026-11-20)
 
 - `cx copy-store <old store> <new store>` opens the old store and a new store, both without iCloud. It copies every record of the eight model classes. The command is not shown in the help; only the script uses it.
@@ -69,14 +76,6 @@ Step 7 is the only change to old data, and one `mv` undoes it.
 - **M2 repeated, 2026-11-20, with a copy of the real store: passes.** The copy kept all counts (21 persons, 1655 located addresses, 13 participants, 8 person tags). The app uploaded all 1682 records, and the local data stayed complete. A second, empty store with `-forceSync YES` received the same counts.
 - CloudKit record names are made by each store, not taken from `uuid`. Records that a test uploaded would therefore come back as duplicates of the real records. **Reset the Development environment of the new container before phase 5**, and keep the new app closed on the iPhone and the iPad until then.
 - Test first: a store with each kind of record and each relationship is copied, and the copy gives the same snapshots as the original.
-
-### 2.4 Code (phase 3)
-
-- `CXStore.defaultURL`: the new path; `CX_STORE` in place of `PPLZ_STORE`.
-- `Geocoding.swift`: `cardxchange/geocache.json`. `isDefaultPair` follows `defaultURL`.
-- Guard 1: `cx` stops with an error if `PPLZ_STORE` or `PPLZ_NO_CONTACTS` is set (D8). The check does not depend on the new variables. Reason: an ignored `PPLZ_NO_CONTACTS=1` lets `cx` write to the real address book.
-- Guard 2: if the new default store does not exist and the old folder `pplz/` exists, `cx` and the app stop with an error that names the migration script. They do not create an empty store next to data that is not migrated. The guard applies only to the default store, not to `--store` / `-store`.
-- Tests first: one test for each guard, with the environment and the folder given as parameters (as `defaultURL(environment:)` does today).
 
 ## 3. Link row in Contacts (`PersonLink`)
 
@@ -206,6 +205,7 @@ This is the one order for phases 5 and 6. `03-apple-guide.md` part C gives the A
 
 Phase 5, Mac:
 
+0. Reset the Development environment of the new container `iCloud.me.cardxchange.app` in CloudKit Console (**Reset Environment**). It holds the records of the M2 test. Then Claude starts the new Mac app with an empty temporary store and `-forceSync YES -noContacts YES`: after one minute, all counts must be 0. Until then, do not open the new app on the iPhone or the iPad.
 1. Last sync with the old apps. Open pplz on each device and wait. Make one test event on the iPhone and see it on the Mac. Compare the number of persons that the iPhone and the Mac show. If they are different, stop.
 2. Write down the counts on the Mac: `pplz people --json` and the number of events of three persons.
 3. Delete the old app from iPhone and iPad.
