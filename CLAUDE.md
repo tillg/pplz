@@ -6,7 +6,7 @@ pplz is a personal contact manager (Mac, iPhone, iPad) that enriches Apple Conta
 
 ## Commands
 
-Needs full Xcode (the Command Line Tools alone cannot build SwiftData models). There is no linter.
+Needs full Xcode 27 or later (the Command Line Tools alone cannot build SwiftData models). There is no linter.
 
 ```sh
 swift build                                   # core, UI and CLI
@@ -31,16 +31,10 @@ The default store (`~/Library/Application Support/pplz/pplz.store`) is the user'
 - Every manual CLI run gets `--store <temp file> --no-contacts` **on the command itself**. Do not rely on an `export PPLZ_STORE=…` earlier in a `&&` chain: if an earlier step fails, the export never runs and the command writes to the real store.
 - Launch the app for a check with `-store <temp file>` (and `-noContacts YES` where contacts are not needed).
 - Opening a store with a newer build migrates it in place. Open `Tests/PplzCoreTests/Fixtures/before-photos.store` only through a copy; a test checks that the original still has the old schema.
+- An `/autonomous` run may install the app with `scripts/build-app.sh mac` or `iphone`. The installed app then opens the real store and migrates it; this is accepted.
 - After a change to the data model, rebuild the release binary, so that an old `pplz` on the PATH does not open the store.
 - `geocache.json` (the hourly geocoding budget) sits next to the default store and does not follow `PPLZ_STORE`.
 - The repository is public: nothing from `private/` and no real person's data goes into code, fixtures, commits or docs.
-
-## Browser checks with the Playwright MCP
-
-All output of the Playwright MCP stays in `tmp/playwright/` (`tmp/` is not committed): screenshots, page snapshots, console logs, traces, downloads and the browser profile.
-
-- `.mcp.json` starts the server with `tmp/playwright` as its output directory. Do not start a different Playwright server for this repository.
-- Give each file that you name a path in that directory, for example `tmp/playwright/map-pins.png`. Do not write to the repository root or to `.playwright-mcp/`.
 
 ## Architecture
 
@@ -113,7 +107,7 @@ Adapted from [TDD with Claude Code](https://github.com/FlorianBruniaux/claude-co
 
 ## Writing
 
-Write in ASD-STE100 Simplified Technical English. This applies to all prose: replies, docs, code comments, commit messages and issue text.
+Write in ASD-STE100 Simplified Technical English. This applies to all prose: replies, docs, code comments, commit messages and issue text. For replies it wins over a personal rule that drops grammar to be short: be short, in complete sentences.
 
 - Short sentences: 20 words at most in an instruction, 25 in a description. One instruction in each sentence.
 - Active voice and simple tenses. Use the imperative for instructions.
@@ -129,7 +123,7 @@ The user starts it by typing `/grill-with-docs`; do not start it yourself. It is
 - **Start from `SPEC.md`:** the **[A]** and **[?]** items of the area, and the items of §9 "Still open", are the first questions. What `SPEC.md` or the code already answers is looked up (by a subagent), never asked.
 - **Asking is the point here.** A round of numbered questions, each with a recommended answer, then wait. This is the one place where proceeding on assumptions is wrong. It needs the user, so it is never part of an unattended run.
 - **A term is settled →** write it to `GLOSSARY.md` at once. `SPEC.md` §2 already names Person, Event, Photo and History: a glossary entry must agree with it, or `SPEC.md` is corrected in the same edit. From then on code, tests, CLI help and docs use the glossary's word.
-- **A decision passes all three gates →** an ADR. Never into `DECISIONS.md`.
+- **A decision passes all three gates →** an ADR. Never into `DECISIONS.md`. A grilling session is the only source of an ADR.
 - **Everything else that was decided →** into `SPEC.md` before the session ends, marked **[S]** with the date, replacing the **[A]** or **[?]** it settles. Keep exact answers exact (numbers, orderings, "never"). Upstream this step is `/to-spec`, which publishes a GitHub issue; here `SPEC.md` is the spec, and nothing is written to the issue tracker unless the user asks.
 - Scenarios and glossary examples use invented people only (the repository is public).
 - **Before saying the session is done:** `git status` must show the edits to `GLOSSARY.md` / `SPEC.md` / `docs/adr/` that the session produced, and the user confirms the shared understanding. Then build test-first as described above.
@@ -138,7 +132,7 @@ The user starts it by typing `/grill-with-docs`; do not start it yourself. It is
 
 ### Skills of this repository
 
-Use only the skills in `.claude/skills/`. Do not use a skill or plugin from outside the repository, also when one is available in the session. The built-in commands of Claude Code (`/init`, `/loop`, `/code-review` and so on) are allowed.
+Use the skills in `.claude/skills/` and the user's personal skills (`~/.claude/skills/`). Do not use a skill of a plugin, also when one is available in the session. Where a personal skill and a skill of the repository do the same job, use the skill of the repository. The built-in commands of Claude Code (`/init`, `/loop`, `/code-review` and so on) are allowed.
 
 | Skill | Use |
 |---|---|
@@ -151,13 +145,14 @@ Use only the skills in `.claude/skills/`. Do not use a skill or plugin from outs
 | `swift-concurrency-pro` | Paul Hudson's rules for actors, tasks, cancellation, streams and Swift 6 diagnostics |
 | `swift-testing-pro` | Paul Hudson's rules for Swift Testing |
 
-- Start Claude Code with `scripts/claude.sh`. It loads the settings of the repository only, so plugins, skills, hooks and settings from `~/.claude` stay out. The personal `~/.claude/CLAUDE.md` and the memory of the project are still read. Only this script gives the full effect. For a session started with plain `claude`, `.claude/settings.json` switches off five plugins that overlap with the skills of the repository; other plugins and personal skills stay active there.
+- Start Claude Code with plain `claude` for the skills of the repository and the personal skills. `.claude/settings.json` switches off five plugins that overlap with the skills of the repository; other plugins stay active there. `scripts/claude.sh` starts a session with the repository only: plugins, personal skills, hooks and settings from `~/.claude` stay out. In both cases the personal `~/.claude/CLAUDE.md` and the memory of the project are read.
 - `.claude/skills/README.md` gives the source and version of each skill. The copies stay unchanged; rules that adapt a skill to pplz belong in this file.
 - Where a skill and this file disagree, this file wins. Known differences: `tdd` puts refactoring into the review stage, here a small cleanup directly after green is part of the cycle. `tdd` asks the user to confirm the seams before each test; here, agree the seams one time for a change, and state them when the user is away. `tdd` allows mocks at system boundaries; pplz tests use real stores in temporary files and no mocks or fakes without the user's permission. Where `tdd` says `code-review`, use `two-axis-review`. Where `autonomous` says `docs/agents/issue-tracker.md`, use "Issue tracker" below. `autonomous` names skills of the `spec` plugin (`/spec:*`); these are not in the repository, so use the fallback that the skill describes. Where it says `/spec:adversarial-code-review`, use `two-axis-review`. `tdd` names `codebase-design`, which is not in the repository: skip that step. The four Swift skills name each other by GitHub address: use the copy in `.claude/skills/`, and do not install a skill.
 - `two-axis-review` reads commits only (`<fixed point>...HEAD`) and does not look for defects. For changes that are not committed, and to find defects, use the built-in `/code-review`.
-- `DECISIONS.md`: the user sets each `Status`. `/spec:archive` and `/spec:overview` are not in the repository, so run the review flow of `.claude/skills/autonomous/decisions-format.md` when the user asks for it.
-- Load `swiftui-pro` before you write or review code in `Sources/PplzUI` or `App/`, and read the reference files for the area you change. Its limits here: the deployment targets are macOS 15 and iOS 18, so an API of a later release needs `#available` and a fallback; the Swift language mode stays 6.0; UIKit and AppKit stay where the code uses them today (camera, share extensions, system contact card, the map in `PersonMap.swift`). During a feature or a fix, report its other findings as suggestions and do not apply them.
-- Load the skill for the area before you write or review code: `swiftdata-pro` for `Model.swift`, `PplzStore.swift` and each query; `swift-concurrency-pro` for code with `async`, actors or tasks; `swift-testing-pro` for `Tests/`. The limits of `swiftui-pro` above apply to all three. More limits:
+- `DECISIONS.md`: the user sets each `Status`. `/spec:archive` and `/spec:overview` are not in the repository, so run the review flow of `.claude/skills/autonomous/decisions-format.md` when the user asks for it. Its "Promotion" rule does not apply: a decision stays in `DECISIONS.md` and does not become an ADR. Do not delete or rewrite the entries that exist.
+- When to load a skill: load a Swift skill when a change adds or restructures code in its area, or for a review. A change of a few lines that follows the code around it needs no skill. Load only the skills for the areas that the change touches, and read only the reference files for its topic. Load `tdd` when you plan the seams of a new feature or the user asks for it; for the loop itself, "TDD workflow" above is sufficient.
+- `swiftui-pro` is for code in `Sources/PplzUI` and `App/`. Its limits here: the deployment targets are macOS 15 and iOS 18, so an API of a later release needs `#available` and a fallback; the minimum toolchain is Xcode 27, so language features of its compiler are allowed; the Swift language mode stays 6.0; UIKit and AppKit stay where the code uses them today (camera, share extensions, system contact card, the map in `PersonMap.swift`). During a feature or a fix, report its other findings as suggestions and do not apply them.
+- The other three: `swiftdata-pro` for `Model.swift`, `PplzStore.swift` and each query; `swift-concurrency-pro` for code with `async`, actors or tasks; `swift-testing-pro` for a new suite or a test API that the tests do not use yet. The limits of `swiftui-pro` above apply to all three. More limits:
   - All four: new code follows the file layout that exists (some files hold more than one type, folders are the targets). Do not split a file or move a type because a skill says so.
   - All four: no protocol, mock or fake only to make code testable, without the user's permission. This applies to each skill, also where it recommends an injected dependency.
   - `swift-concurrency-pro`: pplz does not enable `NonisolatedNonsendingByDefault`. A `nonisolated` async function leaves the actor of its caller, as before Swift 6.2; ignore the rules of the skill that assume the opposite. Grand Central Dispatch stays where the code uses it for framework interop; here this skill wins over the "never" of `swiftui-pro`.
@@ -175,63 +170,9 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/ag
 
 ## Working guidelines
 
-From [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md). They bias toward caution over speed; for trivial tasks, use judgment. Where the user's own instructions say to proceed on reasonable assumptions instead of asking, those win.
+Short form of [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md). For a trivial task, use judgment.
 
-### 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-### 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-### 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-### 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+- **Think before you write code.** State your assumptions. If two readings give different results, name them. If a simpler way exists, say so. Then continue; stop and ask only when the choice is costly to undo. The one exception is `/grill-with-docs`, where asking is the job.
+- **Simplicity first.** Write the minimum code that solves the problem. No feature, abstraction, option or error handling that the request does not need.
+- **Surgical changes.** Change only what the request needs, in the style of the file. Do not improve, refactor or reformat code near it. Remove what your change made unused. Report other dead code, and do not delete it.
+- **Verified goals.** "TDD workflow" above gives the success criteria and the checks.

@@ -117,7 +117,7 @@ scripts/ui.sh "-select|Anna Example" "tap:Log Event;screenshot:sheet;tree:sheet"
 
 ## Working on pplz with Claude Code
 
-The repository brings its own guidance (`CLAUDE.md`) and skills (`.claude/skills/`), so that everyone works the same way. Start Claude Code with `scripts/claude.sh`: it loads the configuration of the repository only, without the plugins, skills and settings of your own `~/.claude`. Your personal `~/.claude/CLAUDE.md` and the memory of the project are still read.
+The repository brings its own guidance (`CLAUDE.md`) and skills (`.claude/skills/`), so that everyone works the same way. Plain `claude` uses these skills together with your personal skills; the repository switches off five plugins that do the same job. `scripts/claude.sh` starts a session with the configuration of the repository only, without the plugins, skills and settings of your own `~/.claude`. In both cases your personal `~/.claude/CLAUDE.md` and the memory of the project are still read.
 
 ## How pplz recognises a contact on every device
 
@@ -154,5 +154,5 @@ Details and open points: [SPEC.md](SPEC.md#10-proposed-slicing-proposal-not-deci
 
 ## Requirements
 
-- macOS with full Xcode (the Command Line Tools alone cannot build SwiftData models)
+- macOS with full Xcode 27 or later (the Command Line Tools alone cannot build SwiftData models)
 - An Apple Developer Program membership for the Contacts notes entitlement and iCloud sync
