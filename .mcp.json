@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y", "@playwright/mcp@latest", "--sandbox",
+        "--output-dir", "tmp/playwright",
+        "--user-data-dir", "tmp/playwright/profile"
+      ]
+    }
+  }
+}

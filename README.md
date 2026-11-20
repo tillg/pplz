@@ -117,7 +117,7 @@ scripts/ui.sh "-select|Anna Example" "tap:Log Event;screenshot:sheet;tree:sheet"
 
 ## Working on pplz with Claude Code
 
-The repository brings its own guidance (`CLAUDE.md`) and skills (`.claude/skills/`), so that everyone works the same way. Start Claude Code with `scripts/claude.sh`: it loads the configuration of the repository only, without the plugins, skills and settings of your own `~/.claude`. Your personal `~/.claude/CLAUDE.md` is still read.
+The repository brings its own guidance (`CLAUDE.md`) and skills (`.claude/skills/`), so that everyone works the same way. Start Claude Code with `scripts/claude.sh`: it loads the configuration of the repository only, without the plugins, skills and settings of your own `~/.claude`. Your personal `~/.claude/CLAUDE.md` and the memory of the project are still read.
 
 ## How pplz recognises a contact on every device
 
