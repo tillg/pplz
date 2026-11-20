@@ -115,6 +115,10 @@ To click through the iOS app from the command line (useful for coding agents), `
 scripts/ui.sh "-select|Anna Example" "tap:Log Event;screenshot:sheet;tree:sheet"
 ```
 
+## Working on pplz with Claude Code
+
+The repository brings its own guidance (`CLAUDE.md`) and skills (`.claude/skills/`), so that everyone works the same way. Start Claude Code with `scripts/claude.sh`: it loads the configuration of the repository only, without the plugins, skills and settings of your own `~/.claude`. Your personal `~/.claude/CLAUDE.md` is still read.
+
 ## How pplz recognises a contact on every device
 
 Apple Contacts has no identifier that is the same on your Mac, iPhone and iPad: each device gives the same contact a different one. pplz therefore brings its own.

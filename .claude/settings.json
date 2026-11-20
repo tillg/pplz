@@ -1,0 +1,9 @@
+{
+  "enabledPlugins": {
+    "mattpocock-skills@mattpocock": false,
+    "autonomous@till-claude-code-marketplace": false,
+    "spec@till-claude-code-marketplace": false,
+    "md2html@till-claude-code-marketplace": false,
+    "claude-security@claude-plugins-official": false
+  }
+}

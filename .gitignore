@@ -31,3 +31,6 @@ App/Share/Info.plist
 App/Share/pplzShare.entitlements
 App/ShareMac/Info.plist
 App/ShareMac/pplzShareMac.entitlements
+
+# personal Claude Code settings for this clone
+.claude/settings.local.json
