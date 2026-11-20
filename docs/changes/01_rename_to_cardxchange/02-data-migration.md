@@ -42,7 +42,8 @@ Core Data derives the name of the photo folder and of the asset cache from the n
 - **M1, [S] 2026-11-20: no test before the migration.** It is not proven that a store with photos opens correctly after the store file and `.pplz_SUPPORT` have new names. The user accepts this. The checks are the counts in §2.3 step 6 and the look at the photos in §10 step 7. The old folder stays complete as a backup.
 - **M2, [S] 2026-11-20: best effort.** The store holds sync data for the old iCloud container. It is not proven that the new app uploads all records to the new container from this store. A failure does not stop the rename. Try it in phase 4: start the new Mac app with the migrated copy from M1 and `-store <copy> -forceSync YES -noContacts YES`. Then compare the record counts in CloudKit Console, or in the new iOS app in the simulator. After the test, reset the Development environment of the new container (**Reset Environment**), so that phase 5 starts with an empty container.
 - Step 11 in §10 does the same check again on the real data.
-- If the photos do not open or the upload is not complete, the fallback is a new, empty store that receives each record through `CXStore` from the old store. This needs its own small spec. The old folder is still complete then (§2.3 step 7).
+- **Result of M1 and M2, 2026-11-20, with a copy of the real store.** The renamed store opened with the same counts, and the photo opened (M1 passes). M2 failed. The new app started with sync to `iCloud.me.cardxchange.app`, and Core Data deleted all local data of the store. The log said "CKIdentity record has changed" (reset reason 3). CloudKit gives each container its own user record ID, so a new container looks like a different iCloud account to Core Data. The renamed old store can therefore not be used with the new container.
+- **[S] 2026-11-20: copy the records into a new store (the fallback).** The user chose this over keeping the old container. See §2.5. The new store has no sync data of the old container, so the first start of the app uploads all records.
 
 ### 2.3 Procedure (script `scripts/migrate-from-pplz.sh`, D9)
 
@@ -51,12 +52,23 @@ The script takes the old folder and the new folder as arguments. The defaults ar
 1. Stop if the new **store file** exists. A new folder that holds only `geocache.json` is not a reason to stop: `cx locate` with a temporary store creates it.
 2. Stop if the app, a `pplz` process or a `cx` process runs.
 3. Stop if the old folder holds an item that the table in §2.1 does not name. Print the item.
-4. Copy into the new folder: the three store files and `.pplz_SUPPORT` with their new names, and `contact-writes.jsonl`. Copy `geocache.json` over a file that is possibly there. The script does not write to the old folder.
-5. Write the WAL of the **copy** into its store file: `sqlite3 cardxchange.store "PRAGMA wal_checkpoint(TRUNCATE);"`.
-6. Read the counts of persons, events, tags, connections and photos from the old and from the new store with `sqlite3` (read-only for the old store). Stop with an error if they are different, and delete the new store files.
+4. Copy the three old store files and `.pplz_SUPPORT` into a temporary folder. Copy `contact-writes.jsonl` into the new folder. Copy `geocache.json` over a file that is possibly there. The script does not write to the old folder.
+5. Copy each record from the temporary copy into a new store `cardxchange.store` (§2.5). The tool for this is `cx copy-store`.
+6. Read the counts of persons, events, tags, connections and photos from the temporary copy and from the new store with `sqlite3`. Stop with an error if they are different, and delete the new store files.
 7. Rename the old folder to `pplz.migrated-<date>`. This folder is the backup. An old build that is still somewhere finds no store there and cannot write into old data.
 
 Step 7 is the only change to old data, and one `mv` undoes it.
+
+### 2.5 Copy into a new store (decided 2026-11-20)
+
+- `cx copy-store <old store> <new store>` opens the old store and a new store, both without iCloud. It copies every record of the eight model classes. The command is not shown in the help; only the script uses it.
+- It stops if the new store exists. It opens the old store only through the temporary copy of step 4, because opening a store can change it.
+- Each record keeps its ID (`uuid`) and every value, also the dates (`createdAt`) and the photo data. Relationships point to the copies: participants, tags, connections, photos and follow-ups. Settings and located addresses are copied by their keys.
+- The ID matters most: the link in each contact holds the person ID (§3).
+- The new store holds no sync data. When the new app starts it with iCloud, it uploads all records to the new container.
+- **M2 repeated, 2026-11-20, with a copy of the real store: passes.** The copy kept all counts (21 persons, 1655 located addresses, 13 participants, 8 person tags). The app uploaded all 1682 records, and the local data stayed complete. A second, empty store with `-forceSync YES` received the same counts.
+- CloudKit record names are made by each store, not taken from `uuid`. Records that a test uploaded would therefore come back as duplicates of the real records. **Reset the Development environment of the new container before phase 5**, and keep the new app closed on the iPhone and the iPad until then.
+- Test first: a store with each kind of record and each relationship is copied, and the copy gives the same snapshots as the original.
 
 ### 2.4 Code (phase 3)
 

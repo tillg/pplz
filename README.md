@@ -121,7 +121,7 @@ The repository brings its own guidance (`CLAUDE.md`) and skills (`.claude/skills
 
 ## Coming from pplz
 
-cardXchange was called pplz before 2026-11-20. The command is now `cx`, and the store folder is `~/Library/Application Support/cardxchange/`. `scripts/migrate-from-pplz.sh` copies the old store folder one time. It keeps the old folder as `pplz.migrated-<date>`. Until then, `cx` and the app refuse to start with the default store. `cx` stops if `PPLZ_STORE` or `PPLZ_NO_CONTACTS` is set: use `CX_STORE` and `CX_NO_CONTACTS`. Old links (`pplz://person/<id>`, label `pplz`) and old history blocks (`── pplz ──`) are still read, and `cx contacts sync` replaces them with the new form. The steps are in `docs/changes/01_rename_to_cardxchange/`.
+cardXchange was called pplz before 2026-11-20. The command is now `cx`, and the store folder is `~/Library/Application Support/cardxchange/`. `scripts/migrate-from-pplz.sh` copies every record of the old store into a new store, one time. It keeps the old folder as `pplz.migrated-<date>`. Until then, `cx` and the app refuse to start with the default store. `cx` stops if `PPLZ_STORE` or `PPLZ_NO_CONTACTS` is set: use `CX_STORE` and `CX_NO_CONTACTS`. Old links (`pplz://person/<id>`, label `pplz`) and old history blocks (`── pplz ──`) are still read, and `cx contacts sync` replaces them with the new form. The steps are in `docs/changes/01_rename_to_cardxchange/`.
 
 ## How cardXchange recognises a contact on every device
 

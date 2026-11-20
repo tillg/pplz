@@ -2,7 +2,8 @@
 # Moves the data of pplz, the old name of cardXchange, to the new folder. Run it one time, on the Mac.
 #   scripts/migrate-from-pplz.sh [old folder] [new folder]
 # Defaults: ~/Library/Application Support/pplz and ~/Library/Application Support/cardxchange.
-# The script copies and checks the counts. Then it renames the old folder to pplz.migrated-<date>; that folder is the backup.
+# The script copies every record into a new store and checks the counts. Then it renames the old folder to
+# pplz.migrated-<date>; that folder is the backup.
 # See docs/changes/01_rename_to_cardxchange/02-data-migration.md §2.3.
 set -eu
 
@@ -33,40 +34,43 @@ for item in "$OLD"/* "$OLD"/.[!.]*; do
     esac
 done
 
-# 4. copy with the new names; the old folder is not written to
-mkdir -p "$NEW"
+# 4. copy the old store into a temporary folder, with its old name, so that Core Data finds .pplz_SUPPORT next to it;
+#    the old folder is not written to
+command -v cx >/dev/null || fail "no cx on the PATH. Build it (swift build -c release) and link it first. Nothing was changed."
+TMP="$(mktemp -d)"
 for suffix in "" -wal -shm; do
-    [ -f "$OLD/pplz.store$suffix" ] && cp -p "$OLD/pplz.store$suffix" "$NEW/cardxchange.store$suffix"
+    [ -f "$OLD/pplz.store$suffix" ] && cp -p "$OLD/pplz.store$suffix" "$TMP/pplz.store$suffix"
 done
-[ -d "$OLD/.pplz_SUPPORT" ] && cp -Rp "$OLD/.pplz_SUPPORT" "$NEW/.cardxchange_SUPPORT"
+[ -d "$OLD/.pplz_SUPPORT" ] && cp -Rp "$OLD/.pplz_SUPPORT" "$TMP/.pplz_SUPPORT"
+mkdir -p "$NEW"
 [ -f "$OLD/contact-writes.jsonl" ] && cp -p "$OLD/contact-writes.jsonl" "$NEW/contact-writes.jsonl"
 [ -f "$OLD/geocache.json" ] && cp -p "$OLD/geocache.json" "$NEW/geocache.json"
 
 undo() {
-    rm -rf "$NEW/cardxchange.store" "$NEW/cardxchange.store-wal" "$NEW/cardxchange.store-shm" "$NEW/.cardxchange_SUPPORT" "$NEW/contact-writes.jsonl"
+    rm -rf "$TMP" "$NEW/cardxchange.store" "$NEW/cardxchange.store-wal" "$NEW/cardxchange.store-shm" "$NEW/.cardxchange_SUPPORT" \
+        "$NEW/contact-writes.jsonl"
 }
 
-# 5. write the WAL of the copy into its store file
-sqlite3 "$NEW/cardxchange.store" "PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null || { undo; fail "could not checkpoint the copy. The copy was deleted."; }
+# 5. copy every record into a new store: a store that synced with the old iCloud container cannot sync with the new one
+cx copy-store "$TMP/pplz.store" "$NEW/cardxchange.store" || { undo; fail "the copy failed. The new store was deleted."; }
+sqlite3 "$NEW/cardxchange.store" "PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null || { undo; fail "could not checkpoint the new store. It was deleted."; }
 
-# 6. the same counts in both stores
+# 6. the same counts in both stores, the links between records included
 counts() {
     sqlite3 -readonly "$1" "SELECT (SELECT COUNT(*) FROM ZPERSON), (SELECT COUNT(*) FROM ZEVENT), (SELECT COUNT(*) FROM ZTAG),
-        (SELECT COUNT(*) FROM ZCONNECTION), (SELECT COUNT(*) FROM ZPERSONPHOTO);"
+        (SELECT COUNT(*) FROM ZCONNECTION), (SELECT COUNT(*) FROM ZPERSONPHOTO), (SELECT COUNT(*) FROM ZFOLLOWUP),
+        (SELECT COUNT(*) FROM ZSETTING), (SELECT COUNT(*) FROM ZLOCATEDADDRESS), (SELECT COUNT(*) FROM Z_2PARTICIPANTS),
+        (SELECT COUNT(*) FROM Z_2TAGS), (SELECT COUNT(*) FROM Z_5TAGS);"
 }
-# the old store is counted through a second copy: SQLite can write to the -shm file of a store in WAL mode, also read-only
-PROBE="$(mktemp -d)"
-for suffix in "" -wal -shm; do
-    [ -f "$OLD/pplz.store$suffix" ] && cp -p "$OLD/pplz.store$suffix" "$PROBE/old.store$suffix"
-done
-before="$(counts "$PROBE/old.store")" || { rm -rf "$PROBE"; undo; fail "could not read $OLD/pplz.store. The copy was deleted."; }
-rm -rf "$PROBE"
-after="$(counts "$NEW/cardxchange.store")" || { undo; fail "could not read the copy. The copy was deleted."; }
+LABELS="persons|events|tags|connections|photos|follow-ups|settings|addresses|participants|event tags|person tags"
+before="$(counts "$TMP/pplz.store")" || { undo; fail "could not read the copy of $OLD/pplz.store. The new store was deleted."; }
+after="$(counts "$NEW/cardxchange.store")" || { undo; fail "could not read the new store. It was deleted."; }
 if [ "$before" != "$after" ]; then
     undo
-    fail "the counts are different (persons|events|tags|connections|photos: old $before, new $after). The copy was deleted."
+    fail "the counts are different ($LABELS: old $before, new $after). The new store was deleted."
 fi
-echo "persons|events|tags|connections|photos: $after"
+rm -rf "$TMP"
+echo "$LABELS: $after"
 
 # 7. the old folder becomes the backup; an old build finds no store there
 BACKUP="$(dirname "$OLD")/pplz.migrated-$(date +%Y-%m-%d)"

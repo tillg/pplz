@@ -14,7 +14,7 @@ struct CX: AsyncParsableCommand {
             are addressed by ID or a unique ID prefix. Every command accepts --json for machine-readable output.
             """,
         subcommands: [People.self, PersonCommand.self, Log.self, Events.self, EventCommand.self, FollowUpCommand.self, Due.self, Tags.self, Capture.self,
-                      ContactsCommand.self, Locate.self]
+                      ContactsCommand.self, Locate.self, CopyStore.self]
     )
 }
 
@@ -290,6 +290,25 @@ extension People {
         }
         guard let center = try store.locations()[address.key]?.coordinate else { throw Failure("Apple's geocoder does not know a place called \"\(place)\".") }
         return center
+    }
+}
+
+// MARK: - copy-store
+
+/// Only for `scripts/migrate-from-pplz.sh`, so it is not shown in the help. Takes no `Common` options: their check
+/// refuses every command while the old folder is not migrated.
+struct CopyStore: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "copy-store",
+        abstract: "Copy every record of a store into a new store, for the migration from pplz.",
+        shouldDisplay: false)
+    @Argument(help: "The store to copy from. Give a copy: opening a store can change it.") var source: String
+    @Argument(help: "The new store. It must not exist.") var target: String
+
+    func run() throws {
+        try attempt {
+            try CXStore.copyAll(from: URL(fileURLWithPath: source), to: URL(fileURLWithPath: target))
+        }
     }
 }
 
