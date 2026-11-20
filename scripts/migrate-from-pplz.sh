@@ -51,11 +51,7 @@ undo() {
         "$NEW/contact-writes.jsonl"
 }
 
-# 5. copy every record into a new store: a store that synced with the old iCloud container cannot sync with the new one
-cx copy-store "$TMP/pplz.store" "$NEW/cardxchange.store" || { undo; fail "the copy failed. The new store was deleted."; }
-sqlite3 "$NEW/cardxchange.store" "PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null || { undo; fail "could not checkpoint the new store. It was deleted."; }
-
-# 6. the same counts in both stores, the links between records included
+# the counts of the old store, read before anything opens the temporary copy
 counts() {
     sqlite3 -readonly "$1" "SELECT (SELECT COUNT(*) FROM ZPERSON), (SELECT COUNT(*) FROM ZEVENT), (SELECT COUNT(*) FROM ZTAG),
         (SELECT COUNT(*) FROM ZCONNECTION), (SELECT COUNT(*) FROM ZPERSONPHOTO), (SELECT COUNT(*) FROM ZFOLLOWUP),
@@ -63,7 +59,13 @@ counts() {
         (SELECT COUNT(*) FROM Z_2TAGS), (SELECT COUNT(*) FROM Z_5TAGS);"
 }
 LABELS="persons|events|tags|connections|photos|follow-ups|settings|addresses|participants|event tags|person tags"
-before="$(counts "$TMP/pplz.store")" || { undo; fail "could not read the copy of $OLD/pplz.store. The new store was deleted."; }
+before="$(counts "$TMP/pplz.store")" || { undo; fail "could not read the copy of $OLD/pplz.store. Nothing was copied."; }
+
+# 5. copy every record into a new store: a store that synced with the old iCloud container cannot sync with the new one
+cx copy-store "$TMP/pplz.store" "$NEW/cardxchange.store" || { undo; fail "the copy failed. The new store was deleted."; }
+sqlite3 "$NEW/cardxchange.store" "PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null || { undo; fail "could not checkpoint the new store. It was deleted."; }
+
+# 6. the same counts in both stores, the links between records included
 after="$(counts "$NEW/cardxchange.store")" || { undo; fail "could not read the new store. It was deleted."; }
 if [ "$before" != "$after" ]; then
     undo

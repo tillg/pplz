@@ -53,7 +53,7 @@ The script takes the old folder and the new folder as arguments. The defaults ar
 3. Stop if the old folder holds an item that the table in §2.1 does not name. Print the item.
 4. Copy the three old store files and `.pplz_SUPPORT` into a temporary folder. Copy `contact-writes.jsonl` into the new folder. Copy `geocache.json` over a file that is possibly there. The script does not write to the old folder.
 5. Copy each record from the temporary copy into a new store `cardxchange.store` (§2.5). The tool for this is `cx copy-store`.
-6. Read the counts of persons, events, tags, connections and photos from the temporary copy and from the new store with `sqlite3`. Stop with an error if they are different, and delete the new store files.
+6. Read eleven counts with `sqlite3`: persons, events, tags, connections, photos, follow-ups, settings, located addresses, participants, event tags and person tags. Read the counts of the temporary copy before step 5 opens it, and the counts of the new store after step 5. Stop with an error if they are different, and delete the new store files.
 7. Rename the old folder to `pplz.migrated-<date>`. This folder is the backup. An old build that is still somewhere finds no store there and cannot write into old data.
 
 Step 7 is the only change to old data, and one `mv` undoes it.
