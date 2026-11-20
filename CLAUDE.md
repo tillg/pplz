@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-pplz is a personal contact manager (Mac, iPhone, iPad) that enriches Apple Contacts with a history of meetings, calls, events and photos. `README.md` describes the product and the full CLI, `SPEC.md` the design, `DECISIONS.md` the decisions taken during autonomous runs.
+pplz is a personal contact manager (Mac, iPhone, iPad) that enriches Apple Contacts with a history of meetings, calls, events and photos. `README.md` describes the product and the full CLI, `docs/SPEC.md` the design, `docs/DECISIONS.md` the decisions taken during autonomous runs.
 
 ## Commands
 
@@ -92,18 +92,19 @@ Adapted from [TDD with Claude Code](https://github.com/FlorianBruniaux/claude-co
 
 ## Docs
 
-- `SPEC.md` marks every statement **[S]** stated by the user, **[A]** assumption, **[?]** open. Code comments refer to its sections (`SPEC §8.3`, `R1`); keep both in step when behaviour changes.
+- `docs/SPEC.md` marks every statement **[S]** stated by the user, **[A]** assumption, **[?]** open. Code comments refer to its sections (`SPEC §8.3`, `R1`); keep both in step when behaviour changes.
+- All documents except `README.md` and `CLAUDE.md` are in `docs/`. The plan of a larger change is a folder `docs/changes/<NN>_<name>/`. The skills name `GLOSSARY.md` and `DECISIONS.md` at the root of the repository; use the files in `docs/`.
 - User-visible changes are described in `README.md` in the same change.
 - Four documents, four jobs — do not mix them:
 
   | Document | Holds | Written by |
   |---|---|---|
-  | `SPEC.md` | what pplz does and what is still assumed or open | any change of behaviour |
-  | `GLOSSARY.md` | the project's words, one or two sentences each; no behaviour, no implementation | a grilling session (below) |
+  | `docs/SPEC.md` | what pplz does and what is still assumed or open | any change of behaviour |
+  | `docs/GLOSSARY.md` | the project's words, one or two sentences each; no behaviour, no implementation | a grilling session (below) |
   | `docs/adr/NNNN-<slug>.md` | why a decision was taken, only if it is hard to reverse **and** surprising without context **and** a real trade-off | a grilling session, rarely |
-  | `DECISIONS.md` | what Claude decided alone during an `/autonomous` run, for the user's review | `/autonomous` only |
+  | `docs/DECISIONS.md` | what Claude decided alone during an `/autonomous` run, for the user's review | `/autonomous` only |
 
-  `GLOSSARY.md` and `docs/adr/` are created when the first term or decision is settled, not before.
+  `docs/GLOSSARY.md` and `docs/adr/` are created when the first term or decision is settled, not before.
 
 ## Writing
 
@@ -111,7 +112,7 @@ Write in ASD-STE100 Simplified Technical English. This applies to all prose: rep
 
 - Short sentences: 20 words at most in an instruction, 25 in a description. One instruction in each sentence.
 - Active voice and simple tenses. Use the imperative for instructions.
-- One word has one meaning, and one thing has one name. The project's technical names are the terms in `GLOSSARY.md`.
+- One word has one meaning, and one thing has one name. The project's technical names are the terms in `docs/GLOSSARY.md`.
 - No idioms, no slang, no filler.
 - Paragraphs have one topic and six sentences at most.
 
@@ -120,13 +121,13 @@ Write in ASD-STE100 Simplified Technical English. This applies to all prose: rep
 The user starts it by typing `/grill-with-docs`; do not start it yourself. It is an interview about a plan, in rounds, that writes down the vocabulary and the hard decisions while it runs. The skill itself is one line that loads two others, so:
 
 - Load **both** `grilling` (the interview) and `domain-modeling` (the writing), the copies in `.claude/skills/`, with the Skill tool before the first question. With only the first one the interview runs and nothing is written.
-- **Start from `SPEC.md`:** the **[A]** and **[?]** items of the area, and the items of §9 "Still open", are the first questions. What `SPEC.md` or the code already answers is looked up (by a subagent), never asked.
+- **Start from `docs/SPEC.md`:** the **[A]** and **[?]** items of the area, and the items of §9 "Still open", are the first questions. What `docs/SPEC.md` or the code already answers is looked up (by a subagent), never asked.
 - **Asking is the point here.** A round of numbered questions, each with a recommended answer, then wait. This is the one place where proceeding on assumptions is wrong. It needs the user, so it is never part of an unattended run.
-- **A term is settled →** write it to `GLOSSARY.md` at once. `SPEC.md` §2 already names Person, Event, Photo and History: a glossary entry must agree with it, or `SPEC.md` is corrected in the same edit. From then on code, tests, CLI help and docs use the glossary's word.
-- **A decision passes all three gates →** an ADR. Never into `DECISIONS.md`. A grilling session is the only source of an ADR.
-- **Everything else that was decided →** into `SPEC.md` before the session ends, marked **[S]** with the date, replacing the **[A]** or **[?]** it settles. Keep exact answers exact (numbers, orderings, "never"). Upstream this step is `/to-spec`, which publishes a GitHub issue; here `SPEC.md` is the spec, and nothing is written to the issue tracker unless the user asks.
+- **A term is settled →** write it to `docs/GLOSSARY.md` at once. `docs/SPEC.md` §2 already names Person, Event, Photo and History: a glossary entry must agree with it, or `docs/SPEC.md` is corrected in the same edit. From then on code, tests, CLI help and docs use the glossary's word.
+- **A decision passes all three gates →** an ADR. Never into `docs/DECISIONS.md`. A grilling session is the only source of an ADR.
+- **Everything else that was decided →** into `docs/SPEC.md` before the session ends, marked **[S]** with the date, replacing the **[A]** or **[?]** it settles. Keep exact answers exact (numbers, orderings, "never"). Upstream this step is `/to-spec`, which publishes a GitHub issue; here `docs/SPEC.md` is the spec, and nothing is written to the issue tracker unless the user asks.
 - Scenarios and glossary examples use invented people only (the repository is public).
-- **Before saying the session is done:** `git status` must show the edits to `GLOSSARY.md` / `SPEC.md` / `docs/adr/` that the session produced, and the user confirms the shared understanding. Then build test-first as described above.
+- **Before saying the session is done:** `git status` must show the edits to `docs/GLOSSARY.md` / `docs/SPEC.md` / `docs/adr/` that the session produced, and the user confirms the shared understanding. Then build test-first as described above.
 
 ## Agent skills
 
@@ -139,7 +140,7 @@ Use the skills in `.claude/skills/` and the user's personal skills (`~/.claude/s
 | `grill-with-docs` (loads `grilling` and `domain-modeling`) | plan a change with the user, see above |
 | `tdd` | detail for the TDD workflow: good tests, seams, anti-patterns |
 | `two-axis-review` | review a diff against the repo standards and against the spec |
-| `autonomous` | work alone while the user is away; writes `DECISIONS.md` |
+| `autonomous` | work alone while the user is away; writes `docs/DECISIONS.md` |
 | `swiftui-pro` | Paul Hudson's SwiftUI rules: API, views, data flow, navigation, design, accessibility, performance |
 | `swiftdata-pro` | Paul Hudson's SwiftData rules: models, predicates, CloudKit, indexing |
 | `swift-concurrency-pro` | Paul Hudson's rules for actors, tasks, cancellation, streams and Swift 6 diagnostics |
@@ -149,7 +150,7 @@ Use the skills in `.claude/skills/` and the user's personal skills (`~/.claude/s
 - `.claude/skills/README.md` gives the source and version of each skill. The copies stay unchanged; rules that adapt a skill to pplz belong in this file.
 - Where a skill and this file disagree, this file wins. Known differences: `tdd` puts refactoring into the review stage, here a small cleanup directly after green is part of the cycle. `tdd` asks the user to confirm the seams before each test; here, agree the seams one time for a change, and state them when the user is away. `tdd` allows mocks at system boundaries; pplz tests use real stores in temporary files and no mocks or fakes without the user's permission. Where `tdd` says `code-review`, use `two-axis-review`. Where `autonomous` says `docs/agents/issue-tracker.md`, use "Issue tracker" below. `autonomous` names skills of the `spec` plugin (`/spec:*`); these are not in the repository, so use the fallback that the skill describes. Where it says `/spec:adversarial-code-review`, use `two-axis-review`. `tdd` names `codebase-design`, which is not in the repository: skip that step. The four Swift skills name each other by GitHub address: use the copy in `.claude/skills/`, and do not install a skill.
 - `two-axis-review` reads commits only (`<fixed point>...HEAD`) and does not look for defects. For changes that are not committed, and to find defects, use the built-in `/code-review`.
-- `DECISIONS.md`: the user sets each `Status`. `/spec:archive` and `/spec:overview` are not in the repository, so run the review flow of `.claude/skills/autonomous/decisions-format.md` when the user asks for it. Its "Promotion" rule does not apply: a decision stays in `DECISIONS.md` and does not become an ADR. Do not delete or rewrite the entries that exist.
+- `docs/DECISIONS.md`: the user sets each `Status`. `/spec:archive` and `/spec:overview` are not in the repository, so run the review flow of `.claude/skills/autonomous/decisions-format.md` when the user asks for it. Its "Promotion" rule does not apply: a decision stays in `docs/DECISIONS.md` and does not become an ADR. Do not delete or rewrite the entries that exist.
 - When to load a skill: load a Swift skill when a change adds or restructures code in its area, or for a review. A change of a few lines that follows the code around it needs no skill. Load only the skills for the areas that the change touches, and read only the reference files for its topic. Load `tdd` when you plan the seams of a new feature or the user asks for it; for the loop itself, "TDD workflow" above is sufficient.
 - `swiftui-pro` is for code in `Sources/PplzUI` and `App/`. Its limits here: the deployment targets are macOS 15 and iOS 18, so an API of a later release needs `#available` and a fallback; the minimum toolchain is Xcode 27, so language features of its compiler are allowed; the Swift language mode stays 6.0; UIKit and AppKit stay where the code uses them today (camera, share extensions, system contact card, the map in `PersonMap.swift`). During a feature or a fix, report its other findings as suggestions and do not apply them.
 - The other three: `swiftdata-pro` for `Model.swift`, `PplzStore.swift` and each query; `swift-concurrency-pro` for code with `async`, actors or tasks; `swift-testing-pro` for a new suite or a test API that the tests do not use yet. The limits of `swiftui-pro` above apply to all three. More limits:
@@ -158,7 +159,7 @@ Use the skills in `.claude/skills/` and the user's personal skills (`~/.claude/s
   - `swift-concurrency-pro`: pplz does not enable `NonisolatedNonsendingByDefault`. A `nonisolated` async function leaves the actor of its caller, as before Swift 6.2; ignore the rules of the skill that assume the opposite. Grand Central Dispatch stays where the code uses it for framework interop; here this skill wins over the "never" of `swiftui-pro`.
   - `swiftdata-pro`: the CloudKit rules in "Store" win. The skill recommends a versioned migration schema, and pplz has none: report that as a suggestion, and do not add one without the user's decision. Its class inheritance reference needs iOS 26 and does not apply.
   - `swift-testing-pro`: it recommends mocks for the network layer. pplz tests use no mocks or fakes without the user's permission. UI tests in `App/UITests` stay XCTest. Each suite keeps its `@Suite`. Do not change a test that exists only to satisfy a rule of the skill.
-- For `two-axis-review`, the spec source is the GitHub issue named in the commits, else the section of `SPEC.md` for the area. The standards sources are this file and `docs/agents/domain.md`.
+- For `two-axis-review`, the spec source is the GitHub issue named in the commits, else the section of `docs/SPEC.md` for the area. The standards sources are this file and `docs/agents/domain.md`.
 
 ### Issue tracker
 
@@ -166,7 +167,7 @@ Issues are the GitHub issues of this repository; use the `gh` CLI. Read them fre
 
 ### Domain docs
 
-Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: one `docs/GLOSSARY.md` and one `docs/adr/`. See `docs/agents/domain.md`.
 
 ## Working guidelines
 

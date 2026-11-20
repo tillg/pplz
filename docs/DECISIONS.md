@@ -59,7 +59,7 @@ edited: 2026-11-20
 ## 12:00 — Keep the LinkedIn profile ID on the pplz person as well as in the contact {#run-2026-11-19-1154-3}
 
 - **Status:** open
-- **Context:** `SPEC.md` §3.2 says social-media links live in the contact's social-profile fields. The user asked on 2026-11-19 that the LinkedIn "ID" be added "to the contact & pplz person".
+- **Context:** `docs/SPEC.md` §3.2 says social-media links live in the contact's social-profile fields. The user asked on 2026-11-19 that the LinkedIn "ID" be added "to the contact & pplz person".
 - **Question:** one copy (contact only) or two?
 - **Decision:** two. The contact gets a LinkedIn social profile; the pplz person gets a new field `linkedInID` (the part after `/in/`, lower-cased).
 - **Why:** the user asked for both; a person that exists only in pplz has no contact to hold it; and the ID on the person makes "the person with this LinkedIn profile" the first match proposal, which a name cannot do reliably.

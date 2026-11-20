@@ -7,7 +7,7 @@
 
 pplz is a personal contact manager for Mac, iPhone and iPad. It enriches the contacts you already have with the history of your interactions: meetings, calls, events and photos.
 
-> **Status: early development.** The shared core, the `pplz` command line, a Mac app and a first iPhone / iPad app exist and work on a local store; connections and (if you switch it on) the meeting history are written to your contacts, Mac only, and both apps sync their data through your private iCloud. The design, the decisions taken so far and the results of the technical spikes are in [SPEC.md](SPEC.md).
+> **Status: early development.** The shared core, the `pplz` command line, a Mac app and a first iPhone / iPad app exist and work on a local store; connections and (if you switch it on) the meeting history are written to your contacts, Mac only, and both apps sync their data through your private iCloud. The design, the decisions taken so far and the results of the technical spikes are in [SPEC.md](docs/SPEC.md).
 
 ## The idea
 
@@ -137,7 +137,7 @@ Apple Contacts has no identifier that is the same on your Mac, iPhone and iPad: 
 - Local-first storage with SwiftData, synced between your devices through your private iCloud
 - No pplz account and no pplz server
 
-Face recognition and natural-language search start with cloud services behind an interface, so they can be replaced by on-device models later. The trade-offs are described in the [privacy section of the spec](SPEC.md#7-privacy).
+Face recognition and natural-language search start with cloud services behind an interface, so they can be replaced by on-device models later. The trade-offs are described in the [privacy section of the spec](docs/SPEC.md#7-privacy).
 
 ## Roadmap
 
@@ -150,7 +150,7 @@ Face recognition and natural-language search start with cloud services behind an
 7. Face recognition
 8. Natural-language search and relationship summaries in the app
 
-Details and open points: [SPEC.md](SPEC.md#10-proposed-slicing-proposal-not-decided-a).
+Details and open points: [SPEC.md](docs/SPEC.md#10-proposed-slicing-proposal-not-decided-a).
 
 ## Requirements
 
