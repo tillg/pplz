@@ -263,6 +263,14 @@ cardXchange ships with a `cardXchange` CLI on the Mac **from the start**, so tha
   - The build number is the commit count of the built commit. The date is the build machine's local time. The app and its share extensions have the same version and build number. **[A]**
   - The text is in an "About" section at the bottom of the settings, on all devices. The Mac also shows it in the standard About window. **[A]**
 
+- **Languages (issue #13):** the apps speak English, German and French. They follow the language of the device; for any other language they use English. **[S]** 2026-11-21
+  - The settings have a "Language" picker: System (the default), English, Deutsch, Français. A new choice applies the next time the app starts, and the settings say so. **[S]** 2026-11-21
+  - The choice is the `AppleLanguages` value in the app's own defaults; "System" removes the value. iOS writes the same value when the language of the app is changed in the iOS settings. **[A]**
+  - All text of the apps, the share extensions and the permission prompts is translated. Dates and numbers follow the formats of the language. **[S]** 2026-11-21
+  - The history block in the contact notes (§3.3) and the command line stay English. **[S]** 2026-11-21
+  - Messages of the core (`CXCore`) are English, because the command line shows them too. The app shows those without data in them translated; a message with a name or a system error in it stays English. **[A]**
+  - The translations follow Apple's own words in Contacts and Maps where one exists, for example "Zuletzt gelöscht" and "Suppressions récentes". German uses "du", French "vous", as Apple does. **[A]**
+
 ### 4.8 Exchange cards (issue #5)
 
 I show a QR code in cardXchange; the other person scans it and gets my contact data in their cardXchange. **[S]** 2026-11-19
