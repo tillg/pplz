@@ -277,15 +277,15 @@ public final class CXStore {
         }
     }
 
-    /// Outgoing first, then incoming; each group oldest first.
+    /// Outgoing first, then incoming; each group oldest first. Connections to a deleted person are left out
+    /// until the person is restored (SPEC §3.4).
     public func connections(of id: UUID) throws -> [ConnectionSnapshot] {
         let person = try fetchPerson(id)
         func snapshots(_ list: [Connection]?, _ direction: ConnectionSnapshot.Direction, _ other: (Connection) -> Person?) -> [ConnectionSnapshot] {
             (list ?? []).sorted { $0.createdAt < $1.createdAt }.compactMap { connection in
-                other(connection).map {
-                    ConnectionSnapshot(id: connection.uuid, kind: connection.kind,
-                                       other: PersonRef(id: $0.uuid, name: $0.name), direction: direction)
-                }
+                guard let person = other(connection), person.deletedAt == nil else { return nil }
+                return ConnectionSnapshot(id: connection.uuid, kind: connection.kind,
+                                          other: PersonRef(id: person.uuid, name: person.name), direction: direction)
             }
         }
         return snapshots(person.outgoingConnections, .outgoing, \.to) + snapshots(person.incomingConnections, .incoming, \.from)

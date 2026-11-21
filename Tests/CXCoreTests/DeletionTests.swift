@@ -163,6 +163,22 @@ import Testing
         #expect(try store.tags().map(\.name) == ["chess", "work"])
     }
 
+    @Test func connectionsToADeletedPersonAreHiddenUntilRestore() throws {
+        let (store, _) = try makeStore()
+        let olga = try store.createPerson(name: "Olga Example")
+        let paul = try store.createPerson(name: "Paul Sample")
+        let ben = try store.createPerson(name: "Ben Sample")
+        try store.connect(olga, to: paul, kind: "friend of")
+        try store.connect(paul, to: olga, kind: "manager of")
+        try store.connect(ben, to: paul, kind: "colleague of")
+
+        try store.deletePerson(olga, contactCopy: nil, at: day(2026, 11, 21))
+
+        #expect(try store.connections(of: paul).map(\.other.name) == ["Ben Sample"])
+        try store.restorePerson(olga, contactIdentifier: nil)
+        #expect(try store.connections(of: paul).map(\.other.name) == ["Olga Example", "Olga Example", "Ben Sample"])
+    }
+
     @Test func theCopyOfAStoreKeepsWhatIsDeleted() throws {
         let (store, url) = try makeStore()
         let anna = try store.ensurePerson(for: ContactSummary(identifier: "C-1", name: "Anna Example"))
