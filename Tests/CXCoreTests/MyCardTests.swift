@@ -133,6 +133,19 @@ import Testing
         #expect(try JSONDecoder().decode(SharedCard.self, from: JSONEncoder().encode(card)) == card)
     }
 
+    @Test func theCardBecomesAVCardWithOnlyTheChosenFields() throws {
+        let card = MyCard.card(from: anna(), picture: nil, fields: MyCardFields())
+        let vCard = String(decoding: try SystemContacts.vCard(for: card), as: UTF8.self)
+        #expect(vCard.contains("FN:Anna Example"))
+        #expect(vCard.contains("ORG:Example GmbH"))
+        #expect(vCard.contains("+49 170 0000000"))
+        #expect(vCard.contains("anna@example.org"))
+        #expect(vCard.contains("linkedin.com/in/anna-example"))
+        #expect(!vCard.contains("+49 221 1111111"))
+        #expect(!vCard.contains("anna@example.com"))
+        #expect(!vCard.contains("Musterstr"))
+    }
+
     // MARK: person without a contact
 
     @Test func aPersonWithoutAContactPassesOnTheName() {

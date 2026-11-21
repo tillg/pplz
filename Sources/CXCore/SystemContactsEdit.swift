@@ -84,6 +84,14 @@ extension SystemContacts {
         return contact.identifier
     }
 
+    /// The card to pass on as a vCard (SPEC §4.8). Needs no access to the address book.
+    public static func vCard(for card: SharedCard) throws -> Data {
+        let contact = CNMutableContact()
+        apply(ContactEdit.changes(from: ContactEdit(), to: card.contact), to: contact)
+        if let picture = card.picture { contact.imageData = picture }
+        return try CNContactVCardSerialization.data(with: [contact])
+    }
+
     /// Writes these changes into the contact, and nothing else: rows that did not change keep their identity,
     /// and the note, the related names and cardXchange's link are not touched. Refuses, writing nothing, if the contact
     /// was changed in the meantime in something the user also changed.
