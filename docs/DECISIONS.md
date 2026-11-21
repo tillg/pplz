@@ -33,6 +33,7 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
   - [14:30 — Build 11, 10, 9, 8, the deleting of 1 and "My Card" of 5; ask on 3 and on the domain of 5](#run-2026-11-21-1427-1)
   - [14:31 — Commit and push to main, and write to the issue tracker, without asking](#run-2026-11-21-1427-2)
   - [14:32 — Parallel subagents work in git worktrees on their own branches](#run-2026-11-21-1427-3)
+  - [14:55 — The expected end counts this device only; a small notice replaces the white box](#run-2026-11-21-1427-4)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -311,3 +312,16 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
 - **Why:** two agents in one working copy would break each other's builds and tests.
 - **Alternatives:** one agent after the other on `main` (no branches, but about four times as long).
 - **Consequences:** `.worktrees/` is now in `.gitignore`. Only one agent at a time may use the iOS simulator (a lock folder in the session's scratch folder).
+
+## 14:55 — The expected end counts this device only; a small notice replaces the white box {#run-2026-11-21-1427-4}
+
+- **Status:** open
+- **Context:** issues 8, 9 and 10, built by a subagent (commits `613972a`, `bf01bfc`, `8008bd9`).
+- **Question:** how is the expected end of locating computed, what does the map say when it shows no pin, and how is the own position asked for?
+- **Decision:**
+  - The expected end ("done about Sat 18:40") counts the addresses left, this device's hourly budget and one request a second. It does not count other devices.
+  - The notice is a small capsule above the status line: "The match has no located address." (or "The N matches …"), "No results" when the search matches nobody, and a text for an empty map. The map stays visible.
+  - The app asks for the location when the map is first shown, not at launch. The Mac gets the location entitlement in `App/project.yml`, although the Mac app is not sandboxed today.
+- **Why:** a device cannot know whether another device locates at the same time; what the other device locates syncs in and makes the next estimate earlier. An opaque box looked like a fault and hid the map.
+- **Alternatives:** guess the number of active devices; show the estimate only while locating runs.
+- **Consequences:** with two devices the time shown is too late until the next sync. The status line is built from parts and cannot be translated (older code). The capsules touch the Apple Maps logo on iPhone; the status line did this before.
