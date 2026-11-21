@@ -845,42 +845,64 @@ import Testing
         return (PeopleModel(configuration: configuration), try CXStore(url: url), url)
     }
 
-    private func freshSettings() -> String {
-        "cx-ui-tests-\(UUID().uuidString)"
+    /// A defaults suite of its own, removed again when the test ends.
+    private func withFreshSettings(_ test: (String) async throws -> Void) async rethrows {
+        let suite = "cx-ui-tests-\(UUID().uuidString)"
+        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        try await test(suite)
     }
 
     @Test func noCardUntilSomeoneIsChosen() async throws {
-        let (model, store, _) = try makeModel(settings: freshSettings())
-        try store.createPerson(name: "Anna Example")
-        await model.reload()
-        await model.loadMyCard()
-        #expect(model.myCardEntry == nil)
-        #expect(model.myCard == nil)
+        try await withFreshSettings { settings in
+            let (model, store, _) = try makeModel(settings: settings)
+            try store.createPerson(name: "Anna Example")
+            await model.reload()
+            #expect(model.myCardEntry == nil)
+            #expect(model.myCard == nil)
+        }
     }
 
     @Test func aChosenPersonWithoutAContactGivesACardWithTheName() async throws {
-        let (model, store, _) = try makeModel(settings: freshSettings())
-        try store.createPerson(name: "Anna Example")
-        await model.reload()
-        await model.chooseMe(model.entries[0].key)
-        #expect(model.myCardEntry?.name == "Anna Example")
-        #expect(model.myCard == SharedCard(contact: ContactEdit(givenName: "Anna", familyName: "Example")))
+        try await withFreshSettings { settings in
+            let (model, store, _) = try makeModel(settings: settings)
+            try store.createPerson(name: "Anna Example")
+            await model.reload()
+            await model.chooseMe(model.entries[0].key)
+            #expect(model.myCardEntry?.name == "Anna Example")
+            #expect(model.myCard == SharedCard(contact: ContactEdit(givenName: "Anna", familyName: "Example")))
+        }
     }
 
     @Test func theChoiceAndTheFieldsAreKeptForTheNextLaunch() async throws {
-        let settings = freshSettings()
-        let (model, store, url) = try makeModel(settings: settings)
-        try store.createPerson(name: "Anna Example")
-        await model.reload()
-        await model.chooseMe(model.entries[0].key)
-        model.myCardFields.picture = true
+        try await withFreshSettings { settings in
+            let (model, store, url) = try makeModel(settings: settings)
+            try store.createPerson(name: "Anna Example")
+            await model.reload()
+            await model.chooseMe(model.entries[0].key)
+            model.myCardFields.picture = true
 
-        var configuration = PeopleModel.Configuration(storeURL: url, usesContacts: false)
-        configuration.settingsSuite = settings
-        let next = PeopleModel(configuration: configuration)
-        await next.reload()
-        await next.loadMyCard()
-        #expect(next.myCardEntry?.name == "Anna Example")
-        #expect(next.myCardFields.picture)
+            var configuration = PeopleModel.Configuration(storeURL: url, usesContacts: false)
+            configuration.settingsSuite = settings
+            let next = PeopleModel(configuration: configuration)
+            await next.reload()
+            #expect(next.myCard?.contact.givenName == "Anna")
+            #expect(next.myCardFields.picture)
+        }
+    }
+
+    @Test func choosingAnotherPersonStartsFromTheDefaultRows() async throws {
+        try await withFreshSettings { settings in
+            let (model, store, _) = try makeModel(settings: settings)
+            try store.createPerson(name: "Anna Example")
+            try store.createPerson(name: "Ben Sample")
+            await model.reload()
+            await model.chooseMe(model.entries[0].key)
+            model.myCardFields.rows = ["P1"]
+            await model.chooseMe(model.entries[0].key)
+            #expect(model.myCardFields.rows == ["P1"])
+
+            await model.chooseMe(model.entries[1].key)
+            #expect(model.myCardFields.rows == nil)
+        }
     }
 }

@@ -270,6 +270,7 @@ public final class PeopleModel {
             } else {
                 await loadCard()
             }
+            await loadMyCard()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
         }
@@ -1056,6 +1057,8 @@ public final class PeopleModel {
 
     /// Keeps `key` (a row of the people list) as the user's own person and reads its contact.
     public func chooseMe(_ key: String) async {
+        // the chosen rows belong to one contact: another person starts from the default rows
+        if key != myCardEntry?.key { myCardFields.rows = nil }
         myCardKey = key
         settings.set(key, forKey: Self.myCardKeySetting)
         await loadMyCard()
@@ -1074,6 +1077,7 @@ public final class PeopleModel {
             myPicture = nil
             return
         }
+        let key = entry.key
         guard usesContacts, let identifier = entry.contactIdentifier else {
             myContact = MyCard.contact(named: entry.name)
             myPicture = nil
@@ -1083,9 +1087,12 @@ public final class PeopleModel {
             let (edit, details) = try await Task.detached {
                 (try SystemContacts.contactEdit(identifier: identifier), try SystemContacts.details(identifier: identifier))
             }.value
+            guard myCardEntry?.key == key else { return }   // the user chose someone else while this was read
             myContact = edit
             myPicture = details?.imageData
         } catch {
+            myContact = nil
+            myPicture = nil
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
         }
     }

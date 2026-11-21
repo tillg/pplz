@@ -278,6 +278,7 @@ I show a QR code in cardXchange; the other person scans it and gets my contact d
 - The name is always on the card. Company, job title and picture are switches. Each phone number, mail address, web address, social profile and postal address is a switch of its own. Nickname, birthday, note and related names are never on the card. **[A]**
 - Before the user chooses, the card has: name, company, job title, one mobile number (label mobile, else iPhone; no other phone), the first mail address, and one LinkedIn profile (a social profile, else a LinkedIn web address). No picture. **[A]**
 - cardXchange's own `cx://` link is never on the card. **[A]**
+- The row switches belong to one contact. When the user chooses another person, the card starts again from the default rows. **[A]**
 - A person without a contact gives a card with the name only. **[A]**
 - "Show My Card" in the settings shows exactly what is passed on. The core keeps the card as a `Codable` value and can write it as a vCard. **[A]**
 - Not built yet: the QR code, iCloud sharing, the App Clip, receiving updates.
