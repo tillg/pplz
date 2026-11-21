@@ -36,6 +36,7 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
   - [14:55 — The expected end counts this device only; a small notice replaces the white box](#run-2026-11-21-1427-4)
   - [15:20 — A deleted person is marked and keeps a copy of the contact; purge on each load](#run-2026-11-21-1427-5)
   - [15:21 — My Card settings are kept per device in UserDefaults](#run-2026-11-21-1427-6)
+  - [15:10 — The build number is the commit count; the version shows in About and in Settings](#run-2026-11-21-1427-7)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -359,3 +360,17 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
 - **Why:** no schema change and no new entitlement in a run that already changes the model.
 - **Alternatives:** the `Setting` table that the store already has (syncs, readable by the CLI, no schema change); the iCloud key-value store (needs an entitlement).
 - **Consequences:** each device has its own choice. If a person without a contact later gets one, the choice goes back to "Not chosen". Moving the settings to the `Setting` table is the cheapest way to sync them later. Not seen: a tap in "Choose Me" in the simulator, the switches of a real contact, the Mac settings window.
+
+## 15:10 — The build number is the commit count; the version shows in About and in Settings {#run-2026-11-21-1427-7}
+
+- **Status:** open
+- **Context:** issue 12, new during the run: "In the 'about' area we want to see 'V. 0.2.693 - 2026-11-20 14:07'. The 3rd digit of the version no should be the build no." The issue does not say where the build number comes from, nor where "about" is on iPhone and iPad.
+- **Question:** what is the build number, which date is shown, and where?
+- **Decision:**
+  - The build number is the number of commits on the built branch (`git rev-list --count HEAD`), at build time. It is also the bundle version of the app and the extensions.
+  - The version goes from 0.1 to 0.2, as in the user's example.
+  - The date and time are the time of the build, in local time.
+  - The Mac shows the text in the About window. iPhone and iPad show it at the bottom of the Settings screen.
+- **Why:** the commit count goes up with every change, needs no counter file, and gives the same number for the same commit. The App Store needs a bundle version that only goes up.
+- **Alternatives:** a counter in a file that each build increases (more commits, conflicts between devices); the date as the build number.
+- **Consequences:** two builds of the same commit have the same number. The number is now 83, not 693 as in the example.
