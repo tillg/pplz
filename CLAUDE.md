@@ -180,6 +180,8 @@ Two labels show the state of an issue:
 
 - An issue with `question for human` and no answer after the comment is not built. Do not ask the same question again; continue where the answer is clear.
 - The user's answer is a comment after the question. Read all comments before you start.
+- Claude writes through the user's GitHub account, so every comment shows the same author. A comment without the AI disclaimer (`> Written by Claude …`) is from the user.
+- During an `/autonomous` run on the issues, check the open issues again about every 15 minutes, and before the report. Look for new issues and for new answers to a `question for human`. Start work on what became clear.
 
 ### Domain docs
 
