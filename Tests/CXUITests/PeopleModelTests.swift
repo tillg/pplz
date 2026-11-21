@@ -788,6 +788,21 @@ import Testing
         #expect(throws: CXError.self) { try store.person(anna) }
     }
 
+    @Test func showingADeletedParticipantKeepsTheEvent() async throws {
+        let (model, store) = try makeModel()
+        let anna = try store.createPerson(name: "Anna Example")
+        let event = try store.logEvent(EventDraft(title: "Call", format: .phoneCall, start: .now, participants: [anna]))
+        try store.deletePerson(anna, contactCopy: nil, at: .now)
+        await model.reload()
+        model.mode = .events
+        model.selectedEventID = event
+
+        await model.showPerson(anna)
+
+        #expect(model.mode == .events)
+        #expect(model.selectedEventID == event)
+    }
+
     @Test func loadingRemovesPersonsDeletedMoreThanThirtyDaysAgo() async throws {
         let (model, store) = try makeModel()
         let old = try store.createPerson(name: "Old Example")

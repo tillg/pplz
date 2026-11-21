@@ -686,8 +686,9 @@ public final class PeopleModel {
         await showPerson(id)
     }
 
-    /// Switches to the people list and shows this person's card.
+    /// Switches to the people list and shows this person's card. A deleted person has no card: nothing changes.
     public func showPerson(_ id: UUID) async {
+        guard entries.contains(where: { $0.id == id }) else { return }
         mode = .people
         await select(matching: id.uuidString)
     }
