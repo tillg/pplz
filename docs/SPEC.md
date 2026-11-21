@@ -164,6 +164,7 @@ Met 7× · last 2026-11-12
 - The cardXchange data of the person (events, tags, notes, photos, connections) is kept for the 30 days and deleted with the person. The events stay; the person is removed from their participants. **[S]** 2026-11-21 The related-name rows that cardXchange wrote for the deleted connections are removed from the other contacts. **[A]**
 - A person that exists only in cardXchange: the same 30 days. **[S]** 2026-11-21
 - A deleted person is not in the list, the search, the map or `cx people`. During the 30 days the person's name stays in the participants of their events. **[A]**
+- A deleted person is not counted in the tags (`cx tags`); a tag that only deleted persons use is not listed. Connections to a deleted person are not shown on the card or in `cx person show`; they stay stored and come back on restore. In an event, a deleted participant is grey text marked "deleted", without a link to a card. **[A]** 2026-11-21
 - Each load of the app deletes for good the persons whose 30 days are over; every device may do it. `cx person purge --expired` does it on the command line. **[A]**
 - If the contact is not on this device (its identifier is from another device), nothing is deleted; the person is deleted on the device that has the contact. **[A]**
 - Editing an event keeps a deleted participant in it. A contact never leads to a deleted person: it gets a new person. **[A]**
