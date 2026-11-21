@@ -59,6 +59,9 @@ struct PersonMap: MapRepresentable {
             location.requestWhenInUseAuthorization()       // does nothing once the user has answered
             map.showsUserLocation = true
             map.showsUserTrackingButton = true
+            #if os(iOS)
+            map.tintColor = .systemBlue     // else the pink tint of the app makes the own position look like a pin (issue #14)
+            #endif
             return map
         }
 
@@ -122,6 +125,11 @@ struct PersonMap: MapRepresentable {
             view.rightCalloutAccessoryView = UIButton(type: .detailDisclosure)
             #endif
             return view
+        }
+
+        /// The own position is drawn above all pins and groups, so that they never hide it (issue #14).
+        func mapView(_ map: MKMapView, didAdd views: [MKAnnotationView]) {
+            for view in views where view.annotation is MKUserLocation { view.zPriority = .max }
         }
 
         /// A cluster zooms in to its people instead of opening a callout.
