@@ -171,6 +171,16 @@ Use the skills in `.claude/skills/` and the user's personal skills (`~/.claude/s
 
 Issues are the GitHub issues of this repository; use the `gh` CLI. Read them freely. Write to the tracker only when the user asks, or in an `/autonomous` run.
 
+Two labels show the state of an issue:
+
+| Label | Meaning | Set | Remove |
+|---|---|---|---|
+| `wip` | Claude works on the issue. | when the work starts | when the issue is closed, or when the work stops and a question is open |
+| `question for human` | Claude wrote a comment with a question that needs the user's answer. | with the comment | when the user answered and Claude continues |
+
+- An issue with `question for human` and no answer after the comment is not built. Do not ask the same question again; continue where the answer is clear.
+- The user's answer is a comment after the question. Read all comments before you start.
+
 ### Domain docs
 
 Single-context: one `docs/GLOSSARY.md` and one `docs/adr/`. See `docs/agents/domain.md`.

@@ -34,3 +34,6 @@ App/ShareMac/cardxchangeShareMac.entitlements
 
 # personal Claude Code settings for this clone
 .claude/settings.local.json
+
+# git worktrees of parallel agents
+.worktrees/

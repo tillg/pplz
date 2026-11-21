@@ -1,7 +1,7 @@
 ---
 title: "Decisions"
 created: 2026-11-19
-edited: 2026-11-20
+edited: 2026-11-21
 ---
 
 pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). The entries below keep the old name as written.
@@ -29,6 +29,10 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
   - [23:47 — A picture without a face is refused; photos sync as a new record type](#run-2026-11-19-2324-4)
   - [00:03 — One edit screen for contacts on all devices; an edit writes only what changed](#run-2026-11-19-2324-5)
   - [00:56 — Fix seven review findings now; leave five as known limits](#run-2026-11-19-2324-6)
+- [2026-11-21 14:27 — Work through the open GitHub issues; labels for the issue state](#run-2026-11-21-1427)
+  - [14:30 — Build 11, 10, 9, 8, the deleting of 1 and "My Card" of 5; ask on 3 and on the domain of 5](#run-2026-11-21-1427-1)
+  - [14:31 — Commit and push to main, and write to the issue tracker, without asking](#run-2026-11-21-1427-2)
+  - [14:32 — Parallel subagents work in git worktrees on their own branches](#run-2026-11-21-1427-3)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -253,3 +257,57 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
 - **Why:** the first two are data loss on a normal path; the others are cheap and stop the map from getting stuck.
 - **Alternatives:** revert the editing commit until reviewed by the user (safe, but the user asked for the feature and the defects are fixed with tests).
 - **Consequences:** known limits that stay: (1) a change through the Contacts app (Mac, contact with a note) that fails half-way cannot be undone; pplz says so. (2) Contacts that are linked from several accounts may show a changed value twice or report "changed in the meantime". (3) On that same path the country code of an address is not updated with the country. (4) Changing a social profile's address replaces its user name by the last part of the address. (5) When several pictures with several faces are added at once, a waiting face choice may be skipped. Between `3df2453` (00:33) and the fix, the defective version was installed on the Mac and the iPad; nobody used it.
+
+# 2026-11-21 14:27 — Work through the open GitHub issues; labels for the issue state {#run-2026-11-21-1427}
+
+- **Started by:** `/autonomous`
+- **Task, as given:**
+
+  > github issues
+  > Look thru all the gh issues we have and work on the ones where u know what to do w/o any guidance from me. For the other ones write comments with the questions u have. 
+  > Labels we plan to use: 
+  > - wip when u work on
+  > - "question for human" when u wrote something that needs my answer.
+  >
+  > Pls write these states in your claude.md so we can use them in the future.
+
+  Added by the user during the run: "use sub-agents where possibel to save your context".
+
+## 14:30 — Build 11, 10, 9, 8, the deleting of 1 and "My Card" of 5; ask on 3 and on the domain of 5 {#run-2026-11-21-1427-1}
+
+- **Status:** open
+- **Context:** six open issues. 11, 10, 9 and 8 are new and have no comments. 1 and 5 have answers from the user to earlier questions. 3 has questions from 19 Nov and no answer.
+- **Question:** which issues can be built without the user, and how are the short ones read?
+- **Decision:**
+  - 11: "style #2" of the brand ideas page is "Wide bold": the capitals CARDXCHANGE in Syncopate Bold, letter spacing 0.12 em, grey with a pink X, without ".me". It replaces the wordmark (now style 3, "Hairline").
+  - 9: the screenshot shows the map with a search that matches one person who has no located address. A plain white box with "No results" covers the middle of the map. Read as: the empty state on the map looks broken and says the wrong thing. Fix: a small message that does not hide the map and says that the matches have no located address.
+  - 10: show the own position on the map, and a button that moves the map to it, as in Apple Maps.
+  - 8: show the expected day and time when all addresses are located, from the hourly budget.
+  - 1: build deleting as the user answered (contact removed from Apple Contacts at once, cardXchange keeps a copy and its own data for 30 days).
+  - 5: build "My Card" with the fields chosen in the settings (point 4 of the second round). Explain the domain in simple words (the user wrote "eli5" to point 2).
+  - 3: no new question; set `question for human`.
+- **Why:** these are the readings with the smallest change that matches the words of the issues; none of them is costly to undo.
+- **Alternatives:** ask on 9 and 11 first (safer, but both have one obvious reading).
+- **Consequences:** the user can reopen 9 or 11 if the reading is wrong.
+
+## 14:31 — Commit and push to main, and write to the issue tracker, without asking {#run-2026-11-21-1427-2}
+
+- **Status:** open
+- **Overrides:** `CLAUDE.md` — "Commit and push only when the user says so, or in an `/autonomous` run"; the `/autonomous` permission is used here.
+- **Context:** the earlier runs pushed to `main`; the repository has no protected branch.
+- **Question:** push each green unit of work to `main`?
+- **Decision:** yes, after the full suite is green; comments and labels on the issues as the user asked.
+- **Why:** the user follows the issues and the installed app, both read from `main`.
+- **Alternatives:** one branch and a pull request for the run.
+- **Consequences:** each fix is on `main` right away and can be reverted with `git revert`.
+
+## 14:32 — Parallel subagents work in git worktrees on their own branches {#run-2026-11-21-1427-3}
+
+- **Status:** open
+- **Overrides:** `~/.claude/CLAUDE.md` — "Never create or switch branches without explicit permission".
+- **Context:** the user asked to use subagents. Four pieces of work are independent (wordmark, map, deleting, My Card), but three of them change Swift files in the same working copy.
+- **Question:** how do several subagents build and test at the same time?
+- **Decision:** each subagent works in its own worktree in `.worktrees/` on a branch `autonomous/<issue>`. I bring each finished branch onto `main` with a rebase, run the full suite, and push `main`. The branches are local only and are deleted after the merge. The local `main` is never switched.
+- **Why:** two agents in one working copy would break each other's builds and tests.
+- **Alternatives:** one agent after the other on `main` (no branches, but about four times as long).
+- **Consequences:** `.worktrees/` is now in `.gitignore`. Only one agent at a time may use the iOS simulator (a lock folder in the session's scratch folder).
