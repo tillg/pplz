@@ -126,6 +126,8 @@ import Testing
         #expect(label("manager of", .incoming, german) == "Vorgesetzte(r)")
         #expect(label("friend of", .incoming, french) == "ami(e)")
         #expect(label("introduced by", .incoming, german) == "introduced by (aus deren Sicht)")
+        #expect(label("manager of", .outgoing, german) == "Vorgesetzte(r) von")
+        #expect(label("mentor of", .outgoing, french) == "mentor of")
     }
 
     @Test func aRoleOfAppleIsTranslatedAndAnOwnRoleIsShownAsTyped() {
@@ -145,6 +147,7 @@ import Testing
         #expect(line(nil, english) == nil)
         #expect(line("1980-05-17", german) == "17. Mai 1980 · 46 Jahre")
         #expect(line("2025-05-17", french) == "17 mai 2025 · 1 an")
+        #expect(line("2030-05-17", english) == "17 May 2030")
     }
 }
 

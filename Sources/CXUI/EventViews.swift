@@ -148,7 +148,7 @@ struct EventDetailView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(item.done)
-                        .help(item.done ? String(localized: "Done", bundle: .module) : String(localized: "Mark as done", bundle: .module))
+                        .help(item.done ? String(localized: "Marked as done", bundle: .module) : String(localized: "Mark as done", bundle: .module))
                         Text(item.text).strikethrough(item.done).foregroundStyle(item.done ? .secondary : .primary)
                         Spacer()
                     }

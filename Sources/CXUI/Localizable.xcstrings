@@ -129,6 +129,22 @@
         }
       }
     },
+    "%@ of": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ von"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ de"
+          }
+        }
+      }
+    },
     "%@ postal code": {
       "localizations": {
         "de": {
@@ -1336,7 +1352,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supprimé définitivement le %@"
+            "value": "Suppression définitive le %@"
           }
         }
       }
@@ -2195,6 +2211,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Marquer comme fait"
+          }
+        }
+      }
+    },
+    "Marked as done": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erledigt"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fait"
           }
         }
       }
@@ -4419,7 +4451,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "supprimé"
+            "value": "supprimé(e)"
           }
         }
       }
