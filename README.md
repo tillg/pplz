@@ -118,6 +118,7 @@ cp App/Local.xcconfig.example App/Local.xcconfig    # then enter your Apple deve
 scripts/build-app.sh mac                             # builds cardXchange.app and installs it in /Applications
 scripts/build-app.sh iphone "My iPhone"              # builds and installs on a connected, unlocked device
 scripts/build-app.sh simulator                       # builds for the iOS simulator
+scripts/build-app.sh all                             # the Mac app and every attached iPhone / iPad, same build number
 ```
 
 To click through the iOS app from the command line (useful for coding agents), `scripts/ui.sh` runs a list of steps in a simulator and saves screenshots and the accessibility tree to `tmp/ui/`:

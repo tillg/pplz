@@ -18,6 +18,7 @@ swift build -c release                        # the binary a `cx` symlink on the
 scripts/build-app.sh mac                      # builds cardXchange.app and installs it in /Applications
 scripts/build-app.sh simulator                # iOS simulator build
 scripts/build-app.sh iphone "<device name>"   # build and install on a connected, unlocked device
+scripts/build-app.sh all                      # the Mac app and every attached device, with one build number
 ```
 
 - Commit and push only when the user says so, or in an `/autonomous` run. Do not create or switch a branch without the user's permission.
@@ -31,7 +32,7 @@ The default store (`~/Library/Application Support/cardxchange/cardxchange.store`
 - Every manual CLI run gets `--store <temp file> --no-contacts` **on the command itself**. Do not rely on an `export CX_STORE=…` earlier in a `&&` chain: if an earlier step fails, the export never runs and the command writes to the real store.
 - Launch the app for a check with `-store <temp file>` (and `-noContacts YES` where contacts are not needed).
 - Opening a store with a newer build migrates it in place. Open `Tests/CXCoreTests/Fixtures/before-photos.store` only through a copy; a test checks that the original still has the old schema.
-- An `/autonomous` run may install the app with `scripts/build-app.sh mac` or `iphone`. The installed app then opens the real store and migrates it; this is accepted.
+- An `/autonomous` run may install the app with `scripts/build-app.sh mac`, `iphone` or `all`. Prefer `all`, so that all devices have the same build number. The installed app then opens the real store and migrates it; this is accepted.
 - After a change to the data model, rebuild the release binary, so that an old `cx` on the PATH does not open the store.
 - `geocache.json` (the hourly geocoding budget) sits next to the default store and does not follow `CX_STORE`.
 - The repository is public: nothing from `private/` and no real person's data goes into code, fixtures, commits or docs.

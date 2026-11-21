@@ -3,17 +3,38 @@
 #   scripts/build-app.sh mac            build the Mac app and install it in /Applications
 #   scripts/build-app.sh iphone <name>  build for iPhone / iPad and install on the connected, unlocked device
 #   scripts/build-app.sh simulator      build for the iOS simulator
+#   scripts/build-app.sh all            the Mac app and every attached iPhone / iPad, with one build number and date
 set -eu
+SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$(dirname "$0")/../App"
 
 [ -f Local.xcconfig ] || { echo "Copy App/Local.xcconfig.example to App/Local.xcconfig and enter your team ID."; exit 1; }
 xcodegen generate >/dev/null
 DERIVED="../.build/xc"
-# the build number is the commit count, the build date the local time (issue #12); all targets get the same values
-BUILD="$(git rev-list --count HEAD)"
-BUILT="$(date '+%Y-%m-%d %H:%M')"
+# the build number is the commit count, the build date the local time (issue #12); all targets get the same values.
+# `all` sets CX_BUILD and CX_BUILT, so that every platform gets the same values (issue #17).
+BUILD="${CX_BUILD:-$(git rev-list --count HEAD)}"
+BUILT="${CX_BUILT:-$(date '+%Y-%m-%d %H:%M')}"
 
 case "${1:-mac}" in
+all)
+    export CX_BUILD="$BUILD" CX_BUILT="$BUILT"
+    LIST="$(mktemp)"
+    xcrun devicectl list devices --json-output "$LIST" >/dev/null
+    # attached = a real device with a transport (cable or network)
+    DEVICES="$(python3 -I -c 'import json,sys
+for d in json.load(open(sys.argv[1]))["result"]["devices"]:
+    if d["hardwareProperties"].get("reality") == "physical" and d["connectionProperties"].get("transportType"):
+        print(d["deviceProperties"]["name"])' "$LIST")"
+    rm -f "$LIST"
+    echo "Build $BUILD, $BUILT"
+    "$SCRIPT" mac
+    echo "$DEVICES" | while IFS= read -r DEVICE; do
+        [ -n "$DEVICE" ] || continue
+        echo "== $DEVICE"
+        "$SCRIPT" iphone "$DEVICE"
+    done
+    ;;
 mac)
     # automatic signing: the iCloud entitlement needs a provisioning profile
     xcodebuild -project cardxchange.xcodeproj -scheme cardxchangeMac -configuration Release -derivedDataPath "$DERIVED" \
@@ -41,6 +62,6 @@ simulator)
     echo "Built $DERIVED/Build/Products/Debug-iphonesimulator/cardXchange.app"
     ;;
 *)
-    echo "Usage: scripts/build-app.sh mac | iphone <device name> | simulator"; exit 1
+    echo "Usage: scripts/build-app.sh mac | iphone <device name> | simulator | all"; exit 1
     ;;
 esac
