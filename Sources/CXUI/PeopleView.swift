@@ -209,7 +209,7 @@ public struct PeopleView: View {
             Text("Its follow-ups are deleted too. This cannot be undone.")
         }
         .confirmationDialog("Delete \(model.card?.entry.name ?? "")?", isPresented: $isConfirmingPersonDelete) {
-            Button("Delete Person", role: .destructive) { Task { await model.deleteSelectedPerson() } }
+            Button("Delete", role: .destructive) { Task { await model.deleteSelectedPerson() } }
         } message: {
             if model.card?.entry.isCXOnly == false {
                 Text("The contact is deleted from Contacts now. cardXchange keeps a copy without the note, and the person's events, notes, tags and photos, for 30 days under Recently Deleted.")
@@ -296,13 +296,7 @@ extension PeopleView {
 
     private var peopleList: some View {
         List(selection: $model.selection) {
-            ForEach(model.sections) { section in
-                Section(section.title) {
-                    ForEach(section.entries, id: \.key) { entry in
-                        PersonRow(entry: entry)
-                    }
-                }
-            }
+            // on top, as the lists in Contacts: at the end of a long address book nobody would find it
             if !model.recentlyDeleted.isEmpty && model.search.isEmpty {
                 Section {
                     Button { sheet = .recentlyDeleted } label: {
@@ -311,6 +305,13 @@ extension PeopleView {
                         } label: {
                             Label("Recently Deleted", systemImage: "trash")
                         }
+                    }
+                }
+            }
+            ForEach(model.sections) { section in
+                Section(section.title) {
+                    ForEach(section.entries, id: \.key) { entry in
+                        PersonRow(entry: entry)
                     }
                 }
             }
