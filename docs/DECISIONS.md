@@ -38,6 +38,8 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
   - [15:21 — My Card settings are kept per device in UserDefaults](#run-2026-11-21-1427-6)
   - [15:10 — The build number is the commit count; the version shows in About and in Settings](#run-2026-11-21-1427-7)
   - [16:56 — The apps get German and French; notes and CLI stay English; the language is chosen in Settings](#run-2026-11-21-1427-8)
+  - [17:35 — Move three tests with the functions they test, and change one expected value](#run-2026-11-21-1427-9)
+  - [17:36 — "Me" syncs through the store; "What's new" is a list in the repository](#run-2026-11-21-1427-10)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -388,4 +390,28 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
   - Settings gets "Language": System, English, Deutsch, Français. The choice applies after a restart of the app.
 - **Why:** the history block is English by an earlier decision. iOS and macOS read the app language only at launch.
 - **Alternatives:** only link to the language setting of the system (iOS has one for each app; the Mac has one in System Settings); a translation service.
-- **Consequences:** the user reviews the German and French texts. Each new text needs three languages from now on.
+- **Consequences:** the user reviews the German and French texts. Each new text needs three languages from now on. Built in `ba2ee32` to `c99d6c9`; a test checks that each text has German and French with the same placeholders. German uses "du", French "vous". Not seen: the Mac screens, the share extensions, the permission prompts of the system.
+
+## 17:35 — Move three tests with the functions they test, and change one expected value {#run-2026-11-21-1427-9}
+
+- **Status:** open
+- **Overrides:** `~/.claude/CLAUDE.md` — "Never make tests pass by changing/removing them without explicit permission".
+- **Context:** issue 13. The map status line, the birthday line and the label of a connection were made in CXCore, in English only. To translate them, the subagent moved them to CXUI.
+- **Question:** what happens to the three CXCore tests of these functions?
+- **Decision:** the three tests are removed with the functions; tests of the same behaviour are in `Tests/CXUITests/LocalizationTests.swift`. One expected value changes on purpose: "1 234 of 2 000" is now "1,234 of 2,000" in English, because numbers follow the language.
+- **Why:** CXCore must stay English for the command line and the notes. A catalog in CXCore would make the command line German on a German Mac.
+- **Alternatives:** keep the English functions in CXCore beside the translated ones in CXUI (two copies of the same text).
+- **Consequences:** to undo, revert `ba2ee32` and `c99d6c9`; this removes the translation of these three texts.
+
+## 17:36 — "Me" syncs through the store; "What's new" is a list in the repository {#run-2026-11-21-1427-10}
+
+- **Status:** open
+- **Context:** new issues 14 to 17 during the run. 14 (own position above the pins) and 17 (`scripts/build-app.sh all`) are done. 15 and 16 wait for 13 because they change Settings.
+- **Question:** how are 15 and 16 built?
+- **Decision:**
+  - 16: iOS cannot read "My Card" of Contacts. The "Me" choice moves into the synced store; the Mac reads its Contacts card into it. A change on the Mac also sets "My Card" in Contacts; a change on iPhone or iPad is applied by the Mac at its next start.
+  - 15: Settings → "What's New", a table with Date, Version, Area and Feature, sortable by a click on a header; a list with a sort menu on iPhone. The rows are a file in the repository, one row for each user-visible change, filled in from the history.
+  - 14: the own position is drawn above all pins; on iPhone and iPad it is blue, not pink.
+- **Why:** these are the only ways that work with Apple's limits (no "My Card" on iOS).
+- **Alternatives:** ask the user on iOS to choose "Me" again on each device (as now).
+- **Consequences:** the plans are written on issues 15 and 16.
