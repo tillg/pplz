@@ -24,5 +24,9 @@ struct CardXchangeMacApp: App {
                     .keyboardShortcut("v", modifiers: [.command, .shift])
             }
         }
+        Settings {
+            SettingsView(model: model)
+                .frame(width: 480, height: 560)
+        }
     }
 }

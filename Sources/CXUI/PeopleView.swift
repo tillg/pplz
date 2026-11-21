@@ -45,7 +45,7 @@ public struct PeopleView: View {
     @State private var editedEntry: PersonEntry?
 
     public enum Sheet: String, Identifiable, Sendable {
-        case log, quickLog, edit, editEvent, connect, editContact, newContact, recentlyDeleted
+        case log, quickLog, edit, editEvent, connect, editContact, newContact, recentlyDeleted, settings
         public var id: String { rawValue }
     }
 
@@ -55,7 +55,7 @@ public struct PeopleView: View {
         _sheet = State(initialValue: initialSheet)
     }
 
-    /// Reads the launch options `-show log|quickLog|edit|editEvent|connect|editContact|newContact|recentlyDeleted`, `-mode events|map` and `-capture <image file>`.
+    /// Reads the launch options `-show log|quickLog|edit|editEvent|connect|editContact|newContact|recentlyDeleted|settings`, `-mode events|map` and `-capture <image file>`.
     public init(model: PeopleModel, defaults: UserDefaults) {
         self.init(model: model, initialSheet: defaults.string(forKey: "show").flatMap(Sheet.init))
         opensEvents = defaults.string(forKey: "mode") == "events"
@@ -108,6 +108,12 @@ public struct PeopleView: View {
                         .help("Read a screenshot of someone's profile or a photo of a business card")
                     #endif
                 }
+                #if os(iOS)
+                // the Mac has its Settings window instead (cardXchange → Settings…)
+                ToolbarItem {
+                    Button("Settings", systemImage: "gearshape") { sheet = .settings }
+                }
+                #endif
             }
             .navigationSplitViewColumnWidth(min: 230, ideal: 290)
             .disabled(isEditing)     // an edit ends with Cancel or Done, not by wandering off
@@ -198,6 +204,8 @@ public struct PeopleView: View {
                     #endif
             case .recentlyDeleted:
                 RecentlyDeletedSheet(model: model)
+            case .settings:
+                SettingsView(model: model)
             }
         }
         .sheet(item: Binding(get: { model.faceChoice }, set: { if $0 == nil { Task { await model.chooseFace(nil) } } })) { choice in
@@ -290,6 +298,11 @@ extension PeopleView {
         case .recentlyDeleted: sheet
         case .editEvent: model.selectedEvent == nil ? nil : sheet
         case .quickLog: model.entries.isEmpty ? nil : sheet
+        #if os(iOS)
+        case .settings: sheet
+        #else
+        case .settings: nil      // the Settings window
+        #endif
         case nil: nil
         }
     }

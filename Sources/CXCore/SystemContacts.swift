@@ -185,6 +185,15 @@ public enum SystemContacts {
             relatedNames: contact.contactRelations.map { LabeledValue(label: label($0.label), value: $0.value.name) })
     }
 
+    #if os(macOS)
+    /// The contact that Contacts on this Mac marks as "My Card"; `nil` if there is none.
+    public static func meContactIdentifier() throws -> String? {
+        let store = CNContactStore()
+        try requestAccessIfNeeded(store)
+        return try? store.unifiedMeContactWithKeys(toFetch: []).identifier
+    }
+    #endif
+
     static func requestAccessIfNeeded(_ store: CNContactStore) throws {
         if CNContactStore.authorizationStatus(for: .contacts) == .notDetermined {
             let done = DispatchSemaphore(value: 0)

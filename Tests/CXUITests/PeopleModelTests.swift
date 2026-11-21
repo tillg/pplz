@@ -832,3 +832,55 @@ import Testing
         #expect(try store.deletedPersons().isEmpty)
     }
 }
+
+/// "My Card" (SPEC §4.8): the person chosen as me and the chosen fields, kept in a defaults suite of its own.
+@MainActor
+@Suite struct MyCardModelTests {
+    func makeModel(settings: String) throws -> (PeopleModel, CXStore, URL) {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("cx-ui-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("test.store")
+        var configuration = PeopleModel.Configuration(storeURL: url, usesContacts: false)
+        configuration.settingsSuite = settings
+        return (PeopleModel(configuration: configuration), try CXStore(url: url), url)
+    }
+
+    private func freshSettings() -> String {
+        "cx-ui-tests-\(UUID().uuidString)"
+    }
+
+    @Test func noCardUntilSomeoneIsChosen() async throws {
+        let (model, store, _) = try makeModel(settings: freshSettings())
+        try store.createPerson(name: "Anna Example")
+        await model.reload()
+        await model.loadMyCard()
+        #expect(model.myCardEntry == nil)
+        #expect(model.myCard == nil)
+    }
+
+    @Test func aChosenPersonWithoutAContactGivesACardWithTheName() async throws {
+        let (model, store, _) = try makeModel(settings: freshSettings())
+        try store.createPerson(name: "Anna Example")
+        await model.reload()
+        await model.chooseMe(model.entries[0].key)
+        #expect(model.myCardEntry?.name == "Anna Example")
+        #expect(model.myCard == SharedCard(contact: ContactEdit(givenName: "Anna", familyName: "Example")))
+    }
+
+    @Test func theChoiceAndTheFieldsAreKeptForTheNextLaunch() async throws {
+        let settings = freshSettings()
+        let (model, store, url) = try makeModel(settings: settings)
+        try store.createPerson(name: "Anna Example")
+        await model.reload()
+        await model.chooseMe(model.entries[0].key)
+        model.myCardFields.picture = true
+
+        var configuration = PeopleModel.Configuration(storeURL: url, usesContacts: false)
+        configuration.settingsSuite = settings
+        let next = PeopleModel(configuration: configuration)
+        await next.reload()
+        await next.loadMyCard()
+        #expect(next.myCardEntry?.name == "Anna Example")
+        #expect(next.myCardFields.picture)
+    }
+}

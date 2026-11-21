@@ -23,6 +23,9 @@ public final class PeopleModel {
         /// Whether addresses are located in the background. Like iCloud sync, only for the app's own default
         /// store: a store given with `-store` (demo data, tests) must not send the whole address book again.
         public var locatesAddresses = false
+        /// The defaults suite for the user's own settings (SPEC §4.8), `nil` for the app's standard defaults.
+        /// They stay on this device, outside the store.
+        public var settingsSuite: String?
 
         /// Launch options, given the Apple way as `-key value` pairs:
         /// `-store <path>`, `-noContacts YES`, `-select <name or id>`, `-noSync YES`, `-forceSync YES`.
@@ -215,12 +218,17 @@ public final class PeopleModel {
     }
 
     private let configuration: Configuration
+    private let settings: UserDefaults
     private var store: CXStore?
     private var pendingSelection: String?
 
     public init(configuration: Configuration = Configuration()) {
         self.configuration = configuration
         self.pendingSelection = configuration.initialSelection
+        settings = configuration.settingsSuite.flatMap(UserDefaults.init(suiteName:)) ?? .standard
+        myCardKey = settings.string(forKey: Self.myCardKeySetting)
+        myCardFields = settings.data(forKey: Self.myCardFieldsSetting)
+            .flatMap { try? JSONDecoder().decode(MyCardFields.self, from: $0) } ?? MyCardFields()
     }
 
     /// Loads (or reloads) the list; called at launch and whenever the app becomes active,
@@ -1007,6 +1015,76 @@ public final class PeopleModel {
             }
             guard selection == key else { return }   // the user moved on while we were loading
             card = try store.card(for: entry, contact: details)
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+        }
+    }
+
+    // MARK: My card (SPEC §4.8)
+
+    private static let myCardKeySetting = "myCardKey"
+    private static let myCardFieldsSetting = "myCardFields"
+
+    /// The row of the person the user chose as themselves; `nil` until they choose.
+    public private(set) var myCardKey: String?
+    /// The Mac's own "My Card" in Contacts, used while the user has not chosen.
+    private var systemMeKey: String?
+    /// What the user passes on of their own contact. Every change is kept for the next launch.
+    public var myCardFields: MyCardFields {
+        didSet { settings.set(try? JSONEncoder().encode(myCardFields), forKey: Self.myCardFieldsSetting) }
+    }
+    /// The fields of the user's own contact, read fresh by `loadMyCard`.
+    public private(set) var myContact: ContactEdit?
+    private var myPicture: Data?
+
+    /// The person whose card is passed on: the one the user chose, else the Mac's "My Card" in Contacts.
+    public var myCardEntry: PersonEntry? {
+        guard let key = myCardKey ?? systemMeKey else { return nil }
+        return entries.first { $0.key == key }
+    }
+
+    /// The card exactly as it is passed on.
+    public var myCard: SharedCard? {
+        myContact.map { MyCard.card(from: $0, picture: myPicture, fields: myCardFields) }
+    }
+
+    /// Whether this row of the user's contact goes on the card, for a toggle in the settings.
+    public subscript(passesOn rowID: String) -> Bool {
+        get { myContact.map { myCardFields.includes(rowID, of: $0) } ?? false }
+        set { if let myContact { myCardFields.set(rowID, included: newValue, of: myContact) } }
+    }
+
+    /// Keeps `key` (a row of the people list) as the user's own person and reads its contact.
+    public func chooseMe(_ key: String) async {
+        myCardKey = key
+        settings.set(key, forKey: Self.myCardKeySetting)
+        await loadMyCard()
+    }
+
+    /// Reads the user's own contact and picture; a person without a contact gives only the name.
+    public func loadMyCard() async {
+        let usesContacts = configuration.usesContacts
+        #if os(macOS)
+        if myCardKey == nil, systemMeKey == nil, usesContacts {
+            systemMeKey = await Task.detached { try? SystemContacts.meContactIdentifier() }.value
+        }
+        #endif
+        guard let entry = myCardEntry else {
+            myContact = nil
+            myPicture = nil
+            return
+        }
+        guard usesContacts, let identifier = entry.contactIdentifier else {
+            myContact = MyCard.contact(named: entry.name)
+            myPicture = nil
+            return
+        }
+        do {
+            let (edit, details) = try await Task.detached {
+                (try SystemContacts.contactEdit(identifier: identifier), try SystemContacts.details(identifier: identifier))
+            }.value
+            myContact = edit
+            myPicture = details?.imageData
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
         }

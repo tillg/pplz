@@ -25,7 +25,7 @@ It has two faces:
 
 - macOS, iOS, iPadOS **[S]**
 - One native codebase (Swift / SwiftUI, multiplatform target) **[A]**
-- Single user, my own data; no multi-user, no sharing, no cardXchange user accounts **[A]**
+- Single user, my own data; no multi-user, no cardXchange user accounts **[A]**. The one exception is exchanging cards with other cardXchange users (§4.8). **[S]** 2026-11-19
 - No own application backend. Exceptions: the cloud services cardXchange calls while it is "cloud first" — face recognition (§7) and the language model (§4.5) — each with its own credentials. **[A]**
 
 ### Non-goals (for now) **[A]**
@@ -257,6 +257,30 @@ cardXchange ships with a `cardXchange` CLI on the Mac **from the start**, so tha
   - standard system components, fonts, light / dark mode — no custom design system
   - pink as the app's accent / tint colour (buttons, links, selection, cardXchange-specific sections, app icon) instead of system blue
   - the pink is Apple's **system pink** (adapts to light / dark mode and accessibility settings) **[S]** decided 2026-11-18
+
+### 4.8 Exchange cards (issue #5)
+
+I show a QR code in cardXchange; the other person scans it and gets my contact data in their cardXchange. **[S]** 2026-11-19
+
+- Changes to my data reach the linked people through **iCloud sharing**, with no own server. **[S]** 2026-11-19
+- Someone without the app gets my data only through the app. If they install it first, the data must be in the new app at once. **[S]** 2026-11-19 This needs an **App Clip** that shows my card and hands it to the full app after installation. **[S]** 2026-11-19
+- The domain is `cardxchange.me`; a store release is planned. **[S]** 2026-11-19
+- **One link per person**, which only that person can accept and which I can end alone. **[S]** 2026-11-19
+- An update on the other side is **shown, never applied silently**. **[S]** 2026-11-19
+- **Both directions** when the other person has cardXchange. **[S]** 2026-11-19 Each side can end the link; what the other side has stays. **[S]** 2026-11-19
+- **Order:** the parts that work without a store release come first: "My Card" with the fields chosen in the settings, the code on screen, and a link between two accounts that have cardXchange. **[S]** 2026-11-19
+
+**My Card** (built 2026-11-21):
+
+- **In the app settings I choose which fields are passed on.** **[S]** 2026-11-19
+- Who "me" is: in the settings the user chooses a person from the list. Until then, the Mac uses the contact that Contacts marks as "My Card". iPhone and iPad have no such card for apps, so the user must choose. **[A]**
+- The choice and the fields stay on the device, in the app's defaults, outside the store. They do not sync. Reason: the store's model must not change in this step, and an iCloud key-value store needs a new entitlement. **[A]**
+- The name is always on the card. Company, job title and picture are switches. Each phone number, mail address, web address, social profile and postal address is a switch of its own. Nickname, birthday, note and related names are never on the card. **[A]**
+- Before the user chooses, the card has: name, company, job title, one mobile number (label mobile, else iPhone; no other phone), the first mail address, and one LinkedIn profile (a social profile, else a LinkedIn web address). No picture. **[A]**
+- cardXchange's own `cx://` link is never on the card. **[A]**
+- A person without a contact gives a card with the name only. **[A]**
+- "Show My Card" in the settings shows exactly what is passed on. The core keeps the card as a `Codable` value and can write it as a vCard. **[A]**
+- Not built yet: the QR code, iCloud sharing, the App Clip, receiving updates.
 
 ---
 
