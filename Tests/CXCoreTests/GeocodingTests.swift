@@ -47,6 +47,32 @@ import Testing
     @Test func theHourlyLimitIs300() {
         #expect(GeocodeBudget.hourlyLimit == 300)
     }
+
+    func finish(_ outstanding: Int, now: Date, slot: Date?, sent: Int) -> Date? {
+        GeocodeBudget.finish(outstanding: outstanding, now: now, slotStart: slot, sent: sent, calendar: calendar)
+    }
+
+    @Test func nothingOutstandingHasNoFinish() {
+        #expect(finish(0, now: at(13, 20), slot: at(13), sent: 50) == nil)
+    }
+
+    /// One request per second, while the hour's budget lasts.
+    @Test func whatFitsIntoThisHoursBudgetIsDoneInOneSecondEach() {
+        #expect(finish(100, now: at(13, 20), slot: at(13), sent: 50) == at(13, 20).addingTimeInterval(100))
+        #expect(finish(250, now: at(13, 20), slot: at(13), sent: 50) == at(13, 20).addingTimeInterval(250))
+    }
+
+    /// The rest waits for the next hours, each starting ten minutes after the hour with a full budget.
+    @Test func theRestGoesOnTenMinutesIntoEachNextHour() {
+        #expect(finish(400, now: at(13, 20), slot: at(13), sent: 100) == at(14, 10).addingTimeInterval(200))
+        #expect(finish(900, now: at(13, 20), slot: nil, sent: 0) == at(15, 10).addingTimeInterval(300))
+        #expect(finish(100, now: at(13, 20), slot: at(11), sent: 300) == at(13, 20).addingTimeInterval(100))   // an old hour's count is void
+    }
+
+    @Test func aSpentBudgetStartsWhenThePauseEnds() {
+        #expect(finish(650, now: at(13, 20), slot: at(13), sent: 300) == at(16, 10).addingTimeInterval(50))
+        #expect(finish(10, now: at(14, 5), slot: at(13), sent: 300) == at(14, 10).addingTimeInterval(10))
+    }
 }
 
 @Suite struct GeocodeStoreTests {
@@ -410,6 +436,29 @@ import Testing
         #expect(LocatedPeople.statusLine(counts, resumesAt: nil) == "1 234 of 2 000 addresses located")
         #expect(LocatedPeople.statusLine(.init(located: 5, notFound: 2, outstanding: 0), resumesAt: resumes) == "5 of 7 addresses located · 2 not found")
         #expect(LocatedPeople.statusLine(.init(located: 0, notFound: 0, outstanding: 0), resumesAt: nil) == nil)
+    }
+
+    /// Issue #8: when the rest is expected to be located, with the day.
+    @Test func theStatusLineSaysWhenLocatingIsExpectedToBeDone() {
+        let calendar = Calendar.current
+        let resumes = calendar.date(from: DateComponents(year: 2026, month: 11, day: 19, hour: 14, minute: 10))!
+        let done = calendar.date(from: DateComponents(year: 2026, month: 11, day: 21, hour: 18, minute: 40))!
+        let counts = LocatedPeople.Counts(located: 147, notFound: 5, outstanding: 1959)
+        #expect(LocatedPeople.statusLine(counts, resumesAt: resumes, doneAt: done)
+                == "147 of 2 111 addresses located · 5 not found · pausing until 14:10 · done about Sat 18:40")
+        #expect(LocatedPeople.statusLine(counts, resumesAt: nil, doneAt: done) == "147 of 2 111 addresses located · 5 not found · done about Sat 18:40")
+        #expect(LocatedPeople.statusLine(.init(located: 5, notFound: 2, outstanding: 0), resumesAt: nil, doneAt: done) == "5 of 7 addresses located · 2 not found")
+    }
+
+    /// Issue #9: what the map says when it shows no pin.
+    @Test func theMapSaysWhyItShowsNoPin() {
+        #expect(MapNotice.make(search: "", matches: 3, pins: 2) == nil)
+        #expect(MapNotice.make(search: "ann", matches: 1, pins: 1) == nil)
+        #expect(MapNotice.make(search: "", matches: 3, pins: 0) == .nobodyLocated)
+        #expect(MapNotice.make(search: "", matches: 0, pins: 0) == .nobodyLocated)
+        #expect(MapNotice.make(search: "zzz", matches: 0, pins: 0) == .noResults)
+        #expect(MapNotice.make(search: "hama", matches: 1, pins: 0) == .notLocated(matches: 1))
+        #expect(MapNotice.make(search: "an", matches: 4, pins: 0) == .notLocated(matches: 4))
     }
 
     @Test func peopleAreFilteredLikeTheList() {

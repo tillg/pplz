@@ -108,6 +108,28 @@ public enum GeocodeBudget {
         let resume = resume(after: slotStart, calendar: calendar)
         return now < resume ? .wait(until: resume) : .send
     }
+
+    /// When `outstanding` addresses are expected to be located if this device does them all: one request every
+    /// `spacing` while the hour's budget lasts, the rest from ten minutes into each next hour. `nil` when nothing is left.
+    /// Other devices are not counted: what they locate syncs in and makes the next estimate earlier.
+    public static func finish(outstanding: Int, now: Date, slotStart: Date?, sent: Int, limit: Int = hourlyLimit,
+                              spacing: TimeInterval = 1, calendar: Calendar = .current) -> Date? {
+        guard outstanding > 0 else { return nil }
+        var start = now
+        var free = limit - self.sent(now: now, slotStart: slotStart, sent: sent, calendar: calendar)
+        if case .wait(let until) = decide(now: now, slotStart: slotStart, sent: sent, limit: limit, calendar: calendar) {
+            start = until
+            free = limit
+        }
+        free = max(0, free)
+        if outstanding <= free { return start.addingTimeInterval(Double(outstanding) * spacing) }
+        let rest = outstanding - free
+        let hours = (rest + limit - 1) / limit
+        let last = rest - (hours - 1) * limit
+        let slot = Self.slotStart(of: start, calendar: calendar)
+        let lastHour = calendar.date(byAdding: .hour, value: hours, to: slot) ?? slot.addingTimeInterval(Double(hours) * 3600)
+        return lastHour.addingTimeInterval(pauseIntoNextHour + Double(last) * spacing)
+    }
 }
 
 /// What went wrong with one address.
@@ -400,8 +422,8 @@ public enum LocatedPeople {
         return counts
     }
 
-    /// "1 234 of 2 000 addresses located · 12 not found · pausing until 14:10"; `nil` without addresses.
-    public static func statusLine(_ counts: Counts, resumesAt: Date?) -> String? {
+    /// "1 234 of 2 000 addresses located · 12 not found · pausing until 14:10 · done about Sat 18:40"; `nil` without addresses.
+    public static func statusLine(_ counts: Counts, resumesAt: Date?, doneAt: Date? = nil) -> String? {
         guard counts.total > 0 else { return nil }
         let numbers = NumberFormatter()
         numbers.groupingSeparator = " "
@@ -415,6 +437,29 @@ public enum LocatedPeople {
             time.dateFormat = "HH:mm"
             parts.append("pausing until \(time.string(from: resumesAt))")
         }
+        if let doneAt, counts.outstanding > 0 {
+            let time = DateFormatter()
+            time.locale = Locale(identifier: "en_US_POSIX")
+            time.dateFormat = "EEE HH:mm"
+            parts.append("done about \(time.string(from: doneAt))")
+        }
         return parts.joined(separator: " · ")
+    }
+}
+
+/// What the map says when it shows no pin (issue #9). The map stays visible behind it.
+public enum MapNotice: Equatable, Sendable {
+    /// Nobody has a located address, and nothing is searched for.
+    case nobodyLocated
+    /// The search finds nobody.
+    case noResults
+    /// The search finds people, but none of them has a located address.
+    case notLocated(matches: Int)
+
+    /// `nil` when the map shows a pin.
+    public static func make(search: String, matches: Int, pins: Int) -> MapNotice? {
+        if pins > 0 { return nil }
+        if search.isEmpty { return .nobodyLocated }
+        return matches == 0 ? .noResults : .notLocated(matches: matches)
     }
 }
