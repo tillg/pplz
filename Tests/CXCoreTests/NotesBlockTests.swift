@@ -117,4 +117,12 @@ import Testing
         try store.setShowsHistoryInContacts(false)
         #expect(try store.showsHistoryInContacts() == false)
     }
+
+    @Test func meIsNobodyUntilChosenAndIsKeptInTheStore() throws {
+        let (store, url) = try makeStore()
+        #expect(try store.mePerson() == nil)
+        let anna = try store.createPerson(name: "Anna Example")
+        try store.setMePerson(anna)
+        #expect(try CXStore(url: url).mePerson() == anna)
+    }
 }

@@ -78,6 +78,15 @@ public final class CXStore {
         try setSetting("showHistoryInContacts", on ? "true" : "false")
     }
 
+    /// "Me": the person the user chose as themselves (SPEC §4.8). It syncs, so every device shows the same person.
+    public func mePerson() throws -> UUID? {
+        try setting("mePerson").flatMap(UUID.init(uuidString:))
+    }
+
+    public func setMePerson(_ id: UUID) throws {
+        try setSetting("mePerson", id.uuidString)
+    }
+
     private func setting(_ key: String) throws -> String? {
         try context.fetch(FetchDescriptor<Setting>(predicate: #Predicate { $0.key == key })).first?.value
     }

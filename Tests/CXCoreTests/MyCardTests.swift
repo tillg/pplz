@@ -152,3 +152,36 @@ import Testing
         #expect(MyCard.contact(named: "Anna Maria Example") == ContactEdit(givenName: "Anna Maria", familyName: "Example"))
     }
 }
+
+/// Which "Me" wins on the Mac: the choice in the store or "My Card" in Contacts (issue #16).
+@Suite struct MeSyncTests {
+    private let anna = UUID(), ben = UUID(), clara = UUID()
+
+    @Test func nothingToDoWhenStoreAndContactsAgree() {
+        #expect(MyCard.meSync(stored: anna, applied: nil, system: anna) == .none)
+        #expect(MyCard.meSync(stored: nil, applied: nil, system: nil) == .none)
+    }
+
+    @Test func contactsGivesMeWhenTheStoreHasNone() {
+        #expect(MyCard.meSync(stored: nil, applied: nil, system: anna) == .takeFromContacts)
+    }
+
+    @Test func storeGivesMyCardWhenContactsHasNone() {
+        #expect(MyCard.meSync(stored: anna, applied: anna, system: nil) == .applyToContacts)
+    }
+
+    @Test func aChangeInCardXchangeIsAppliedToContacts() {
+        // Contacts still has what the Mac applied last: the user changed "Me" in cardXchange
+        #expect(MyCard.meSync(stored: ben, applied: anna, system: anna) == .applyToContacts)
+    }
+
+    @Test func aChangeInContactsIsTakenIntoTheStore() {
+        // the store still has what the Mac applied last: the user changed "My Card" in Contacts
+        #expect(MyCard.meSync(stored: anna, applied: anna, system: ben) == .takeFromContacts)
+    }
+
+    @Test func cardXchangeWinsWhenBothChangedOrNothingWasAppliedYet() {
+        #expect(MyCard.meSync(stored: ben, applied: anna, system: clara) == .applyToContacts)
+        #expect(MyCard.meSync(stored: ben, applied: nil, system: anna) == .applyToContacts)
+    }
+}

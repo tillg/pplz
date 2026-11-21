@@ -40,6 +40,25 @@ public struct SharedCard: Codable, Equatable, Sendable {
 }
 
 public enum MyCard {
+    /// What the Mac does to bring "Me" in the store and "My Card" in Contacts together (issue #16).
+    public enum MeSync: Equatable, Sendable {
+        case none
+        /// Store the person of "My Card" in Contacts as "Me".
+        case takeFromContacts
+        /// Mark the contact of the stored "Me" as "My Card" in Contacts.
+        case applyToContacts
+    }
+
+    /// Decides from the stored "Me", the person this Mac applied to Contacts last, and the person of "My Card"
+    /// in Contacts now. The side that changed since the last apply wins. If both changed, or the Mac applied
+    /// nothing yet, cardXchange wins. A contact without a person counts as a person that is neither of the others.
+    public static func meSync(stored: UUID?, applied: UUID?, system: UUID?) -> MeSync {
+        if stored == system { return .none }
+        if stored == nil { return .takeFromContacts }
+        if system == nil { return .applyToContacts }
+        return applied == stored ? .takeFromContacts : .applyToContacts
+    }
+
     private static let mobileLabels = ["_$!<Mobile>!$_", "iPhone"]     // CNLabelPhoneNumberMobile, CNLabelPhoneNumberiPhone
 
     /// Keeps the name and the chosen fields; leaves out everything else, cardXchange's link row always.
