@@ -279,7 +279,7 @@ public struct PersonCard: Equatable, Sendable {
     public var photos: [PhotoSnapshot] = []
 }
 
-/// A person under "Recently deleted": kept for 30 days, then removed for good (SPEC §3.6).
+/// A person under "Recently deleted": kept for 30 days, then removed for good (SPEC §3.4).
 public struct DeletedPerson: Codable, Equatable, Sendable {
     public static let keptFor: TimeInterval = 30 * 24 * 60 * 60
 

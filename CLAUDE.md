@@ -64,7 +64,7 @@ Swift 6 package with three targets, plus the apps in `App/`:
 
 - `PeopleModel` is the one `@MainActor @Observable` view model. It owns the store and opens it lazily; views get the model and never see the store.
 - Platform differences are mostly `#if os(macOS)` blocks inside the shared files.
-- Launch arguments (`-key value`), useful for checks and used by `scripts/ui.sh`: `-store <file>`, `-noContacts YES`, `-noSync YES`, `-forceSync YES`, `-select <name|id>`, `-show log|quickLog|edit|editEvent|connect|editContact|newContact`, `-mode events|map`, `-capture <image file>`.
+- Launch arguments (`-key value`), useful for checks and used by `scripts/ui.sh`: `-store <file>`, `-noContacts YES`, `-noSync YES`, `-forceSync YES`, `-select <name|id>`, `-show log|quickLog|edit|editEvent|connect|editContact|newContact|recentlyDeleted`, `-mode events|map`, `-capture <image file>`.
 
 ### CLI
 

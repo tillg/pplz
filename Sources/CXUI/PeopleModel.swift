@@ -63,7 +63,7 @@ public final class PeopleModel {
     }
     private var isSelectingProgrammatically = false
     public private(set) var entries: [PersonEntry] = []
-    /// The persons under "Recently Deleted", newest first (SPEC §3.6).
+    /// The persons under "Recently Deleted", newest first (SPEC §3.4).
     public private(set) var recentlyDeleted: [DeletedPerson] = []
     /// Every tag in use, offered when tagging a person or an event.
     /// False when the address book is neither read nor written (`-noContacts`).
@@ -837,7 +837,7 @@ public final class PeopleModel {
     // MARK: Deleting
 
     /// Deletes the selected person: the contact leaves Contacts at once, and cardXchange keeps a copy of it and
-    /// the person's data for 30 days under "Recently Deleted" (SPEC §3.6). Returns the reason if nothing was deleted, and shows it.
+    /// the person's data for 30 days under "Recently Deleted" (SPEC §3.4). Returns the reason if nothing was deleted, and shows it.
     @discardableResult
     public func deleteSelectedPerson() async -> String? {
         guard let store, let entry = card?.entry else { return nil }

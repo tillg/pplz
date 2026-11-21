@@ -119,7 +119,7 @@ extension SystemContacts {
         }
     }
 
-    /// Deletes the contact from the address book (SPEC §3.6). Nothing happens if it is gone already.
+    /// Deletes the contact from the address book (SPEC §3.4). Nothing happens if it is gone already.
     /// On the Mac a contact that has a note refuses a direct save (SPEC §8.1, S4); then the Contacts app is asked to do it.
     public static func deleteContact(identifier: String) throws {
         let store = CNContactStore()

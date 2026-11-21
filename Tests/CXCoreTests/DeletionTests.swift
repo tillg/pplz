@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import CXCore
 
-/// Deleting a person: 30 days under "Recently deleted", then removed for good (SPEC §3.6).
+/// Deleting a person: 30 days under "Recently deleted", then removed for good (SPEC §3.4).
 @Suite struct DeletionTests {
     let copy = ContactEdit(givenName: "Anna", familyName: "Example", organization: "Example GmbH",
                            phones: [.init(id: "P1", label: "_$!<Mobile>!$_", value: "+49 170 0000000")],

@@ -1,7 +1,7 @@
 import CXCore
 import SwiftUI
 
-/// The persons deleted in the last 30 days, to restore them or to delete them for good now (SPEC §3.6).
+/// The persons deleted in the last 30 days, to restore them or to delete them for good now (SPEC §3.4).
 struct RecentlyDeletedSheet: View {
     let model: PeopleModel
 

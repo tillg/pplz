@@ -738,7 +738,7 @@ import Testing
     }
 }
 
-/// Deleting from the card, "Recently Deleted", restoring (SPEC §3.6).
+/// Deleting from the card, "Recently Deleted", restoring (SPEC §3.4).
 @MainActor
 @Suite struct DeletePersonTests {
     func makeModel(select: String? = nil) throws -> (PeopleModel, CXStore) {
