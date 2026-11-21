@@ -97,11 +97,13 @@ public final class PeopleModel {
     }
 
     /// "1 234 of 2 000 addresses located · pausing until 14:10 · done about Sat 18:40"; `nil` if nobody has an address.
+    /// The expected end shows only while locating runs or is paused.
     public var locateStatus: String? {
         let counts = LocatedPeople.counts(in: entries, state: geocodes)
         var resumesAt: Date?
         if case .wait(let until) = geocodes.budget() { resumesAt = until }
-        let doneAt = GeocodeBudget.finish(outstanding: counts.outstanding, now: .now, slotStart: geocodes.slotStart, sent: geocodes.sent)
+        let doneAt = locating == nil ? nil
+            : GeocodeBudget.finish(outstanding: counts.outstanding, now: .now, slotStart: geocodes.slotStart, sent: geocodes.sent)
         return LocatedPeople.statusLine(counts, resumesAt: resumesAt, doneAt: doneAt)
     }
 
