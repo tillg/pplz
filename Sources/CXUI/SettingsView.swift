@@ -44,6 +44,7 @@ public struct SettingsView: View {
                 Section(String(localized: "About", bundle: .module)) {
                     Text(verbatim: AppVersion.text(info: Bundle.main.infoDictionary))
                         .textSelection(.enabled)
+                    NavigationLink(String(localized: "What’s New", bundle: .module)) { WhatsNewView() }
                 }
             }
             .formStyle(.grouped)

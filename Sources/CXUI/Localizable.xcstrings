@@ -746,6 +746,23 @@
         }
       }
     },
+    "App": {
+      "comment": "What’s New: the app as a whole",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App"
+          }
+        }
+      }
+    },
     "Apple Intelligence is switched off in Settings.": {
       "extractionState": "manual",
       "localizations": {
@@ -759,6 +776,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apple Intelligence est désactivé dans Réglages."
+          }
+        }
+      }
+    },
+    "Area": {
+      "comment": "What’s New: the column with the part of the app",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bereich"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Domaine"
+          }
+        }
+      }
+    },
+    "Ascending": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufsteigend"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Croissant"
           }
         }
       }
@@ -791,6 +841,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Annuler"
+          }
+        }
+      }
+    },
+    "Capture": {
+      "comment": "What’s New: the area of reading a screenshot or a business card",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erfassen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capture"
           }
         }
       }
@@ -923,6 +990,23 @@
         }
       }
     },
+    "Command line": {
+      "comment": "What’s New: the area of the cx command",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Befehlszeile"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligne de commande"
+          }
+        }
+      }
+    },
     "Company": {
       "localizations": {
         "de": {
@@ -983,6 +1067,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Contact introuvable"
+          }
+        }
+      }
+    },
+    "Contacts": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontakte"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contacts"
           }
         }
       }
@@ -1129,6 +1229,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Personnalisée…"
+          }
+        }
+      }
+    },
+    "Date": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datum"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date"
           }
         }
       }
@@ -1369,6 +1485,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Supprimer…"
+          }
+        }
+      }
+    },
+    "Descending": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Absteigend"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Décroissant"
           }
         }
       }
@@ -1719,6 +1851,23 @@
         }
       }
     },
+    "Feature": {
+      "comment": "What’s New: the column with the description of the feature",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Funktion"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fonctionnalité"
+          }
+        }
+      }
+    },
     "Find a person": {
       "localizations": {
         "de": {
@@ -2003,6 +2152,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Langue"
+          }
+        }
+      }
+    },
+    "Languages": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprachen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langues"
           }
         }
       }
@@ -2808,6 +2973,22 @@
         }
       }
     },
+    "Order": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reihenfolge"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordre"
+          }
+        }
+      }
+    },
     "Passed On": {
       "localizations": {
         "de": {
@@ -3465,6 +3646,38 @@
         }
       }
     },
+    "Sort": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sortieren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trier"
+          }
+        }
+      }
+    },
+    "Sort By": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sortieren nach"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trier par"
+          }
+        }
+      }
+    },
     "Start": {
       "localizations": {
         "de": {
@@ -3977,6 +4190,22 @@
         }
       }
     },
+    "Version": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        }
+      }
+    },
     "Web": {
       "localizations": {
         "de": {
@@ -4037,6 +4266,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ce dont vous avez parlé"
+          }
+        }
+      }
+    },
+    "What’s New": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neuigkeiten"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveautés"
           }
         }
       }

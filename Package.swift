@@ -24,7 +24,7 @@ let package = Package(
             ]
         ),
         // SwiftUI views shared by the Mac and the iOS / iPadOS app (Xcode project in App/).
-        .target(name: "CXUI", dependencies: ["CXCore"], resources: [.process("Localizable.xcstrings")]),
+        .target(name: "CXUI", dependencies: ["CXCore"], resources: [.process("Localizable.xcstrings"), .copy("Resources/whats-new.json")]),
         .testTarget(name: "CXCoreTests", dependencies: ["CXCore"], resources: [.copy("Fixtures")]),
         .testTarget(name: "CXUITests", dependencies: ["CXUI"]),
     ]

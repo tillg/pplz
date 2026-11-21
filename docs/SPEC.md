@@ -271,6 +271,12 @@ cardXchange ships with a `cardXchange` CLI on the Mac **from the start**, so tha
   - Messages of the core (`CXCore`) are English, because the command line shows them too. The app shows those without data in them translated; a message with a name or a system error in it stays English. **[A]**
   - The translations follow Apple's own words in Contacts and Maps where one exists, for example "Zuletzt gelöscht" and "Suppressions récentes". German uses "du", French "vous", as Apple does. **[A]**
 
+- **What's New (issue #15):** the user sees a list of the user-visible features, with the date, version, area and a short description of each. The list sorts by a click on a column header. **[S]** 2026-11-21
+  - "What's New" is a row in the "About" section of the settings. On the Mac and on a wide iPad sheet it is a table; on a narrow screen it is a list with a sort menu (column, ascending or descending). The default order is newest first. **[A]**
+  - The rows are in `Sources/CXUI/Resources/whats-new.json`. Each user-visible change adds one row in the same change. **[A]**
+  - The version of a row is `0.<marketing version>.<commit count>` of the commit that brought the feature. The marketing version was 0.1 before commit 24acd61 (2026-11-21) and is 0.2 from it on. A version sorts number by number: 0.2.10 comes after 0.2.9. **[A]**
+  - The area names are translated (People, Events, Map, Contacts, Photos, Capture, Settings, Languages, Command line, App). The feature descriptions stay English. **[A]**
+
 ### 4.8 Exchange cards (issue #5)
 
 I show a QR code in cardXchange; the other person scans it and gets my contact data in their cardXchange. **[S]** 2026-11-19
