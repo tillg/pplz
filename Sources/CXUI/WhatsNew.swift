@@ -20,15 +20,20 @@ struct WhatsNewEntry: Decodable, Identifiable, Hashable, Sendable {
         let numbers: [Int]
 
         init?(_ text: String) {
-            let numbers = text.split(separator: ".", omittingEmptySubsequences: false).map { Int($0) }
-            guard !numbers.isEmpty, numbers.allSatisfy({ $0 != nil && $0! >= 0 }) else { return nil }
+            let parts = text.split(separator: ".", omittingEmptySubsequences: false)
+            guard parts.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isASCII) && $0.allSatisfy(\.isNumber) }) else { return nil }
             self.text = text
-            self.numbers = numbers.compactMap { $0 }
+            self.numbers = parts.compactMap { Int($0) }
+            guard numbers.count == parts.count else { return nil }
         }
 
         static func < (lhs: Version, rhs: Version) -> Bool {
             lhs.numbers.lexicographicallyPrecedes(rhs.numbers)
         }
+
+        static func == (lhs: Version, rhs: Version) -> Bool { lhs.numbers == rhs.numbers }
+
+        func hash(into hasher: inout Hasher) { hasher.combine(numbers) }
     }
 
     enum Area: String, CaseIterable, Sendable {
@@ -131,19 +136,17 @@ enum WhatsNew {
 }
 
 /// "What’s New" in the settings: a table that sorts by a click on a column header.
-/// On a narrow screen a list with a sort menu takes the place of the table.
+/// In a narrow place (iPhone, the Settings window on the Mac) a list with a sort menu takes the place of the table.
 struct WhatsNewView: View {
     @State private var sortOrder = WhatsNew.newestFirst
     @State private var column = WhatsNew.Column.date
     @State private var order = SortOrder.reverse
-    #if os(iOS)
     @State private var width: CGFloat = 0
 
     private enum Layout {
         /// Below this width the four columns do not fit, so the list takes the table's place.
         static let tableWidth: CGFloat = 540
     }
-    #endif
 
     /// Fixed widths for the short columns; the feature column takes the rest.
     private enum ColumnWidth {
@@ -158,13 +161,17 @@ struct WhatsNewView: View {
     }
 
     @ViewBuilder private var content: some View {
-        #if os(iOS)
-        // The settings sheet on iPad has a compact size class, but room for the table. A table in a compact size class
-        // shows only its first column, so the table gets a regular size class when the width is sufficient.
         Group {
-            if width >= Layout.tableWidth { table.environment(\.horizontalSizeClass, .regular) } else { list }
+            if width >= Layout.tableWidth { wideTable } else { list }
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+    }
+
+    /// The settings sheet on iPad has a compact size class, but room for the table. A table in a compact size class
+    /// shows only its first column, so the table gets a regular size class.
+    private var wideTable: some View {
+        #if os(iOS)
+        table.environment(\.horizontalSizeClass, .regular)
         #else
         table
         #endif
@@ -172,13 +179,13 @@ struct WhatsNewView: View {
 
     private var table: some View {
         Table(WhatsNew.sorted(WhatsNew.all, using: sortOrder), sortOrder: $sortOrder) {
-            TableColumn(String(localized: WhatsNew.Column.date.title), value: \.date) { Text($0.date, format: .dateTime.year().month().day()) }
+            TableColumn(localized(WhatsNew.Column.date.title, locale: .app), value: \.date) { Text($0.date, format: .dateTime.year().month().day()) }
                 .width(ColumnWidth.date)
-            TableColumn(String(localized: WhatsNew.Column.version.title), value: \.version) { Text(verbatim: $0.version.text) }
+            TableColumn(localized(WhatsNew.Column.version.title, locale: .app), value: \.version) { Text(verbatim: $0.version.text) }
                 .width(ColumnWidth.version)
-            TableColumn(String(localized: WhatsNew.Column.area.title), value: \.areaTitle)
+            TableColumn(localized(WhatsNew.Column.area.title, locale: .app), value: \.areaTitle)
                 .width(ColumnWidth.area)
-            TableColumn(String(localized: WhatsNew.Column.feature.title), value: \.feature)
+            TableColumn(localized(WhatsNew.Column.feature.title, locale: .app), value: \.feature)
         }
     }
 

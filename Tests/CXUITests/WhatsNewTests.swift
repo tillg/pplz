@@ -32,6 +32,7 @@ import Testing
         #expect(throws: (any Error).self) { try entries("[\(entry("2026-11-21", "0.1.5", "Map", " "))]") }
         #expect(throws: (any Error).self) { try entries("[\(entry("2026-11-21", "0.x.5"))]") }
         #expect(throws: (any Error).self) { try entries("[\(entry("2026-11-21", ""))]") }
+        #expect(throws: (any Error).self) { try entries("[\(entry("2026-11-21", "0.+2.5"))]") }
     }
 
     @Test func versionsCompareByNumberNotByText() throws {
@@ -41,6 +42,7 @@ import Testing
 
         #expect(nine < ten)
         #expect(one < nine)
+        #expect(WhatsNewEntry.Version("0.2.01") == WhatsNewEntry.Version("0.2.1"))
     }
 
     @Test func newestFirstIsTheDefaultAndTheVersionBreaksATie() throws {
@@ -52,13 +54,14 @@ import Testing
     }
 
     @Test func eachColumnSortsBothWays() throws {
-        let rows = try entries("[\(entry("2026-11-19", "0.1.30", "People", "b")), \(entry("2026-11-21", "0.2.9", "Map", "a")), \(entry("2026-11-20", "0.2.10", "Events", "c"))]")
+        // App, Map, People have this order in English, German and French
+        let rows = try entries("[\(entry("2026-11-19", "0.1.30", "People", "b")), \(entry("2026-11-21", "0.2.9", "Map", "a")), \(entry("2026-11-20", "0.2.10", "App", "c"))]")
 
         #expect(WhatsNew.sorted(rows, using: [WhatsNew.Column.version.comparator(.forward)]).map(\.version.text) == ["0.1.30", "0.2.9", "0.2.10"])
         #expect(WhatsNew.sorted(rows, using: [WhatsNew.Column.feature.comparator(.reverse)]).map(\.feature) == ["c", "b", "a"])
         #expect(WhatsNew.sorted(rows, using: [WhatsNew.Column.date.comparator(.forward)]).map(\.feature) == ["b", "c", "a"])
         #expect(WhatsNew.sorted(rows, using: [WhatsNew.Column.area.comparator(.forward)]).map(\.area)
-                == [.events, .map, .people])
+                == [.app, .map, .people])
     }
 
     @Test func theBundledListIsValid() throws {

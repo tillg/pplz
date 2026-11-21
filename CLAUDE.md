@@ -97,7 +97,7 @@ Adapted from [TDD with Claude Code](https://github.com/FlorianBruniaux/claude-co
 - `docs/SPEC.md` marks every statement **[S]** stated by the user, **[A]** assumption, **[?]** open. Code comments refer to its sections (`SPEC §8.3`, `R1`); keep both in step when behaviour changes.
 - All documents except `README.md` and `CLAUDE.md` are in `docs/`. The plan of a larger change is a folder `docs/changes/<NN>_<name>/`. The skills name `GLOSSARY.md` and `DECISIONS.md` at the root of the repository; use the files in `docs/`.
 - User-visible changes are described in `README.md` in the same change.
-- Each user-visible change also adds one row to `Sources/CXUI/Resources/whats-new.json` ("What's New" in the settings): date, version `0.<marketing version>.<commit count of the change>`, area, and one English sentence. The area is one of the names in `WhatsNewEntry.Area`.
+- Each user-visible change also adds one row to `Sources/CXUI/Resources/whats-new.json` ("What's New" in the settings): date, version `<marketing version>.<commit count of the change>` (for example 0.2.103), area, and one English sentence. The area is one of the names in `WhatsNewEntry.Area`.
 - Four documents, four jobs — do not mix them:
 
   | Document | Holds | Written by |

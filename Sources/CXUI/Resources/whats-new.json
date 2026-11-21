@@ -27,7 +27,7 @@
   {"date": "2026-11-20", "version": "0.1.46", "area": "Contacts", "feature": "Edit and create contacts in the app."},
   {"date": "2026-11-20", "version": "0.1.49", "area": "People", "feature": "One editor in place of the card; add an event from the card."},
   {"date": "2026-11-20", "version": "0.1.57", "area": "App", "feature": "New name: pplz is now cardXchange, and the command is cx."},
-  {"date": "2026-11-21", "version": "0.1.65", "area": "Map", "feature": "The map tells when locating ends and why no pin shows; it shows your own position."},
+  {"date": "2026-11-21", "version": "0.1.66", "area": "Map", "feature": "The map tells when locating ends and why no pin shows; it shows your own position."},
   {"date": "2026-11-21", "version": "0.1.70", "area": "People", "feature": "Delete a person; Recently Deleted keeps the person for a restore."},
   {"date": "2026-11-21", "version": "0.1.71", "area": "Command line", "feature": "Delete, restore and purge a person from the command line."},
   {"date": "2026-11-21", "version": "0.1.77", "area": "Settings", "feature": "My Card: choose who you are and which fields you pass on."},
