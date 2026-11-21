@@ -466,7 +466,7 @@ public enum MapNotice: Equatable, Sendable {
     /// `nil` when the map shows a pin.
     public static func make(search: String, matches: Int, pins: Int) -> MapNotice? {
         if pins > 0 { return nil }
-        if search.isEmpty { return .nobodyLocated }
+        if search.trimmed.isEmpty { return .nobodyLocated }
         return matches == 0 ? .noResults : .notLocated(matches: matches)
     }
 }

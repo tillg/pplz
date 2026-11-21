@@ -470,6 +470,11 @@ import Testing
         #expect(MapNotice.make(search: "an", matches: 4, pins: 0) == .notLocated(matches: 4))
     }
 
+    /// The list ignores a search of only spaces, so the notice ignores it too.
+    @Test func aSearchOfOnlySpacesIsNoSearch() {
+        #expect(MapNotice.make(search: "   ", matches: 3, pins: 0) == .nobodyLocated)
+    }
+
     @Test func peopleAreFilteredLikeTheList() {
         let entries = [entry("Anna Example", [home], tags: ["sailing"]), entry("Ben Sample", [work])]
         #expect(PeopleSections.matching(entries, search: "sail").map(\.name) == ["Anna Example"])
