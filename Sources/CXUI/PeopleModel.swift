@@ -980,6 +980,21 @@ public final class PeopleModel {
         #endif
     }
 
+    /// The user's text in the note of the contact `contactIdentifier`, without cardXchange's history block,
+    /// to show read-only on the card. `nil` where the note cannot be read (iPhone and iPad, SPEC R1) or the text is empty.
+    /// The caller gives the identifier, so a result that arrives after the selection moved names its own contact.
+    public func loadCardNote(contactIdentifier: String) async -> String? {
+        #if os(macOS)
+        guard configuration.usesContacts,
+              let note = await Task.detached(operation: { try? ContactsApp.readNote(identifier: contactIdentifier) }).value
+        else { return nil }
+        let text = NotesBlock.userText(note)
+        return text.isEmpty ? nil : text
+        #else
+        return nil
+        #endif
+    }
+
     /// Writes what the user changed in the selected person's contact (`original` is what the form loaded)
     /// and refreshes the card and the list. Returns the reason if nothing was saved, `nil` on success.
     public func saveContactEdit(_ edit: ContactEdit, original: ContactEdit) async -> String? {

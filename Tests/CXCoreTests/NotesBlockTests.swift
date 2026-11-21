@@ -107,6 +107,38 @@ import Testing
         let note = "mine\n── pplz ──\nx\n── /cardxchange ──"
         #expect(NotesBlock.containsBlock(note) == false)
     }
+
+    // MARK: the user's text, for the card (the card shows the history itself)
+
+    @Test func userTextLeavesANoteWithoutBlockAlone() {
+        #expect(NotesBlock.userText("Bank details\n  IBAN …\n\nsecond paragraph") == "Bank details\n  IBAN …\n\nsecond paragraph")
+    }
+
+    @Test func userTextDropsABlockAtTheStart() {
+        #expect(NotesBlock.userText(newBlock + "\n\nmine") == "mine")
+    }
+
+    @Test func userTextDropsABlockInTheMiddle() {
+        #expect(NotesBlock.userText("before\n\n" + newBlock + "\n\nafter") == "before\n\nafter")
+    }
+
+    @Test func userTextDropsABlockAtTheEnd() {
+        #expect(NotesBlock.userText("mine\n\n" + newBlock) == "mine")
+    }
+
+    @Test func userTextDropsOldAndNewBlocks() {
+        #expect(NotesBlock.userText("a\n\n" + oldBlock + "\nb\n\n" + newBlock + "\nc") == "a\nb\nc")
+    }
+
+    @Test func userTextOfOnlyABlockIsEmpty() {
+        #expect(NotesBlock.userText(newBlock) == "")
+        #expect(NotesBlock.userText("\n" + oldBlock + "\n") == "")
+    }
+
+    @Test func userTextKeepsABrokenBlock() {
+        let note = "mine\n── cardxchange ──\nhalf deleted by hand"
+        #expect(NotesBlock.userText(note) == note)
+    }
 }
 
 @Suite struct SettingsTests {

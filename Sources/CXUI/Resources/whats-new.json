@@ -35,5 +35,6 @@
   {"date": "2026-11-21", "version": "0.2.97", "area": "Map", "feature": "Your own position shows above all pins and groups."},
   {"date": "2026-11-21", "version": "0.2.98", "area": "Languages", "feature": "The app speaks English, German and French; choose the language in the settings."},
   {"date": "2026-11-21", "version": "0.2.104", "area": "Settings", "feature": "Me is your My Card from Contacts and is the same on all your devices."},
-  {"date": "2026-11-21", "version": "0.2.107", "area": "Settings", "feature": "What’s New: this list of features, sorted as you like."}
+  {"date": "2026-11-21", "version": "0.2.107", "area": "Settings", "feature": "What’s New: this list of features, sorted as you like."},
+  {"date": "2026-11-21", "version": "0.2.110", "area": "People", "feature": "On the Mac the card shows the contact’s note, read-only and without the history block."}
 ]

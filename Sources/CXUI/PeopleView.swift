@@ -427,7 +427,8 @@ extension PeopleView {
                            onAddPhotos: { images in Task { await model.addPhotos(images) } },
                            onPastePhoto: pastePhoto,
                            onUsePhoto: model.canUseAsContactPicture ? { id in Task { await model.useAsContactPicture(id) } } : nil,
-                           onDeletePhoto: { id in Task { await model.deletePhoto(id) } })
+                           onDeletePhoto: { id in Task { await model.deletePhoto(id) } },
+                           loadNote: { await model.loadCardNote(contactIdentifier: $0) })
                 .toolbar {
                     Button(String(localized: "Log Event", bundle: .module), systemImage: "calendar.badge.plus") { sheet = .log }
                         .help(String(localized: "Log a meeting or call with \(card.entry.name)", bundle: .module))

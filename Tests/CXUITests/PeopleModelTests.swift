@@ -669,6 +669,11 @@ import Testing
 
 @MainActor
 @Suite struct ContactEditModelTests {
+    @Test func withoutContactsTheCardReadsNoNote() async throws {
+        let (model, _) = try PeopleModelTests().makeModel()
+        #expect(await model.loadCardNote(contactIdentifier: "C-1") == nil)
+    }
+
     @Test func withoutContactsThereIsNothingToLoadAndNothingToSave() async throws {
         let (model, store) = try PeopleModelTests().makeModel(select: "Anna Example")
         try store.createPerson(name: "Anna Example")

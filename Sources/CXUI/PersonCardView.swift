@@ -17,6 +17,11 @@ struct PersonCardView: View {
     /// Set for a person whose contact may get a photo as its picture.
     var onUsePhoto: ((UUID) -> Void)? = nil
     var onDeletePhoto: (UUID) -> Void = { _ in }
+    /// Reads the user's text in a contact's note (by contact identifier); `nil` where it cannot be read or is empty.
+    var loadNote: ((String) async -> String?)? = nil
+
+    /// The note text with the contact it was read from, so a late result for another contact is not shown.
+    @State private var note: (contactIdentifier: String, text: String)?
 
     var body: some View {
         ScrollView {
@@ -43,6 +48,14 @@ struct PersonCardView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(.background)
+        .task(id: card.contact?.identifier) { await readNote() }
+    }
+
+    private func readNote() async {
+        guard let identifier = card.contact?.identifier, let loadNote else { return }
+        let text = await loadNote(identifier)
+        guard !Task.isCancelled else { return }
+        note = text.map { (identifier, $0) }
     }
 
     /// The big header, as in Contacts: picture (or initials on pink), the nickname or name,
@@ -119,6 +132,9 @@ struct PersonCardView: View {
         fieldGroup(contact.urls + contact.socialProfiles, fallbackLabel: String(localized: "url", bundle: .module, comment: "Label of a web address without a label"), symbol: "safari.fill", action: .web)
         if let birthday = contact.birthdayLine() {
             FieldGroup { FieldRow(label: String(localized: "birthday", bundle: .module), value: birthday) }
+        }
+        if let note, note.contactIdentifier == contact.identifier {
+            FieldGroup { FieldRow(label: String(localized: "note", bundle: .module), value: note.text) }
         }
     }
 

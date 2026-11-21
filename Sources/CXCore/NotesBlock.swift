@@ -47,6 +47,16 @@ public enum NotesBlock {
         return note.isEmpty ? block : note + "\n\n" + block
     }
 
+    /// The note without cardXchange's blocks (both forms), trimmed: the user's own text, to show on the card.
+    /// It is empty if the note holds only a block.
+    public static func userText(_ note: String) -> String {
+        var text = note
+        while let range = blockRange(in: text, startMarker, endMarker) ?? blockRange(in: text, oldStartMarker, oldEndMarker) {
+            text = place(nil, in: text, at: range)
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private static func place(_ block: String?, in note: String, at range: Range<String.Index>) -> String {
         if let block {
             return note.replacingCharacters(in: range, with: block)
