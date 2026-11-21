@@ -959,6 +959,25 @@ import Testing
         }
     }
 
+    @Test func meChangedOnAnotherDeviceStartsFromTheDefaultRows() async throws {
+        try await withFreshSettings { settings in
+            let (model, store, url) = try makeModel(settings: settings)
+            try store.createPerson(name: "Anna Example")
+            let ben = try store.createPerson(name: "Ben Sample")
+            await model.reload()
+            await model.chooseMe(model.entries[0].key)
+            model.myCardFields.rows = ["P1"]
+
+            try store.setMePerson(ben)   // another device chose Ben while the app was closed
+            var configuration = PeopleModel.Configuration(storeURL: url, usesContacts: false)
+            configuration.settingsSuite = settings
+            let next = PeopleModel(configuration: configuration)
+            await next.reload()
+            #expect(next.myCardEntry?.name == "Ben Sample")
+            #expect(next.myCardFields.rows == nil)
+        }
+    }
+
     @Test func theChoiceOnTheDeviceMovesIntoTheStoreOnce() async throws {
         try await withFreshSettings { settings in
             let (model, store, url) = try makeModel(settings: settings)

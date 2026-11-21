@@ -87,13 +87,15 @@ public final class CXStore {
         try setSetting("mePerson", id.uuidString)
     }
 
+    /// Two devices can write the same key before they sync; every device then reads the same (the smallest) value.
     private func setting(_ key: String) throws -> String? {
-        try context.fetch(FetchDescriptor<Setting>(predicate: #Predicate { $0.key == key })).first?.value
+        try context.fetch(FetchDescriptor<Setting>(predicate: #Predicate { $0.key == key })).map(\.value).min()
     }
 
     private func setSetting(_ key: String, _ value: String) throws {
-        if let existing = try context.fetch(FetchDescriptor<Setting>(predicate: #Predicate { $0.key == key })).first {
-            existing.value = value
+        let existing = try context.fetch(FetchDescriptor<Setting>(predicate: #Predicate { $0.key == key }))
+        if !existing.isEmpty {
+            for setting in existing { setting.value = value }
         } else {
             context.insert(Setting(key: key, value: value))
         }

@@ -294,7 +294,9 @@ I show a QR code in cardXchange; the other person scans it and gets my contact d
   - Contacts has no "My Card", or Contacts still has the person applied last: the Mac marks the contact of "Me" as "My Card" (Contacts scripting, `my card`).
   - The store still has the person applied last: the user changed "My Card" in Contacts, and the Mac stores that person as "Me".
   - Both changed, or this Mac applied nothing yet: cardXchange wins.
-  - A person without a contact on this Mac cannot be "My Card"; Contacts then stays as it is.
+  - A person without a contact on this Mac cannot be "My Card"; Contacts then stays as it is. A change of "My Card" in Contacts then also does not come back into the store, until "Me" is a person with a contact on this Mac again. **[?]**
+  - If Contacts does not accept the change (for example, the user did not let cardXchange control Contacts), the app shows the reason one time and tries again at its next start.
+- Two devices can store "Me" before they sync. Then every device reads the same one of the two values, and the next choice replaces both. **[A]** 2026-11-21
 - A choice that a device kept in its defaults before 2026-11-21 moves into the store once, if the store has no "Me". **[A]** 2026-11-21
 - The chosen fields stay on the device, in the app's defaults, outside the store. They do not sync. Each device can pass on other fields. **[A]**
 - The name is always on the card. Company, job title and picture are switches. Each phone number, mail address, web address, social profile and postal address is a switch of its own. Nickname, birthday, note and related names are never on the card. **[A]**

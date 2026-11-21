@@ -1,3 +1,4 @@
+import SwiftData
 import Foundation
 import Testing
 @testable import CXCore
@@ -124,5 +125,16 @@ import Testing
         let anna = try store.createPerson(name: "Anna Example")
         try store.setMePerson(anna)
         #expect(try CXStore(url: url).mePerson() == anna)
+    }
+    @Test func meWrittenOnTwoDevicesBeforeTheySyncedReadsTheSameAndIsReplacedAsOne() throws {
+        let (store, _) = try makeStore()
+        let anna = UUID(), ben = UUID(), clara = UUID()
+        let values = [anna, ben].map(\.uuidString)
+        for value in values { store.context.insert(Setting(key: "mePerson", value: value)) }
+        try store.context.save()
+        #expect(try store.mePerson() == UUID(uuidString: values.min()!))
+        try store.setMePerson(clara)
+        #expect(try store.context.fetch(FetchDescriptor<Setting>()).map(\.value) == [clara.uuidString, clara.uuidString])
+        #expect(try store.mePerson() == clara)
     }
 }

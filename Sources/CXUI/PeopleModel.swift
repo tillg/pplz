@@ -284,7 +284,8 @@ public final class PeopleModel {
             knownTags = try store.tags().map(\.name)
             suggestedFormat = try store.lastLoggedFormat() ?? .liveMeeting
             startLocating()
-            errorMessage = nil
+            errorMessage = meApplyError
+            meApplyError = nil
             if let wanted = pendingSelection {
                 pendingSelection = nil
                 await select(matching: wanted)
@@ -1065,16 +1066,17 @@ public final class PeopleModel {
     private static let myCardKeySetting = "myCardKey"
     /// The fields stay on the device: each device can pass on other fields.
     private static let myCardFieldsSetting = "myCardFields"
+    /// The person whose contact the chosen rows belong to.
+    private static let myCardFieldsPersonSetting = "myCardFieldsPerson"
     /// The person this Mac marked as "My Card" in Contacts last. Per device, because it describes this Mac's Contacts.
     private static let meAppliedSetting = "meAppliedToContacts"
 
     /// "Me" from the synced store; `nil` until someone is chosen or, on the Mac, Contacts has a "My Card".
-    public private(set) var mePerson: UUID? {
-        didSet {
-            // the chosen rows belong to one contact: another person starts from the default rows
-            if let oldValue, oldValue != mePerson { myCardFields.rows = nil }
-        }
-    }
+    public private(set) var mePerson: UUID?
+    /// A "Me" that Contacts did not accept as "My Card"; not tried again until the app starts again.
+    private var meNotApplied: UUID?
+    /// Why Contacts did not accept "Me" as "My Card"; shown after the load.
+    private var meApplyError: String?
     /// What the user passes on of their own contact. Every change is kept for the next launch.
     public var myCardFields: MyCardFields {
         didSet { settings.set(try? JSONEncoder().encode(myCardFields), forKey: Self.myCardFieldsSetting) }
@@ -1129,6 +1131,12 @@ public final class PeopleModel {
         if configuration.usesContacts, try await settleMyCardInContacts(store) { created = true }
         #endif
         mePerson = try store.mePerson()
+        // the chosen rows belong to one contact: another person, also one chosen on another device, starts from the default rows
+        let fieldsPerson = settings.string(forKey: Self.myCardFieldsPersonSetting).flatMap(UUID.init(uuidString:))
+        if let mePerson, mePerson != fieldsPerson {
+            if fieldsPerson != nil { myCardFields.rows = nil }
+            settings.set(mePerson.uuidString, forKey: Self.myCardFieldsPersonSetting)
+        }
         return created
     }
 
@@ -1154,12 +1162,14 @@ public final class PeopleModel {
             return true
         case .applyToContacts:
             // a person without a contact on this Mac cannot be "My Card"
-            guard let stored, let identifier = entries.first(where: { $0.id == stored })?.contactIdentifier else { return false }
+            guard let stored, stored != meNotApplied,
+                  let identifier = entries.first(where: { $0.id == stored })?.contactIdentifier else { return false }
             do {
                 try await Task.detached { try ContactsApp.setMyCard(identifier: identifier) }.value
                 settings.set(stored.uuidString, forKey: Self.meAppliedSetting)
             } catch {
-                errorMessage = userMessage(error)
+                meNotApplied = stored
+                meApplyError = userMessage(error)
             }
             return false
         }
