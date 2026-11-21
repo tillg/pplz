@@ -216,6 +216,7 @@ struct People: AsyncParsableCommand {
     var near: String?
     @Option(help: "With --near: how far, e.g. 50km, 50 or 800m. Default 50km.") var within: String?
     @Flag(help: "List the recently deleted people instead, newest first.") var deleted = false
+    @Flag(help: "Only the person chosen as \"Me\" in the settings of the app.") var me = false
     @OptionGroup var common: Common
 
     func run() async throws {
@@ -234,6 +235,7 @@ struct People: AsyncParsableCommand {
             var entries = try common.directory(store)
             if let query { entries = entries.filter { $0.name.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil } }
             if known { entries = entries.filter { $0.id != nil } }
+            if me { let id = try store.mePerson(); entries = entries.filter { id != nil && $0.id == id } }
             if let tag { entries = entries.filter { $0.tags.contains { $0.caseInsensitiveCompare(tag) == .orderedSame } } }
             if let near {
                 try await listNear(near, in: entries)

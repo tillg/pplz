@@ -286,8 +286,17 @@ I show a QR code in cardXchange; the other person scans it and gets my contact d
 **My Card** (built 2026-11-21):
 
 - **In the app settings I choose which fields are passed on.** **[S]** 2026-11-19
-- Who "me" is: in the settings the user chooses a person from the list. Until then, the Mac uses the contact that Contacts marks as "My Card". iPhone and iPad have no such card for apps, so the user must choose. **[A]**
-- The choice and the fields stay on the device, in the app's defaults, outside the store. They do not sync. Reason: the store's model must not change in this step, and an iCloud key-value store needs a new entitlement. **[A]**
+- Who "me" is: in the settings the user chooses a person from the list. **[A]**
+- "Me" is the same on all devices and is the same as "My Card" in Contacts: "If I change it in cx, it should also be set in apple contacts." **[S]** 2026-11-21 (issue #16)
+- The store keeps "Me" as the cardXchange ID of the person, in the synced settings (no change of the model). A contact that has no person yet gets one when it is chosen, and its contact gets the `cx://` link. **[A]** 2026-11-21
+- Only the Mac can read and set "My Card" in Contacts; iPhone and iPad show the synced choice. On each load the Mac compares three persons: "Me" in the store, "My Card" in Contacts, and the person that this Mac applied to Contacts last (kept in the app's defaults, per Mac). **[A]** 2026-11-21
+  - The store has no "Me": the Mac stores the person of "My Card".
+  - Contacts has no "My Card", or Contacts still has the person applied last: the Mac marks the contact of "Me" as "My Card" (Contacts scripting, `my card`).
+  - The store still has the person applied last: the user changed "My Card" in Contacts, and the Mac stores that person as "Me".
+  - Both changed, or this Mac applied nothing yet: cardXchange wins.
+  - A person without a contact on this Mac cannot be "My Card"; Contacts then stays as it is.
+- A choice that a device kept in its defaults before 2026-11-21 moves into the store once, if the store has no "Me". **[A]** 2026-11-21
+- The chosen fields stay on the device, in the app's defaults, outside the store. They do not sync. Each device can pass on other fields. **[A]**
 - The name is always on the card. Company, job title and picture are switches. Each phone number, mail address, web address, social profile and postal address is a switch of its own. Nickname, birthday, note and related names are never on the card. **[A]**
 - Before the user chooses, the card has: name, company, job title, one mobile number (label mobile, else iPhone; no other phone), the first mail address, and one LinkedIn profile (a social profile, else a LinkedIn web address). No picture. **[A]**
 - cardXchange's own `cx://` link is never on the card. **[A]**

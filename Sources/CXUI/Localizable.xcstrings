@@ -3701,18 +3701,18 @@
         }
       }
     },
-    "The person whose contact you pass on. On the Mac, the card marked “My Card” in Contacts is used until you choose.": {
+    "The person whose contact you pass on. It is the same on all your devices. On the Mac, “My Card” in Contacts follows this choice, and a change there comes back here.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Person, deren Kontakt du weitergibst. Auf dem Mac gilt die als „Meine Karte“ markierte Karte in Kontakte, bis du wählst."
+            "value": "Die Person, deren Kontakt du weitergibst. Sie ist auf allen deinen Geräten gleich. Auf dem Mac folgt „Meine Karte“ in Kontakte dieser Wahl, und eine Änderung dort kommt hierher zurück."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La personne dont vous transmettez le contact. Sur le Mac, la fiche marquée « Ma fiche » dans Contacts sert jusqu’à votre choix."
+            "value": "La personne dont vous transmettez le contact. Elle est la même sur tous vos appareils. Sur le Mac, « Ma fiche » dans Contacts suit ce choix, et un changement dans Contacts revient ici."
           }
         }
       }

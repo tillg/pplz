@@ -26,7 +26,7 @@ public struct SettingsView: View {
                 } header: {
                     Text("My Card", bundle: .module)
                 } footer: {
-                    Text("The person whose contact you pass on. On the Mac, the card marked “My Card” in Contacts is used until you choose.", bundle: .module)
+                    Text("The person whose contact you pass on. It is the same on all your devices. On the Mac, “My Card” in Contacts follows this choice, and a change there comes back here.", bundle: .module)
                 }
                 if let contact = model.myContact {
                     fieldSections(contact)
