@@ -311,22 +311,47 @@ extension PeopleView {
 
     private var mapPane: some View {
         PersonMap(pins: model.mapPins, focus: model.selection, fitID: model.search, onOpen: { model.openPerson(key: $0) })
-            .overlay {
-                if model.mapPins.isEmpty {
-                    ContentUnavailableView(model.search.isEmpty ? "No one on the map yet" : "No results", systemImage: "map",
-                                           description: Text(model.search.isEmpty ? "People with an address appear here once it is located." : ""))
-                        .background(.background)
-                }
-            }
             .overlay(alignment: .bottom) {
-                if let status = model.locateStatus {
-                    Text(status)
-                        .font(.caption).foregroundStyle(.secondary)
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .background(.regularMaterial, in: Capsule())
-                        .padding(8)
+                VStack(spacing: MapCapsule.spacing) {
+                    // small, so that the map stays visible behind it (issue #9)
+                    if let notice = model.mapNotice {
+                        MapCapsule(text: mapNoticeText(notice), font: .callout, style: .primary)
+                    }
+                    if let status = model.locateStatus {
+                        MapCapsule(text: Text(status), font: .caption, style: .secondary)
+                    }
                 }
+                .padding(MapCapsule.margin)
             }
+    }
+
+    private func mapNoticeText(_ notice: MapNotice) -> Text {
+        switch notice {
+        case .nobodyLocated: Text("No one on the map yet. People with an address appear once it is located.")
+        case .noResults: Text("No results")
+        case .notLocated(matches: 1): Text("The match has no located address.")
+        case .notLocated(let matches): Text("The \(matches) matches have no located address.")
+        }
+    }
+
+    /// A line of text over the map, in a capsule.
+    private struct MapCapsule: View {
+        static let spacing: CGFloat = 4
+        static let margin: CGFloat = 8
+        static let horizontalPadding: CGFloat = 10
+        static let verticalPadding: CGFloat = 4
+
+        var text: Text
+        var font: Font
+        var style: HierarchicalShapeStyle
+
+        var body: some View {
+            text
+                .font(font).foregroundStyle(style)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Self.horizontalPadding).padding(.vertical, Self.verticalPadding)
+                .background(.regularMaterial, in: Capsule())
+        }
     }
 
     private var eventsList: some View {

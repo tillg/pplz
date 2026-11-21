@@ -49,10 +49,16 @@ struct PersonMap: MapRepresentable {
         /// A region change we asked for is under way; the map reports it afterwards like the user's own.
         private var movingByCode = false
         private var hasFitted = false
+        /// Asks for the user's location the first time the map is shown, not at launch.
+        private let location = CLLocationManager()
 
         func makeMap() -> MKMapView {
             let map = MKMapView()
             map.delegate = self
+            // the user's own position and a button that moves the map to it, like Maps (issue #10)
+            location.requestWhenInUseAuthorization()       // does nothing once the user has answered
+            map.showsUserLocation = true
+            map.showsUserTrackingButton = true
             return map
         }
 

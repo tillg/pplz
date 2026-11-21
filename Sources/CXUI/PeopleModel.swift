@@ -86,12 +86,18 @@ public final class PeopleModel {
     /// One pin per located address of the people the search finds — the list's filter.
     public var mapPins: [LocatedPin] { LocatedPeople.pins(for: PeopleSections.matching(entries, search: search), in: geocodes) }
 
-    /// "1 234 of 2 000 addresses located · pausing until 14:10"; `nil` if nobody has an address.
+    /// What the map says when it shows no pin; `nil` when it shows one.
+    public var mapNotice: MapNotice? {
+        MapNotice.make(search: search, matches: PeopleSections.matching(entries, search: search).count, pins: mapPins.count)
+    }
+
+    /// "1 234 of 2 000 addresses located · pausing until 14:10 · done about Sat 18:40"; `nil` if nobody has an address.
     public var locateStatus: String? {
         let counts = LocatedPeople.counts(in: entries, state: geocodes)
         var resumesAt: Date?
         if case .wait(let until) = geocodes.budget() { resumesAt = until }
-        return LocatedPeople.statusLine(counts, resumesAt: resumesAt)
+        let doneAt = GeocodeBudget.finish(outstanding: counts.outstanding, now: .now, slotStart: geocodes.slotStart, sent: geocodes.sent)
+        return LocatedPeople.statusLine(counts, resumesAt: resumesAt, doneAt: doneAt)
     }
 
     /// Shows a person's card, as when a pin is opened on the map.

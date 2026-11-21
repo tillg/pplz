@@ -45,6 +45,8 @@ targets:
         com.apple.developer.aps-environment: development
         # shared with the Mac share extension; a team-prefixed group needs no provisioning on the Mac
         com.apple.security.application-groups: [$(TeamIdentifierPrefix)me.cardxchange.app]
+        # the user's own position on the map; needed once the app is sandboxed
+        com.apple.security.personal-information.location: true
     info:
       path: Mac/Info.plist
       properties:
@@ -56,6 +58,8 @@ targets:
         NSContactsUsageDescription: "cardXchange shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and cardXchange does not share them with anyone."
         NSAppleEventsUsageDescription: "cardXchange asks the Contacts app to show a person's card and to add what you record in cardXchange."
         NSCalendarsFullAccessUsageDescription: "cardXchange offers your current and recent calendar entries when you record whom you met."
+        NSLocationWhenInUseUsageDescription: "cardXchange shows where you are on the map, next to the people you know. cardXchange does not store or send your location."
+        NSLocationUsageDescription: "cardXchange shows where you are on the map, next to the people you know. cardXchange does not store or send your location."
         CFBundleURLTypes:
           - CFBundleURLName: me.cardxchange.app
             CFBundleURLSchemes: [cx, pplz]
@@ -92,6 +96,7 @@ targets:
         NSContactsUsageDescription: "cardXchange shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and cardXchange does not share them with anyone."
         NSCalendarsFullAccessUsageDescription: "cardXchange offers your current and recent calendar entries when you record whom you met."
         NSCameraUsageDescription: "cardXchange takes a picture of a business card and reads the contact details from it on this device."
+        NSLocationWhenInUseUsageDescription: "cardXchange shows where you are on the map, next to the people you know. cardXchange does not store or send your location."
         CFBundleURLTypes:
           - CFBundleURLName: me.cardxchange.app
             CFBundleURLSchemes: [cx, pplz]
