@@ -215,11 +215,22 @@ struct People: AsyncParsableCommand {
     @Option(help: "Only people with an address near this place, nearest first. Addresses are located by Apple's geocoder; see `cx locate`.")
     var near: String?
     @Option(help: "With --near: how far, e.g. 50km, 50 or 800m. Default 50km.") var within: String?
+    @Flag(help: "List the recently deleted people instead, newest first.") var deleted = false
     @OptionGroup var common: Common
 
     func run() async throws {
         try await attemptAsync {
             let store = try common.open()
+            if deleted {
+                let list = try store.deletedPersons()
+                try common.emit(list) {
+                    list.isEmpty ? "Nobody was deleted in the last 30 days." : list.map {
+                        "\($0.name)  deleted \(format($0.deletedAt)) · deleted for good on \(format($0.removalDate))"
+                            + ($0.hasContactCopy ? "  (with contact)" : "") + "  [\(short($0.id))]"
+                    }.joined(separator: "\n")
+                }
+                return
+            }
             var entries = try common.directory(store)
             if let query { entries = entries.filter { $0.name.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil } }
             if known { entries = entries.filter { $0.id != nil } }
@@ -406,7 +417,8 @@ struct Locate: AsyncParsableCommand {
 struct PersonCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "person", abstract: "Show or edit one person.",
-        subcommands: [Show.self, Open.self, Add.self, Note.self, Met.self, TagAdd.self, TagRemove.self, Connect.self, Disconnect.self, Rhythm.self, Photo.self],
+        subcommands: [Show.self, Open.self, Add.self, Note.self, Met.self, TagAdd.self, TagRemove.self, Connect.self, Disconnect.self, Rhythm.self, Photo.self,
+                      Delete.self, Restore.self, Purge.self],
         defaultSubcommand: Show.self)
 
     struct Detail: Encodable {
@@ -730,6 +742,110 @@ extension PersonCommand {
                 try store.setKeepInTouch(days: days, for: id)
                 common.report(common.syncHistory([id], store))
                 try common.emit(try store.person(id)) { days.map { "Keep in touch every \($0) days  [\(short(id))]" } ?? "Rhythm removed  [\(short(id))]" }
+            }
+        }
+    }
+}
+
+extension PersonCommand {
+    struct Delete: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Delete a person. The contact leaves Contacts at once.",
+            discussion: "cardXchange keeps a copy of the contact (without the note) and the person's data for 30 days. See `cx people --deleted`.")
+        @Argument(help: "Name, part of a name, or ID.") var person: String
+        @OptionGroup var common: Common
+
+        func run() throws {
+            try attempt {
+                let store = try common.open()
+                let entry = try common.resolve(person, in: try common.directory(store))
+                if entry.contactIdentifier != nil, !common.usesContacts {
+                    throw Failure("\(entry.name) has a contact. Deleting needs Contacts; leave out --no-contacts.")
+                }
+                let id = try common.personID(entry, store)
+                let copy = try entry.contactIdentifier.flatMap(SystemContacts.contactEdit(identifier:))
+                try store.deletePerson(id, contactCopy: copy, at: .now)
+                if let identifier = entry.contactIdentifier, copy != nil {
+                    do {
+                        try SystemContacts.deleteContact(identifier: identifier)
+                    } catch {
+                        try store.restorePerson(id, contactIdentifier: identifier)
+                        throw Failure("Contacts did not delete the contact; nothing was deleted. \((error as? LocalizedError)?.errorDescription ?? "\(error)")")
+                    }
+                }
+                let deleted = try store.deletedPersons().first { $0.id == id }
+                try common.emit(deleted) { "Deleted \(entry.name). Use cx person restore until \(format(deleted?.removalDate ?? .now)) to get the person back.  [\(short(id))]" }
+            }
+        }
+    }
+
+    /// Finds one recently deleted person by name, part of a name, or ID.
+    static func resolveDeleted(_ query: String, _ store: CXStore, _ common: Common) throws -> DeletedPerson {
+        let deleted = try store.deletedPersons()
+        let entries = deleted.map { person in
+            var entry = PersonEntry.new(named: person.name)
+            entry.id = person.id
+            return entry
+        }
+        let entry = try common.resolve(query, in: entries)
+        return deleted.first { $0.id == entry.id }!
+    }
+
+    struct Restore: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Restore a recently deleted person. A deleted contact is created again, without its note.")
+        @Argument(help: "Name, part of a name, or ID of a recently deleted person.") var person: String
+        @OptionGroup var common: Common
+
+        func run() throws {
+            try attempt {
+                let store = try common.open()
+                let deleted = try PersonCommand.resolveDeleted(person, store, common)
+                var identifier: String?
+                if let copy = try store.contactCopy(of: deleted.id) {
+                    guard common.usesContacts else {
+                        throw Failure("\(deleted.name) had a contact. Restoring needs Contacts; leave out --no-contacts.")
+                    }
+                    let row = ContactMirror.Row(contactIdentifier: "", label: PersonLink.label, value: PersonLink.url(for: deleted.id))
+                    let created = try SystemContacts.createContact(copy, link: row)
+                    try common.journal.record(.added, ContactMirror.Row(contactIdentifier: created, label: row.label, value: row.value), field: "url")
+                    identifier = created
+                }
+                try store.restorePerson(deleted.id, contactIdentifier: identifier)
+                try common.emit(try store.person(deleted.id)) {
+                    "Restored \(deleted.name)" + (identifier != nil ? " with a new contact" : "") + "  [\(short(deleted.id))]"
+                }
+            }
+        }
+    }
+
+    struct Purge: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Delete recently deleted people for good: one person now, or with --expired those deleted 30 days ago or earlier.",
+            discussion: "Their events stay, without them. The apps do --expired each time they load.")
+        @Argument(help: "Name, part of a name, or ID of a recently deleted person.") var person: String?
+        @Flag(help: "Delete for good everyone whose 30 days are over.") var expired = false
+        @Option(help: "With --expired: count the 30 days up to this date (YYYY-MM-DD or \"YYYY-MM-DD HH:MM\"). Default: now.") var now: String?
+        @OptionGroup var common: Common
+
+        func run() throws {
+            try attempt {
+                guard (person != nil) != expired else { throw Failure("Give a person or --expired.") }
+                if now != nil, !expired { throw Failure("--now needs --expired.") }
+                let store = try common.open()
+                let names = Dictionary(uniqueKeysWithValues: try store.deletedPersons().map { ($0.id, $0.name) })
+                let result: PurgeResult
+                if let person {
+                    result = try store.purgePersons([try PersonCommand.resolveDeleted(person, store, common).id])
+                } else {
+                    result = try store.purgeExpired(now: try now.map { try DateInput.parse($0) } ?? .now)
+                }
+                common.report(common.unmirror(result.connections.flatMap { ContactsSync.rows($0) + ContactsSync.legacyRows($0) }))
+                common.report(common.syncHistory(result.otherParticipants, store))
+                let removed = result.persons.compactMap { names[$0] }
+                try common.emit(removed) {
+                    removed.isEmpty ? "Nobody to delete for good." : removed.map { "Deleted for good: \($0)" }.joined(separator: "\n")
+                }
             }
         }
     }
