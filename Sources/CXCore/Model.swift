@@ -21,6 +21,10 @@ final class Person {
     var createdAt: Date = Date()
     /// Desired number of days between meetings; `nil` = no rhythm.
     var keepInTouchDays: Int?
+    /// When the person was deleted; `nil` for a person in the list. A deleted person is kept for 30 days (SPEC §3.6).
+    var deletedAt: Date?
+    /// JSON of the `ContactEdit` of the contact that was deleted with the person; restoring creates the contact from it.
+    var contactCopy: Data?
 
     @Relationship(inverse: \Event.participants) var events: [Event]? = []
     var tags: [Tag]? = []

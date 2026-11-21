@@ -111,6 +111,7 @@ public final class CXStore {
         let wanted = id.trimmed.lowercased()
         guard !wanted.isEmpty else { return nil }
         return try context.fetch(FetchDescriptor<Person>(predicate: #Predicate { $0.linkedInID == wanted }))
+            .filter { $0.deletedAt == nil }
             .min { $0.createdAt < $1.createdAt }?.uuid
     }
 
@@ -138,8 +139,9 @@ public final class CXStore {
         return person.uuid
     }
 
+    /// The persons in the list; deleted persons are left out.
     public func persons() throws -> [PersonSnapshot] {
-        try context.fetch(FetchDescriptor<Person>()).map(snapshot).sorted(by: byName)
+        try context.fetch(FetchDescriptor<Person>()).filter { $0.deletedAt == nil }.map(snapshot).sorted(by: byName)
     }
 
     public func person(_ id: UUID) throws -> PersonSnapshot {
@@ -161,6 +163,77 @@ public final class CXStore {
         if let days, days < 1 { throw CXError.invalid("A keep-in-touch rhythm needs at least 1 day.") }
         try fetchPerson(id).keepInTouchDays = days
         try context.save()
+    }
+
+    // MARK: Deleting
+
+    /// Moves a person to "Recently deleted". `contactCopy` is the contact that is deleted with the person;
+    /// with a copy the person forgets the contact's identifier, as the contact is gone.
+    public func deletePerson(_ id: UUID, contactCopy: ContactEdit?, at date: Date) throws {
+        try atomically {
+            let person = try fetchPerson(id)
+            guard person.deletedAt == nil else { throw CXError.invalid("\(person.name) is deleted already.") }
+            person.deletedAt = date
+            if let contactCopy {
+                person.contactCopy = try JSONEncoder().encode(contactCopy)
+                person.localContactIdentifier = nil
+            }
+        }
+    }
+
+    /// Newest first.
+    public func deletedPersons() throws -> [DeletedPerson] {
+        try context.fetch(FetchDescriptor<Person>()).compactMap { person in
+            person.deletedAt.map { DeletedPerson(id: person.uuid, name: person.name, deletedAt: $0, hasContactCopy: person.contactCopy != nil) }
+        }
+        .sorted { $0.deletedAt > $1.deletedAt }
+    }
+
+    /// The contact that was deleted with the person; `nil` if there was none.
+    public func contactCopy(of id: UUID) throws -> ContactEdit? {
+        try fetchPerson(id).contactCopy.map { try JSONDecoder().decode(ContactEdit.self, from: $0) }
+    }
+
+    /// Brings a deleted person back to the list. `contactIdentifier` is the contact created again from the copy, if any.
+    public func restorePerson(_ id: UUID, contactIdentifier: String?) throws {
+        try atomically {
+            let person = try fetchPerson(id)
+            guard person.deletedAt != nil else { throw CXError.invalid("\(person.name) is not deleted.") }
+            person.deletedAt = nil
+            person.contactCopy = nil
+            if let contactIdentifier { person.localContactIdentifier = contactIdentifier }
+        }
+    }
+
+    /// Removes deleted persons for good, with their connections and photos. Their events stay, without them.
+    @discardableResult
+    public func purgePersons(_ ids: [UUID]) throws -> PurgeResult {
+        try atomically {
+            let persons = try ids.map(fetchPerson)
+            if let alive = persons.first(where: { $0.deletedAt == nil }) {
+                throw CXError.invalid("\(alive.name) is not deleted.")
+            }
+            let removed = Set(ids)
+            var result = PurgeResult(persons: ids)
+            result.connections = try allConnections().filter { removed.contains($0.from.id) || removed.contains($0.to.id) }
+            var others: [UUID] = []
+            for person in persons {
+                for other in (person.events ?? []).flatMap({ $0.participants ?? [] })
+                where !removed.contains(other.uuid) && !others.contains(other.uuid) {
+                    others.append(other.uuid)
+                }
+            }
+            result.otherParticipants = others
+            persons.forEach(context.delete)
+            return result
+        }
+    }
+
+    /// Removes the deleted persons whose 30 days are over at `now`.
+    @discardableResult
+    public func purgeExpired(now: Date) throws -> PurgeResult {
+        let ids = DeletedPerson.expired(try deletedPersons(), now: now)
+        return ids.isEmpty ? PurgeResult() : try purgePersons(ids)
     }
 
     // MARK: Connections

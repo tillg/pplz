@@ -92,6 +92,17 @@ import Testing
 #endif
 
 #if os(macOS)
+@Suite struct ContactsAppDeleteTests {
+    /// The identifier is the script's only input, and the script deletes exactly the person it names.
+    @Test func deleteScriptDeletesOnlyThePersonOfTheFirstArgument() {
+        let script = ContactsApp.deleteScript
+        #expect(script.contains("if not (exists person id a1) then return \"notThere\""))
+        #expect(script.filter { $0.hasPrefix("delete") } == ["delete person id a1"])
+        #expect(script.firstIndex(of: "save")! > script.firstIndex(of: "delete person id a1")!)
+        #expect(!script.contains { $0.contains("every person") })
+    }
+}
+
 @Suite struct ScriptTextTransportTests {
     /// Text handed to a script must arrive byte for byte: accented letters must not be re-encoded
     /// (a note or name would otherwise be changed just by passing through cardXchange).

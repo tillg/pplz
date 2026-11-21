@@ -278,3 +278,38 @@ public struct PersonCard: Equatable, Sendable {
     public var history: [EventSnapshot]
     public var photos: [PhotoSnapshot] = []
 }
+
+/// A person under "Recently deleted": kept for 30 days, then removed for good (SPEC §3.6).
+public struct DeletedPerson: Codable, Equatable, Sendable {
+    public static let keptFor: TimeInterval = 30 * 24 * 60 * 60
+
+    public var id: UUID
+    public var name: String
+    public var deletedAt: Date
+    /// Whether a contact was deleted with the person; restoring creates it again.
+    public var hasContactCopy: Bool
+
+    public init(id: UUID, name: String, deletedAt: Date, hasContactCopy: Bool) {
+        self.id = id
+        self.name = name
+        self.deletedAt = deletedAt
+        self.hasContactCopy = hasContactCopy
+    }
+
+    /// When the person is removed for good.
+    public var removalDate: Date { deletedAt.addingTimeInterval(Self.keptFor) }
+
+    /// The persons whose 30 days are over at `now`.
+    public static func expired(_ deleted: [DeletedPerson], now: Date) -> [UUID] {
+        deleted.filter { $0.removalDate <= now }.map(\.id)
+    }
+}
+
+/// What removing deleted persons for good took with it, so that Contacts can be brought up to date.
+public struct PurgeResult: Equatable, Sendable {
+    public var persons: [UUID] = []
+    /// The connections of the removed persons; their related-name rows can go from the other contacts.
+    public var connections: [ConnectionRecord] = []
+    /// The persons who shared an event with a removed person; their history changes.
+    public var otherParticipants: [UUID] = []
+}

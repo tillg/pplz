@@ -3,11 +3,11 @@ import Foundation
 /// The fields of a contact that cardXchange lets you edit, as the edit screen shows them (not the note, not the related
 /// names, not cardXchange's own link row). Rows carry the identifier they have in the address book, so that an edit
 /// can change exactly the rows that changed; rows added in the form get any identifier the address book does not know.
-public struct ContactEdit: Equatable, Sendable {
+public struct ContactEdit: Codable, Equatable, Sendable {
     /// A phone number, mail address, web address or social profile. `label` is the address book's own label
     /// (e.g. `_$!<Mobile>!$_`, or a custom one), empty for none. For a social profile it is the service, and
     /// `value` the address of the profile (or the user name, if the profile has no address).
-    public struct Item: Equatable, Identifiable, Sendable {
+    public struct Item: Codable, Equatable, Identifiable, Sendable {
         public var id: String
         public var label: String
         public var value: String
@@ -19,7 +19,7 @@ public struct ContactEdit: Equatable, Sendable {
         }
     }
 
-    public struct Address: Equatable, Identifiable, Sendable {
+    public struct Address: Codable, Equatable, Identifiable, Sendable {
         public var id: String
         public var label: String
         public var street: String
@@ -43,7 +43,7 @@ public struct ContactEdit: Equatable, Sendable {
     }
 
     /// Day and month, and the year if it is known: a birthday without a year stays without one.
-    public struct Birthday: Equatable, Sendable {
+    public struct Birthday: Codable, Equatable, Sendable {
         public var day: Int
         public var month: Int
         public var year: Int?

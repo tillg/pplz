@@ -262,6 +262,20 @@ public enum ContactsApp {
         ], text: [identifier, file.path])
     }
 
+    static let deleteScript = [
+        "tell application \"Contacts\"",
+        "if not (exists person id a1) then return \"notThere\"",
+        "delete person id a1",
+        "save",
+        "return \"removed\"",
+        "end tell",
+    ]
+
+    /// Deletes the contact through the Contacts app, which accepts it for contacts with a note too.
+    public static func deletePerson(identifier: String) throws -> WriteResult {
+        try write(deleteScript, text: [identifier])
+    }
+
     /// The contact's note, read through the Contacts app ("" if empty).
     public static func readNote(identifier: String) throws -> String {
         var text = try runScript([

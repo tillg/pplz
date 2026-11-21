@@ -25,6 +25,8 @@ extension CXStore {
             copy.linkedInID = item.linkedInID
             copy.createdAt = item.createdAt
             copy.keepInTouchDays = item.keepInTouchDays
+            copy.deletedAt = item.deletedAt
+            copy.contactCopy = item.contactCopy
             new.insert(copy)
             persons[item.persistentModelID] = copy
         }

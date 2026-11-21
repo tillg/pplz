@@ -71,12 +71,13 @@ extension SystemContacts {
     }
 
     /// Creates a contact with these fields and returns its identifier. A new contact has no note, so this works
-    /// on every platform (SPEC §8.1, S1).
-    public static func createContact(_ edit: ContactEdit) throws -> String {
+    /// on every platform (SPEC §8.1, S1). `link` adds cardXchange's link row, e.g. for a restored person.
+    public static func createContact(_ edit: ContactEdit, link: ContactMirror.Row? = nil) throws -> String {
         let store = CNContactStore()
         try requestAccessIfNeeded(store)
         let contact = CNMutableContact()
         apply(ContactEdit.changes(from: ContactEdit(), to: edit), to: contact)
+        if let link { contact.urlAddresses.append(CNLabeledValue(label: link.label, value: link.value as NSString)) }
         let request = CNSaveRequest()
         request.add(contact, toContainerWithIdentifier: nil)
         try store.execute(request)
@@ -112,6 +113,28 @@ extension SystemContacts {
             } catch {
                 throw CXError.invalid("This contact has a note, so the Mac only lets the Contacts app change it. \((error as? LocalizedError)?.errorDescription ?? "\(error)")")
             }
+            #else
+            throw error
+            #endif
+        }
+    }
+
+    /// Deletes the contact from the address book (SPEC §3.6). Nothing happens if it is gone already.
+    /// On the Mac a contact that has a note refuses a direct save (SPEC §8.1, S4); then the Contacts app is asked to do it.
+    public static func deleteContact(identifier: String) throws {
+        let store = CNContactStore()
+        try requestAccessIfNeeded(store)
+        guard let contact = try store.unifiedContacts(matching: CNContact.predicateForContacts(withIdentifiers: [identifier]),
+                                                      keysToFetch: [CNContactIdentifierKey as CNKeyDescriptor]).first?
+            .mutableCopy() as? CNMutableContact else { return }
+        let request = CNSaveRequest()
+        request.delete(contact)
+        do {
+            try store.execute(request)
+        } catch {
+            #if os(macOS)
+            guard refusesBecauseOfNote(error) else { throw error }
+            _ = try ContactsApp.deletePerson(identifier: identifier)
             #else
             throw error
             #endif
