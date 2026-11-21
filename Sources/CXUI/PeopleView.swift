@@ -216,7 +216,7 @@ public struct PeopleView: View {
         } message: {
             Text("Its follow-ups are deleted too. This cannot be undone.")
         }
-        .confirmationDialog("Delete \(model.card?.entry.name ?? "")?", isPresented: $isConfirmingPersonDelete) {
+        .confirmationDialog("Delete \(model.card?.entry.name ?? "")?", isPresented: $isConfirmingPersonDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) { Task { await model.deleteSelectedPerson() } }
         } message: {
             if model.card?.entry.isCXOnly == false {
