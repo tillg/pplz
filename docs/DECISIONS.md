@@ -34,6 +34,8 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
   - [14:31 — Commit and push to main, and write to the issue tracker, without asking](#run-2026-11-21-1427-2)
   - [14:32 — Parallel subagents work in git worktrees on their own branches](#run-2026-11-21-1427-3)
   - [14:55 — The expected end counts this device only; a small notice replaces the white box](#run-2026-11-21-1427-4)
+  - [15:20 — A deleted person is marked and keeps a copy of the contact; purge on each load](#run-2026-11-21-1427-5)
+  - [15:21 — My Card settings are kept per device in UserDefaults](#run-2026-11-21-1427-6)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -325,3 +327,35 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
 - **Why:** a device cannot know whether another device locates at the same time; what the other device locates syncs in and makes the next estimate earlier. An opaque box looked like a fault and hid the map.
 - **Alternatives:** guess the number of active devices; show the estimate only while locating runs.
 - **Consequences:** with two devices the time shown is too late until the next sync. The status line is built from parts and cannot be translated (older code). The capsules touch the Apple Maps logo on iPhone; the status line did this before.
+
+## 15:20 — A deleted person is marked and keeps a copy of the contact; purge on each load {#run-2026-11-21-1427-5}
+
+- **Status:** open
+- **Context:** issue 1, deleting, built by a subagent (commits `57351c0` to `34ca5a5`; SPEC §3.4). The user decided: the contact goes at once, cardXchange keeps a copy and its own data for 30 days, the same for a person without a contact.
+- **Question:** how is a deleted person stored, what does the copy hold, and when is it purged?
+- **Decision:**
+  - Two new optional attributes on the person: the time of deletion and the copy of the contact (the fields of the edit screen as JSON). Additive, as the CloudKit rules ask.
+  - The copy holds the fields of the edit screen only: no picture, no related names, no note.
+  - The marker and the copy are saved first, then the contact is deleted. If Contacts refuses, the marker is undone.
+  - Without Contacts access (`--no-contacts`, `-noContacts`), a person with a contact is not deleted, and a copy is not restored.
+  - Each load of the app purges what is older than 30 days, on every device. The CLI purges only with `cx person purge --expired`.
+  - A deleted person keeps their place in events for the 30 days. Commands: `cx person delete|restore|purge`, `cx people --deleted`.
+  - "Recently Deleted" is a row at the top of the people list; it opens a sheet.
+- **Why:** the smallest version that follows the user's answers and does not delete a contact before its copy is saved.
+- **Alternatives:** a separate record type for deleted persons (more work, same result); a copy that holds the picture (larger synced data).
+- **Consequences:** a restored contact has no note and no picture; its related names come back with the next `cx contacts sync` on the Mac. If an iPhone or iPad purges first, the related-name rows that the Mac wrote stay in other contacts. If the app stops between the marker and the deletion of the contact, a later restore makes a duplicate contact. During the 30 days, connections and tag counts still include the deleted person. A review by a fresh subagent found 8 points; 4 are fixed. Checked against the real address book with two invented contacts only, which were removed again. The Mac app screens were not seen.
+
+## 15:21 — My Card settings are kept per device in UserDefaults {#run-2026-11-21-1427-6}
+
+- **Status:** open
+- **Context:** issue 5, step 1 "My Card", built by a subagent (commits `303f28b` to `3aa0775`; SPEC §4.8). The data model was not to change in this run, because the deleting work changed it at the same time.
+- **Question:** where are "who is me" and the chosen fields kept, and what is on the card by default?
+- **Decision:**
+  - UserDefaults on each device; no sync.
+  - "Me" is the row key in the people list. On the Mac the system's own card is used until the user chooses.
+  - The name is always on the card. Each phone, mail, web, social profile and address row has its own switch; company, job title and picture have one switch each. Nickname, birthday, note, related names and the `cx://` link row never go on the card.
+  - Defaults: name, company, job title, one mobile number, the first mail address, one LinkedIn profile; no picture.
+  - The card is a Codable value and can be written as a vCard.
+- **Why:** no schema change and no new entitlement in a run that already changes the model.
+- **Alternatives:** the `Setting` table that the store already has (syncs, readable by the CLI, no schema change); the iCloud key-value store (needs an entitlement).
+- **Consequences:** each device has its own choice. If a person without a contact later gets one, the choice goes back to "Not chosen". Moving the settings to the `Setting` table is the cheapest way to sync them later. Not seen: a tap in "Choose Me" in the simulator, the switches of a real contact, the Mac settings window.
