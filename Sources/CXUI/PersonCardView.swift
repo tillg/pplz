@@ -53,6 +53,9 @@ struct PersonCardView: View {
 
     private func readNote() async {
         guard let identifier = card.contact?.identifier, let loadNote else { return }
+        // each read starts the Contacts app's script and cannot be stopped: wait until the selection rests
+        try? await Task.sleep(for: .milliseconds(300))
+        guard !Task.isCancelled else { return }
         let text = await loadNote(identifier)
         guard !Task.isCancelled else { return }
         note = text.map { (identifier, $0) }
