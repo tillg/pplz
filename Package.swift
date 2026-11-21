@@ -3,6 +3,8 @@ import PackageDescription
 
 let package = Package(
     name: "cardxchange",
+    // the apps speak English, German and French (issue #13); English is the fallback
+    defaultLocalization: "en",
     platforms: [.macOS(.v15), .iOS(.v18)],
     products: [
         .library(name: "CXCore", targets: ["CXCore"]),
@@ -22,7 +24,7 @@ let package = Package(
             ]
         ),
         // SwiftUI views shared by the Mac and the iOS / iPadOS app (Xcode project in App/).
-        .target(name: "CXUI", dependencies: ["CXCore"]),
+        .target(name: "CXUI", dependencies: ["CXCore"], resources: [.process("Localizable.xcstrings")]),
         .testTarget(name: "CXCoreTests", dependencies: ["CXCore"], resources: [.copy("Fixtures")]),
         .testTarget(name: "CXUITests", dependencies: ["CXUI"]),
     ]

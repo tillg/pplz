@@ -66,13 +66,6 @@ public struct ContactDetails: Codable, Equatable, Sendable {
         return age >= 0 ? age : nil
     }
 
-    /// The birthday with the age next to it, e.g. `1980-05-17 · 46 years`.
-    public func birthdayWithAge(on today: Date = .now, calendar: Calendar = .current) -> String? {
-        guard let birthday else { return nil }
-        guard let age = age(on: today, calendar: calendar) else { return birthday }
-        return "\(birthday) · \(age) \(age == 1 ? "year" : "years")"
-    }
-
     /// One line per field that has a value, for display.
     public var lines: [String] {
         func single(_ title: String, _ value: String) -> [String] { value.isEmpty ? [] : ["\(title): \(value)"] }

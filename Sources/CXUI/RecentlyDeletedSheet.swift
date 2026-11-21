@@ -20,31 +20,31 @@ struct RecentlyDeletedSheet: View {
                         row(person)
                     }
                 } footer: {
-                    Text("cardXchange keeps a deleted person for 30 days, with their events, notes, tags and photos. Then it deletes them for good. A restored contact has no note.")
+                    Text("cardXchange keeps a deleted person for 30 days, with their events, notes, tags and photos. Then it deletes them for good. A restored contact has no note.", bundle: .module)
                 }
             }
             .overlay {
                 if model.recentlyDeleted.isEmpty {
-                    ContentUnavailableView("No recently deleted people", systemImage: "trash")
+                    ContentUnavailableView(String(localized: "No recently deleted people", bundle: .module), systemImage: "trash")
                 }
             }
-            .navigationTitle("Recently Deleted")
+            .navigationTitle(String(localized: "Recently Deleted", bundle: .module))
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button(String(localized: "Done", bundle: .module)) { dismiss() } }
             }
-            .confirmationDialog("Delete for good?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+            .confirmationDialog(String(localized: "Delete for good?", bundle: .module), isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
                                 presenting: removing) { person in
-                Button("Delete \(person.name) for Good", role: .destructive) {
+                Button(String(localized: "Delete \(person.name) for Good", bundle: .module), role: .destructive) {
                     Task { await model.deleteForGood(person.id) }
                 }
             } message: { _ in
-                Text("The person's notes, tags and photos are deleted. Their events stay without them. This cannot be undone.")
+                Text("The person's notes, tags and photos are deleted. Their events stay without them. This cannot be undone.", bundle: .module)
             }
         }
         .tint(.pink)
         // the alert of the main window does not show while this sheet is open
-        .alert("cardXchange", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.dismissError() } })) {
-            Button("OK") { model.dismissError() }
+        .alert(String(localized: "cardXchange", bundle: .module), isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.dismissError() } })) {
+            Button(String(localized: "OK", bundle: .module)) { model.dismissError() }
         } message: {
             Text(model.errorMessage ?? "")
         }
@@ -57,15 +57,15 @@ struct RecentlyDeletedSheet: View {
         HStack {
             VStack(alignment: .leading) {
                 Text(person.name)
-                Text("Deleted for good on \(person.removalDate, format: .dateTime.day().month().year())")
+                Text("Deleted for good on \(person.removalDate, format: .dateTime.day().month().year())", bundle: .module)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             // borderless: two buttons in one row of a list must not act as one
-            Button("Restore") { Task { await model.restore(person.id) } }
+            Button(String(localized: "Restore", bundle: .module)) { Task { await model.restore(person.id) } }
                 .buttonStyle(.borderless)
-            Button("Delete Now", systemImage: "trash", role: .destructive) { removing = person }
+            Button(String(localized: "Delete Now", bundle: .module), systemImage: "trash", role: .destructive) { removing = person }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.borderless)
         }

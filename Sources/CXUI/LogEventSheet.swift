@@ -25,10 +25,10 @@ struct LogEventSheet: View {
     var body: some View {
         SheetScaffold(title: "Log event", confirmTitle: "Log", canConfirm: !chosen.isEmpty, width: 460, onConfirm: log) {
             PeoplePickerField(people: people, chosen: $chosen)
-            Picker("Format", selection: $input.format) {
-                ForEach(EventFormat.allCases, id: \.self) { Text($0.displayName).tag($0) }
+            Picker(String(localized: "Format", bundle: .module), selection: $input.format) {
+                ForEach(EventFormat.allCases, id: \.self) { Text($0.name()).tag($0) }
             }
-            DatePicker("When", selection: $input.start)
+            DatePicker(String(localized: "When", bundle: .module), selection: $input.start)
             FormField(title: "Title", text: $input.title, prompt: "Optional, e.g. Dinner at Luigi's")
             FormField(title: "Place", text: $input.place, prompt: "Optional")
             FormField(title: "Notes", text: $input.notes, prompt: "What you talked about", lines: 2...6)
@@ -57,10 +57,10 @@ struct PeoplePickerField: View {
     var body: some View {
         Group {
             #if os(macOS)
-            LabeledContent("Who") { content }
+            LabeledContent(String(localized: "Who", bundle: .module)) { content }
             #else
             VStack(alignment: .leading, spacing: 6) {
-                Text("Who").font(.caption).foregroundStyle(.secondary)
+                Text("Who", bundle: .module).font(.caption).foregroundStyle(.secondary)
                 content
             }
             .accessibilityElement(children: .contain)
@@ -81,15 +81,15 @@ struct PeoplePickerField: View {
                             }
                             .chip(filled: true)
                         }
-                        .accessibilityLabel("Remove \(entry.name)")
+                        .accessibilityLabel(String(localized: "Remove \(entry.name)", bundle: .module))
                     }
                 }
             }
-            TextField("Who", text: $query, prompt: Text(chosen.isEmpty ? "Type a name" : "Add another person"))
+            TextField(String(localized: "Who", bundle: .module), text: $query, prompt: chosen.isEmpty ? Text("Type a name", bundle: .module) : Text("Add another person", bundle: .module))
                 .labelsHidden()
                 .autocorrectionDisabled()
                 .focused($isSearching)
-                .accessibilityLabel("Find a person")
+                .accessibilityLabel(String(localized: "Find a person", bundle: .module))
                 .onSubmit {
                     if let first = suggestions.first {
                         add(first)
@@ -107,19 +107,19 @@ struct PeoplePickerField: View {
                     }
                     .contentShape(Rectangle())
                 }
-                .accessibilityLabel("Add \(entry.name)")
+                .accessibilityLabel(String(localized: "Add \(entry.name)", bundle: .module))
             }
             if let name = newPersonName {
                 Button { add(.new(named: name)) } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "person.crop.circle.badge.plus").foregroundStyle(.pink)
-                        Text("New person “\(name)”")
+                        Text("New person “\(name)”", bundle: .module)
                         Spacer(minLength: 0)
                     }
                     .contentShape(Rectangle())
                 }
-                .accessibilityLabel("New person \(name)")
-                .help("Someone who is not in your contacts: \(name) is added to cardXchange only")
+                .accessibilityLabel(String(localized: "New person \(name)", bundle: .module))
+                .help(String(localized: "Someone who is not in your contacts: \(name) is added to cardXchange only", bundle: .module))
             }
         }
         .buttonStyle(.plain)

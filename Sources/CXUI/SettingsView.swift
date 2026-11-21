@@ -1,7 +1,7 @@
 import CXCore
 import SwiftUI
 
-/// The app's settings: who the user is, and which fields of their contact go on "My Card" (SPEC §4.8).
+/// The app's settings: who the user is, which fields of their contact go on "My Card" (SPEC §4.8), and the language (issue #13).
 /// On the Mac it is the Settings window; on iPhone and iPad a sheet from the toolbar.
 public struct SettingsView: View {
     @Bindable var model: PeopleModel
@@ -21,26 +21,33 @@ public struct SettingsView: View {
             Form {
                 Section {
                     NavigationLink(value: Page.chooseMe) {
-                        LabeledContent("Me", value: model.myCardEntry?.name ?? String(localized: "Not chosen"))
+                        LabeledContent(String(localized: "Me", bundle: .module), value: model.myCardEntry?.name ?? String(localized: "Not chosen", bundle: .module))
                     }
                 } header: {
-                    Text("My Card")
+                    Text("My Card", bundle: .module)
                 } footer: {
-                    Text("The person whose contact you pass on. On the Mac, the card marked “My Card” in Contacts is used until you choose.")
+                    Text("The person whose contact you pass on. On the Mac, the card marked “My Card” in Contacts is used until you choose.", bundle: .module)
                 }
                 if let contact = model.myContact {
                     fieldSections(contact)
                     Section {
-                        NavigationLink("Show My Card", value: Page.myCard)
+                        NavigationLink(String(localized: "Show My Card", bundle: .module), value: Page.myCard)
                     }
                 }
-                Section("About") {
+                Section {
+                    Picker(String(localized: "Language", bundle: .module), selection: $model.language) {
+                        ForEach(AppLanguage.allCases) { Text($0.title).tag($0) }
+                    }
+                } footer: {
+                    Text("A new language applies the next time cardXchange starts.", bundle: .module)
+                }
+                Section(String(localized: "About", bundle: .module)) {
                     Text(verbatim: AppVersion.text(info: Bundle.main.infoDictionary))
                         .textSelection(.enabled)
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Settings")
+            .navigationTitle(String(localized: "Settings", bundle: .module))
             .navigationDestination(for: Page.self) { page in
                 switch page {
                 case .chooseMe:
@@ -54,7 +61,7 @@ public struct SettingsView: View {
             }
             #if os(iOS)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button(String(localized: "Done", bundle: .module)) { dismiss() } }
             }
             #endif
         }
@@ -65,26 +72,26 @@ public struct SettingsView: View {
     /// One toggle per field of the user's contact. The name is always passed on.
     @ViewBuilder private func fieldSections(_ contact: ContactEdit) -> some View {
         Section {
-            Toggle(isOn: .constant(true)) { FieldLabel(title: "Name", value: [contact.givenName, contact.familyName].joined(separator: " ")) }
+            Toggle(isOn: .constant(true)) { FieldLabel(title: String(localized: "Name", bundle: .module), value: [contact.givenName, contact.familyName].joined(separator: " ")) }
                 .disabled(true)
             if !contact.organization.isEmpty {
-                Toggle(isOn: $model.myCardFields.company) { FieldLabel(title: "Company", value: contact.organization) }
+                Toggle(isOn: $model.myCardFields.company) { FieldLabel(title: String(localized: "Company", bundle: .module), value: contact.organization) }
             }
             if !contact.jobTitle.isEmpty {
-                Toggle(isOn: $model.myCardFields.jobTitle) { FieldLabel(title: "Job Title", value: contact.jobTitle) }
+                Toggle(isOn: $model.myCardFields.jobTitle) { FieldLabel(title: String(localized: "Job Title", bundle: .module), value: contact.jobTitle) }
             }
-            Toggle("Picture", isOn: $model.myCardFields.picture)
+            Toggle(String(localized: "Picture", bundle: .module), isOn: $model.myCardFields.picture)
         } header: {
-            Text("Passed On")
+            Text("Passed On", bundle: .module)
         } footer: {
-            Text("Only the fields that are switched on go on your card.")
+            Text("Only the fields that are switched on go on your card.", bundle: .module)
         }
         itemSection("Phone", contact.phones)
         itemSection("Email", contact.emails)
         itemSection("Web", contact.urls)
         itemSection("Social Profiles", contact.socialProfiles)
         if !contact.addresses.isEmpty {
-            Section("Addresses") {
+            Section(String(localized: "Addresses", bundle: .module)) {
                 ForEach(contact.addresses) { address in
                     Toggle(isOn: $model[passesOn: address.id]) {
                         FieldLabel(title: ContactLabels.display(address.label), value: MyCardView.text(of: address))
@@ -94,12 +101,15 @@ public struct SettingsView: View {
         }
     }
 
+    /// `title` is a key of CXUI's string catalog.
     @ViewBuilder private func itemSection(_ title: LocalizedStringKey, _ items: [ContactEdit.Item]) -> some View {
         if !items.isEmpty {
-            Section(title) {
+            Section {
                 ForEach(items) { item in
                     Toggle(isOn: $model[passesOn: item.id]) { FieldLabel(title: ContactLabels.display(item.label), value: item.value) }
                 }
+            } header: {
+                Text(title, bundle: .module)
             }
         }
     }
@@ -133,7 +143,7 @@ private struct ChooseMeView: View {
                 onChoose(entry.key)
             } label: {
                 LabeledContent {
-                    if entry.key == chosen { Image(systemName: "checkmark").accessibilityLabel("Chosen") }
+                    if entry.key == chosen { Image(systemName: "checkmark").accessibilityLabel(String(localized: "Chosen", bundle: .module)) }
                 } label: {
                     Text(entry.name)
                 }
@@ -141,10 +151,10 @@ private struct ChooseMeView: View {
             .foregroundStyle(.primary)
         }
         .overlay {
-            if entries.isEmpty { ContentUnavailableView("No people yet", systemImage: "person.2") }
+            if entries.isEmpty { ContentUnavailableView(String(localized: "No people yet", bundle: .module), systemImage: "person.2") }
         }
-        .searchable(text: $search, prompt: "Search")
-        .navigationTitle("Choose Me")
+        .searchable(text: $search, prompt: Text("Search", bundle: .module))
+        .navigationTitle(String(localized: "Choose Me", bundle: .module))
     }
 }
 
@@ -164,7 +174,7 @@ struct MyCardView: View {
                         picture.resizable().scaledToFill()
                             .frame(width: Layout.pictureSize, height: Layout.pictureSize)
                             .clipShape(Circle())
-                            .accessibilityLabel("Picture")
+                            .accessibilityLabel(String(localized: "Picture", bundle: .module))
                     }
                     Text(name).font(.title2).bold()
                     if !subtitle.isEmpty {
@@ -179,7 +189,7 @@ struct MyCardView: View {
             rows("Web", card.contact.urls)
             rows("Social Profiles", card.contact.socialProfiles)
             if !card.contact.addresses.isEmpty {
-                Section("Addresses") {
+                Section(String(localized: "Addresses", bundle: .module)) {
                     ForEach(card.contact.addresses) { address in
                         LabeledContent(ContactLabels.display(address.label), value: Self.text(of: address))
                     }
@@ -187,22 +197,25 @@ struct MyCardView: View {
             }
             Section {
             } footer: {
-                Text("This is all that a person gets when you pass on your card.")
+                Text("This is all that a person gets when you pass on your card.", bundle: .module)
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("My Card")
+        .navigationTitle(String(localized: "My Card", bundle: .module))
     }
 
     private var name: String { [card.contact.givenName, card.contact.familyName].filter { !$0.isEmpty }.joined(separator: " ") }
     private var subtitle: String { [card.contact.jobTitle, card.contact.organization].filter { !$0.isEmpty }.joined(separator: " · ") }
 
+    /// `title` is a key of CXUI's string catalog.
     @ViewBuilder private func rows(_ title: LocalizedStringKey, _ items: [ContactEdit.Item]) -> some View {
         if !items.isEmpty {
-            Section(title) {
+            Section {
                 ForEach(items) { item in
                     LabeledContent(ContactLabels.display(item.label), value: item.value)
                 }
+            } header: {
+                Text(title, bundle: .module)
             }
         }
     }

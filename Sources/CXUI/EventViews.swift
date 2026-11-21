@@ -20,7 +20,7 @@ struct EventListRow: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: event.format.symbol).foregroundStyle(.pink).frame(width: 20)
             VStack(alignment: .leading, spacing: 1) {
-                Text(event.title.isEmpty ? event.format.displayName : event.title).lineLimit(1)
+                Text(event.title.isEmpty ? event.format.name() : event.title).lineLimit(1)
                 Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
         }
@@ -66,20 +66,20 @@ struct EventDetailView: View {
             }
             .frame(width: 76, height: 76)
             VStack(alignment: .leading, spacing: 3) {
-                Text(event.title.isEmpty ? event.format.displayName : event.title)
+                Text(event.title.isEmpty ? event.format.name() : event.title)
                     .font(.title.weight(.semibold)).textSelection(.enabled)
-                Text(event.format.displayName).foregroundStyle(.secondary)
+                Text(event.format.name()).foregroundStyle(.secondary)
             }
         }
     }
 
     private var facts: some View {
         let rows: [(String, String)] =
-            [("when", when)]
-            + (event.place.isEmpty ? [] : [("place", event.place)])
-            + (event.tags.isEmpty ? [] : [("tags", event.tags.joined(separator: ", "))])
-            + (event.notes.isEmpty ? [] : [("notes", event.notes)])
-            + event.links.map { ("link", $0) }
+            [(String(localized: "when", bundle: .module), when)]
+            + (event.place.isEmpty ? [] : [(String(localized: "place", bundle: .module), event.place)])
+            + (event.tags.isEmpty ? [] : [(String(localized: "tags", bundle: .module), event.tags.joined(separator: ", "))])
+            + (event.notes.isEmpty ? [] : [(String(localized: "notes", bundle: .module), event.notes)])
+            + event.links.map { (String(localized: "link", bundle: .module), $0) }
         return FieldGroup {
             ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                 if index > 0 { Divider() }
@@ -89,9 +89,8 @@ struct EventDetailView: View {
     }
 
     private var when: String {
-        let start = event.start.formatted(date: .long, time: .shortened)
-        guard let end = event.end else { return start }
-        return start + " – " + end.formatted(date: .long, time: .shortened)
+        guard let end = event.end else { return event.start.formatted(date: .long, time: .shortened) }
+        return (event.start..<max(end, event.start)).formatted(.interval.day().month(.wide).year().hour().minute())
     }
 
     private var participants: some View {
@@ -105,7 +104,7 @@ struct EventDetailView: View {
                         HStack {
                             Text(person.name)
                             Spacer()
-                            Text("deleted").font(.caption)
+                            Text("deleted", bundle: .module).font(.caption)
                         }
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 9)
@@ -120,18 +119,18 @@ struct EventDetailView: View {
                             .padding(.vertical, 9)
                         }
                         .buttonStyle(.plain)
-                        .help("Show \(person.name)")
+                        .help(String(localized: "Show \(person.name)", bundle: .module))
                     }
                 }
                 if !event.participants.isEmpty { Divider() }
                 Button(action: onAddPeople) {
-                    Label("Add people", systemImage: "person.badge.plus").frame(maxWidth: .infinity, alignment: .leading)
+                    Label(String(localized: "Add people", bundle: .module), systemImage: "person.badge.plus").frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                         .padding(.vertical, 9)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.pink)
-                .help("Add or remove people of this event")
+                .help(String(localized: "Add or remove people of this event", bundle: .module))
             }
         }
     }
@@ -149,7 +148,7 @@ struct EventDetailView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(item.done)
-                        .help(item.done ? "Done" : "Mark as done")
+                        .help(item.done ? String(localized: "Done", bundle: .module) : String(localized: "Mark as done", bundle: .module))
                         Text(item.text).strikethrough(item.done).foregroundStyle(item.done ? .secondary : .primary)
                         Spacer()
                     }
@@ -158,11 +157,11 @@ struct EventDetailView: View {
                 if !event.followUps.isEmpty { Divider() }
                 HStack(spacing: 10) {
                     Image(systemName: "plus.circle").font(.title3).foregroundStyle(.secondary)
-                    TextField("Add a follow-up", text: $newFollowUp)
+                    TextField(String(localized: "Add a follow-up", bundle: .module), text: $newFollowUp)
                         .textFieldStyle(.plain)
                         .onSubmit(addFollowUp)
                     if !newFollowUp.trimmingCharacters(in: .whitespaces).isEmpty {
-                        Button("Add", action: addFollowUp).buttonStyle(.borderless)
+                        Button(String(localized: "Add", bundle: .module), action: addFollowUp).buttonStyle(.borderless)
                     }
                 }
                 .padding(.vertical, 8)
@@ -205,14 +204,14 @@ struct EditEventSheet: View {
             onSave(edit, chosen.filter { !$0.isNew }.map(\.key), chosen.filter(\.isNew).map(\.name))
         }) {
             PeoplePickerField(people: people, chosen: $chosen, startsSearching: addsPeople)
-            Picker("Format", selection: $edit.format) {
-                ForEach(EventFormat.allCases, id: \.self) { Text($0.displayName).tag($0) }
+            Picker(String(localized: "Format", bundle: .module), selection: $edit.format) {
+                ForEach(EventFormat.allCases, id: \.self) { Text($0.name()).tag($0) }
             }
             FormField(title: "Title", text: $edit.title)
-            DatePicker("Start", selection: $edit.start)
-            Toggle("Has an end", isOn: $edit.hasEnd)
+            DatePicker(String(localized: "Start", bundle: .module), selection: $edit.start)
+            Toggle(String(localized: "Has an end", bundle: .module), isOn: $edit.hasEnd)
             if edit.hasEnd {
-                DatePicker("End", selection: $edit.end, in: edit.start...)
+                DatePicker(String(localized: "End", bundle: .module), selection: $edit.end, in: edit.start...)
             }
             FormField(title: "Place", text: $edit.place)
             TagField(title: "Tags", text: $edit.tags, pending: $pendingTag, known: knownTags)

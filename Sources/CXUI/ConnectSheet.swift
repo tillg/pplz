@@ -14,7 +14,8 @@ struct ConnectSheet: View {
     @State private var search = ""
     @State private var selection: String?
 
-    private static let custom = "Custom…"
+    /// The tag of "Custom…" in the picker; no role is called so.
+    private static let custom = "\u{0}custom"
     /// Apple's list, plus "colleague", which Contacts knows but does not offer in its menu.
     private static let roles = ContactMirror.appleRoles.filter { $0 != "other" } + ["colleague", "other"]
 
@@ -36,9 +37,9 @@ struct ConnectSheet: View {
                       canConfirm: selected != nil && !chosenRole.isEmpty,
                       onConfirm: { if let selected { onConnect(chosenRole, selected) } }) {
             Section {
-                Picker("Relationship", selection: $role) {
-                    ForEach(Self.roles, id: \.self) { Text($0).tag($0) }
-                    Text(Self.custom).tag(Self.custom)
+                Picker(String(localized: "Relationship", bundle: .module), selection: $role) {
+                    ForEach(Self.roles, id: \.self) { Text(RelationshipText.role($0)).tag($0) }
+                    Text("Custom…", bundle: .module).tag(Self.custom)
                 }
                 if role == Self.custom {
                     FormField(title: "Custom relationship", text: $customRole, prompt: "e.g. mentor")
@@ -46,7 +47,7 @@ struct ConnectSheet: View {
             } footer: {
                 Text(sentence)
             }
-            Section("Person") {
+            Section(String(localized: "Person", bundle: .module)) {
                 FormField(title: "Search people", text: $search)
                 // a long address book is cut off here; searching narrows it down
                 ForEach(matches.prefix(40), id: \.key) { entry in
@@ -69,20 +70,20 @@ struct ConnectSheet: View {
 
     private var macBody: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Add a relationship for \(personName)").font(.title3.weight(.semibold))
+            Text("Add a relationship for \(personName)", bundle: .module).font(.title3.weight(.semibold))
             HStack {
-                Picker("Relationship", selection: $role) {
-                    ForEach(Self.roles, id: \.self) { Text($0).tag($0) }
+                Picker(String(localized: "Relationship", bundle: .module), selection: $role) {
+                    ForEach(Self.roles, id: \.self) { Text(RelationshipText.role($0)).tag($0) }
                     Divider()
-                    Text(Self.custom).tag(Self.custom)
+                    Text("Custom…", bundle: .module).tag(Self.custom)
                 }
                 .fixedSize()
                 if role == Self.custom {
-                    TextField("Relationship", text: $customRole, prompt: Text("e.g. mentor"))
+                    TextField(String(localized: "Relationship", bundle: .module), text: $customRole, prompt: Text("e.g. mentor", bundle: .module))
                         .labelsHidden()
                 }
             }
-            TextField("Search people", text: $search)
+            TextField(String(localized: "Search people", bundle: .module), text: $search)
             List(matches, id: \.key, selection: $selection) { entry in
                 Text(entry.name)
             }
@@ -91,9 +92,9 @@ struct ConnectSheet: View {
             Text(sentence).font(.callout).foregroundStyle(.secondary)
             HStack {
                 Spacer()
-                Button("Cancel", role: .cancel) { dismiss() }
+                Button(String(localized: "Cancel", bundle: .module), role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("Add") {
+                Button(String(localized: "Add", bundle: .module)) {
                     if let selected { onConnect(chosenRole, selected) }
                     dismiss()
                 }
@@ -108,7 +109,9 @@ struct ConnectSheet: View {
     }
 
     private var sentence: String {
-        guard let selected else { return "Pick the person." }
-        return "\(selected.name) is \(personName)\u{2019}s \(chosenRole.isEmpty ? "…" : chosenRole)."
+        guard let selected else { return String(localized: "Pick the person.", bundle: .module) }
+        let role = chosenRole.isEmpty ? "…" : RelationshipText.role(chosenRole)
+        return String(localized: "\(selected.name) is \(personName)’s \(role).", bundle: .module,
+                      comment: "A relationship as a sentence: Ben is Anna’s manager. Placeholders: the other person, this person, the role")
     }
 }

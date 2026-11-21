@@ -428,30 +428,6 @@ public enum LocatedPeople {
         }
         return counts
     }
-
-    /// "1 234 of 2 000 addresses located · 12 not found · pausing until 14:10 · done about Sat 18:40"; `nil` without addresses.
-    public static func statusLine(_ counts: Counts, resumesAt: Date?, doneAt: Date? = nil) -> String? {
-        guard counts.total > 0 else { return nil }
-        let numbers = NumberFormatter()
-        numbers.groupingSeparator = " "
-        numbers.usesGroupingSeparator = true
-        func n(_ value: Int) -> String { numbers.string(from: NSNumber(value: value)) ?? "\(value)" }
-        var parts = ["\(n(counts.located)) of \(n(counts.total)) addresses located"]
-        if counts.notFound > 0 { parts.append("\(n(counts.notFound)) not found") }
-        if let resumesAt, counts.outstanding > 0 {
-            let time = DateFormatter()
-            time.locale = Locale(identifier: "en_US_POSIX")
-            time.dateFormat = "HH:mm"
-            parts.append("pausing until \(time.string(from: resumesAt))")
-        }
-        if let doneAt, counts.outstanding > 0 {
-            let time = DateFormatter()
-            time.locale = Locale(identifier: "en_US_POSIX")
-            time.dateFormat = "EEE HH:mm"
-            parts.append("done about \(time.string(from: doneAt))")
-        }
-        return parts.joined(separator: " · ")
-    }
 }
 
 /// What the map says when it shows no pin (issue #9). The map stays visible behind it.

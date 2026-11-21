@@ -15,8 +15,8 @@ struct ContactCardSheet: View {
             withIdentifier: identifier, keysToFetch: [CNContactViewController.descriptorForRequiredKeys()]) {
             Card(contact: contact, onDone: { dismiss() }).ignoresSafeArea()
         } else {
-            ContentUnavailableView("Contact not found", systemImage: "person.crop.circle.badge.questionmark",
-                                   description: Text("It may have been deleted from Contacts."))
+            ContentUnavailableView(String(localized: "Contact not found", bundle: .module), systemImage: "person.crop.circle.badge.questionmark",
+                                   description: Text("It may have been deleted from Contacts.", bundle: .module))
         }
     }
 

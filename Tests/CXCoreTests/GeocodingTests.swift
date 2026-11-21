@@ -438,26 +438,7 @@ import Testing
         #expect(LocatedPeople.nextCard(in: entries, state: state, using: &generator).isEmpty)
     }
 
-    @Test func theStatusLineSaysHowFarLocatingIsAndWhenItContinues() {
-        let resumes = Calendar.current.date(from: DateComponents(year: 2026, month: 11, day: 19, hour: 14, minute: 10))!
-        let counts = LocatedPeople.Counts(located: 1234, notFound: 0, outstanding: 766)
-        #expect(LocatedPeople.statusLine(counts, resumesAt: resumes) == "1 234 of 2 000 addresses located · pausing until 14:10")
-        #expect(LocatedPeople.statusLine(counts, resumesAt: nil) == "1 234 of 2 000 addresses located")
-        #expect(LocatedPeople.statusLine(.init(located: 5, notFound: 2, outstanding: 0), resumesAt: resumes) == "5 of 7 addresses located · 2 not found")
-        #expect(LocatedPeople.statusLine(.init(located: 0, notFound: 0, outstanding: 0), resumesAt: nil) == nil)
-    }
-
-    /// Issue #8: when the rest is expected to be located, with the day.
-    @Test func theStatusLineSaysWhenLocatingIsExpectedToBeDone() {
-        let calendar = Calendar.current
-        let resumes = calendar.date(from: DateComponents(year: 2026, month: 11, day: 19, hour: 14, minute: 10))!
-        let done = calendar.date(from: DateComponents(year: 2026, month: 11, day: 21, hour: 18, minute: 40))!
-        let counts = LocatedPeople.Counts(located: 147, notFound: 5, outstanding: 1959)
-        #expect(LocatedPeople.statusLine(counts, resumesAt: resumes, doneAt: done)
-                == "147 of 2 111 addresses located · 5 not found · pausing until 14:10 · done about Sat 18:40")
-        #expect(LocatedPeople.statusLine(counts, resumesAt: nil, doneAt: done) == "147 of 2 111 addresses located · 5 not found · done about Sat 18:40")
-        #expect(LocatedPeople.statusLine(.init(located: 5, notFound: 2, outstanding: 0), resumesAt: nil, doneAt: done) == "5 of 7 addresses located · 2 not found")
-    }
+    // The status line itself is text of the app: `LocalizedTextTests` in CXUI.
 
     /// Issue #9: what the map says when it shows no pin.
     @Test func theMapSaysWhyItShowsNoPin() {

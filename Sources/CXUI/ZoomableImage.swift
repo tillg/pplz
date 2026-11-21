@@ -36,7 +36,7 @@ struct ZoomableImage: View {
                     if scale > 1 { scale = 1; offset = .zero } else { scale = 2.5 }
                 }
             }
-            .help("Pinch or double-click to zoom, drag to move")
-            .accessibilityLabel("Screenshot")
+            .help(String(localized: "Pinch or double-click to zoom, drag to move", bundle: .module))
+            .accessibilityLabel(String(localized: "Screenshot", bundle: .module))
     }
 }

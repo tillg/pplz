@@ -32,7 +32,7 @@ struct PhotosGroup: View {
             }
             FieldGroup {
                 if photos.isEmpty {
-                    Text("No photos yet. Add one with +, or drop pictures here.")
+                    Text("No photos yet. Add one with +, or drop pictures here.", bundle: .module)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 12)
@@ -60,11 +60,11 @@ struct PhotosGroup: View {
             group.notify(queue: .main) { let images = loaded.images; if !images.isEmpty { onAdd(images) } }
             return !providers.isEmpty
         }
-        .confirmationDialog("Delete this photo?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+        .confirmationDialog(String(localized: "Delete this photo?", bundle: .module), isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
                             titleVisibility: .visible) {
-            Button("Delete Photo", role: .destructive) { if let id = deleting { onDelete(id) } }
+            Button(String(localized: "Delete Photo", bundle: .module), role: .destructive) { if let id = deleting { onDelete(id) } }
         } message: {
-            Text("It is removed from cardXchange on all your devices. Contacts is not changed.")
+            Text("It is removed from cardXchange on all your devices. Contacts is not changed.", bundle: .module)
         }
         #if os(macOS)
         .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
@@ -93,8 +93,8 @@ struct PhotosGroup: View {
         return Group {
             #if os(macOS)
             Menu {
-                Button("Choose Files…", systemImage: "photo.on.rectangle") { isChoosingFile = true }
-                if let onPaste { Button("Paste Photo", systemImage: "doc.on.clipboard", action: onPaste) }
+                Button(String(localized: "Choose Files…", bundle: .module), systemImage: "photo.on.rectangle") { isChoosingFile = true }
+                if let onPaste { Button(String(localized: "Paste Photo", bundle: .module), systemImage: "doc.on.clipboard", action: onPaste) }
             } label: { symbol }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             #else
@@ -102,14 +102,14 @@ struct PhotosGroup: View {
             #endif
         }
         .foregroundStyle(.pink)
-        .help("Add photos of this person")
-        .accessibilityLabel("Add photos")
+        .help(String(localized: "Add photos of this person", bundle: .module))
+        .accessibilityLabel(String(localized: "Add photos", bundle: .module))
     }
 
     private func thumbnail(_ photo: PhotoSnapshot) -> some View {
         Menu {
-            if let onUse { Button("Use as contact picture", systemImage: "person.crop.circle") { onUse(photo.id) } }
-            Button("Delete…", systemImage: "trash", role: .destructive) { deleting = photo.id }
+            if let onUse { Button(String(localized: "Use as contact picture", bundle: .module), systemImage: "person.crop.circle") { onUse(photo.id) } }
+            Button(String(localized: "Delete…", bundle: .module), systemImage: "trash", role: .destructive) { deleting = photo.id }
         } label: {
             Group {
                 if let image = Image(data: photo.data) {
@@ -124,7 +124,7 @@ struct PhotosGroup: View {
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
         .help(photo.createdAt.formatted(date: .abbreviated, time: .shortened))
-        .accessibilityLabel("Photo of \(photo.createdAt.formatted(date: .abbreviated, time: .omitted))")
+        .accessibilityLabel(String(localized: "Photo of \(photo.createdAt.formatted(date: .abbreviated, time: .omitted))", bundle: .module))
     }
 }
 
@@ -147,11 +147,11 @@ struct FaceChoiceSheet: View {
     var body: some View {
         #if os(macOS)
         VStack(alignment: .leading, spacing: 16) {
-            Text("Which one is \(personName)?").font(.title3.weight(.semibold))
+            Text("Which one is \(personName)?", bundle: .module).font(.title3.weight(.semibold))
             faces
             HStack {
                 Spacer()
-                Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(String(localized: "Cancel", bundle: .module), role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
             }
         }
         .padding(20)
@@ -164,9 +164,9 @@ struct FaceChoiceSheet: View {
                 Spacer()
             }
             .padding()
-            .navigationTitle("Which one is \(personName)?")
+            .navigationTitle(String(localized: "Which one is \(personName)?", bundle: .module))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(String(localized: "Cancel", bundle: .module)) { dismiss() } } }
         }
         .tint(.pink)
         #endif
@@ -184,7 +184,7 @@ struct FaceChoiceSheet: View {
                         .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Face \(index + 1) of \(crops.count)")
+                    .accessibilityLabel(String(localized: "Face \(index + 1) of \(crops.count)", bundle: .module))
                 }
             }
             .padding(4)

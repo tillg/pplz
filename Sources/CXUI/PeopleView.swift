@@ -76,42 +76,42 @@ public struct PeopleView: View {
                 }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
-                Picker("Show", selection: $model.mode) {
-                    ForEach(PeopleModel.Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                Picker(String(localized: "Show", bundle: .module), selection: $model.mode) {
+                    ForEach(PeopleModel.Mode.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .padding(.horizontal, 10).padding(.bottom, 8)
             }
-            .searchable(text: $model.search, placement: .sidebar, prompt: "Search")
+            .searchable(text: $model.search, placement: .sidebar, prompt: Text("Search", bundle: .module))
             .toolbar {
                 ToolbarItem {
-                    Button("New Event", systemImage: "calendar.badge.plus") { sheet = .quickLog }
-                        .help("Log a meeting or call you just had")
+                    Button(String(localized: "New Event", bundle: .module), systemImage: "calendar.badge.plus") { sheet = .quickLog }
+                        .help(String(localized: "Log a meeting or call you just had", bundle: .module))
                 }
                 if model.usesContacts {
                     ToolbarItem {
-                        Button("New Contact", systemImage: "person.badge.plus") { sheet = .newContact }
-                            .help("Create a contact in Contacts")
+                        Button(String(localized: "New Contact", bundle: .module), systemImage: "person.badge.plus") { sheet = .newContact }
+                            .help(String(localized: "Create a contact in Contacts", bundle: .module))
                     }
                 }
                 ToolbarItem {
                     #if os(iOS)
-                    Menu("Capture Profile", systemImage: "person.crop.rectangle.badge.plus") {
+                    Menu(String(localized: "Capture Profile", bundle: .module), systemImage: "person.crop.rectangle.badge.plus") {
                         if CardCamera.isAvailable {
-                            Button("Scan Business Card", systemImage: "camera") { isScanningCard = true }
+                            Button(String(localized: "Scan Business Card", bundle: .module), systemImage: "camera") { isScanningCard = true }
                         }
-                        Button("Choose Photo", systemImage: "photo") { isChoosingCapture = true }
+                        Button(String(localized: "Choose Photo", bundle: .module), systemImage: "photo") { isChoosingCapture = true }
                     }
                     #else
-                    Button("Capture Profile", systemImage: "person.crop.rectangle.badge.plus") { isChoosingCapture = true }
-                        .help("Read a screenshot of someone's profile or a photo of a business card")
+                    Button(String(localized: "Capture Profile", bundle: .module), systemImage: "person.crop.rectangle.badge.plus") { isChoosingCapture = true }
+                        .help(String(localized: "Read a screenshot of someone's profile or a photo of a business card", bundle: .module))
                     #endif
                 }
                 #if os(iOS)
                 // the Mac has its Settings window instead (cardXchange → Settings…)
                 ToolbarItem {
-                    Button("Settings", systemImage: "gearshape") { sheet = .settings }
+                    Button(String(localized: "Settings", bundle: .module), systemImage: "gearshape") { sheet = .settings }
                 }
                 #endif
             }
@@ -124,7 +124,7 @@ public struct PeopleView: View {
             case .map: mapPane
             }
         }
-        .navigationTitle("cardXchange")
+        .navigationTitle(Text(verbatim: "cardXchange"))
         #if os(macOS)
         .fileImporter(isPresented: $isChoosingCapture, allowedContentTypes: [.image]) { result in
             guard let url = try? result.get() else { return }
@@ -211,18 +211,18 @@ public struct PeopleView: View {
         .sheet(item: Binding(get: { model.faceChoice }, set: { if $0 == nil { Task { await model.chooseFace(nil) } } })) { choice in
             FaceChoiceSheet(personName: choice.entry.name, crops: choice.crops) { index in Task { await model.chooseFace(index) } }
         }
-        .confirmationDialog("Delete this event?", isPresented: $isConfirmingDelete) {
-            Button("Delete Event", role: .destructive) { Task { await model.deleteSelectedEvent() } }
+        .confirmationDialog(String(localized: "Delete this event?", bundle: .module), isPresented: $isConfirmingDelete) {
+            Button(String(localized: "Delete Event", bundle: .module), role: .destructive) { Task { await model.deleteSelectedEvent() } }
         } message: {
-            Text("Its follow-ups are deleted too. This cannot be undone.")
+            Text("Its follow-ups are deleted too. This cannot be undone.", bundle: .module)
         }
-        .confirmationDialog("Delete \(model.card?.entry.name ?? "")?", isPresented: $isConfirmingPersonDelete, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) { Task { await model.deleteSelectedPerson() } }
+        .confirmationDialog(String(localized: "Delete \(model.card?.entry.name ?? "")?", bundle: .module), isPresented: $isConfirmingPersonDelete, titleVisibility: .visible) {
+            Button(String(localized: "Delete", bundle: .module), role: .destructive) { Task { await model.deleteSelectedPerson() } }
         } message: {
             if model.card?.entry.isCXOnly == false {
-                Text("The contact is deleted from Contacts now. cardXchange keeps a copy without the note, and the person's events, notes, tags and photos, for 30 days under Recently Deleted.")
+                Text("The contact is deleted from Contacts now. cardXchange keeps a copy without the note, and the person's events, notes, tags and photos, for 30 days under Recently Deleted.", bundle: .module)
             } else {
-                Text("cardXchange keeps the person's events, notes, tags and photos for 30 days under Recently Deleted.")
+                Text("cardXchange keeps the person's events, notes, tags and photos for 30 days under Recently Deleted.", bundle: .module)
             }
         }
         .tint(.pink)
@@ -253,10 +253,10 @@ public struct PeopleView: View {
         .onReceive(NotificationCenter.default.publisher(for: CXStore.syncNotification).receive(on: DispatchQueue.main)) { note in
             if CXStore.broughtNewData(note) { Task { await model.reload() } }
         }
-        .alert("cardXchange", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.dismissError() } })) {
-            Button("OK") { model.dismissError() }
+        .alert(Text(verbatim: "cardXchange"), isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.dismissError() } })) {
+            Button(String(localized: "OK", bundle: .module)) { model.dismissError() }
             if model.sections.isEmpty {
-                Button("Try again") { Task { await model.reload() } }
+                Button(String(localized: "Try again", bundle: .module)) { Task { await model.reload() } }
             }
         } message: {
             Text(model.errorMessage ?? "")
@@ -314,9 +314,9 @@ extension PeopleView {
                 Section {
                     Button { sheet = .recentlyDeleted } label: {
                         LabeledContent {
-                            Text("\(model.recentlyDeleted.count)")
+                            Text(model.recentlyDeleted.count, format: .number)
                         } label: {
-                            Label("Recently Deleted", systemImage: "trash")
+                            Label(String(localized: "Recently Deleted", bundle: .module), systemImage: "trash")
                         }
                     }
                 }
@@ -333,7 +333,8 @@ extension PeopleView {
             if model.isLoading {
                 ProgressView()
             } else if model.sections.isEmpty && (!model.search.isEmpty || model.recentlyDeleted.isEmpty) {
-                ContentUnavailableView(model.search.isEmpty ? "No people yet" : "No results", systemImage: "person.2")
+                ContentUnavailableView(model.search.isEmpty ? String(localized: "No people yet", bundle: .module) : String(localized: "No results", bundle: .module),
+                                       systemImage: "person.2")
             }
         }
     }
@@ -353,7 +354,7 @@ extension PeopleView {
                 VStack(spacing: MapCapsule.spacing) {
                     // small, so that the map stays visible behind it (issue #9)
                     if let notice = model.mapNotice {
-                        MapCapsule(text: mapNoticeText(notice), font: .callout, style: .primary)
+                        MapCapsule(text: Text(MapText.notice(notice)), font: .callout, style: .primary)
                     }
                     if let status = model.locateStatus {
                         MapCapsule(text: Text(status), font: .caption, style: .secondary)
@@ -361,15 +362,6 @@ extension PeopleView {
                 }
                 .padding(MapCapsule.margin)
             }
-    }
-
-    private func mapNoticeText(_ notice: MapNotice) -> Text {
-        switch notice {
-        case .nobodyLocated: Text("No one on the map yet. People with an address appear once it is located.")
-        case .noResults: Text("No results")
-        case .notLocated(matches: 1): Text("The match has no located address.")
-        case .notLocated(let matches): Text("The \(matches) matches have no located address.")
-        }
     }
 
     /// A line of text over the map, in a capsule.
@@ -404,8 +396,9 @@ extension PeopleView {
         }
         .overlay {
             if model.eventSections.isEmpty {
-                ContentUnavailableView(model.search.isEmpty ? "No events yet" : "No results", systemImage: "calendar",
-                                       description: Text(model.search.isEmpty ? "Log one from a person's card." : ""))
+                ContentUnavailableView(model.search.isEmpty ? String(localized: "No events yet", bundle: .module) : String(localized: "No results", bundle: .module),
+                                       systemImage: "calendar",
+                                       description: model.search.isEmpty ? Text("Log one from a person's card.", bundle: .module) : nil)
             }
         }
     }
@@ -436,21 +429,21 @@ extension PeopleView {
                            onUsePhoto: model.canUseAsContactPicture ? { id in Task { await model.useAsContactPicture(id) } } : nil,
                            onDeletePhoto: { id in Task { await model.deletePhoto(id) } })
                 .toolbar {
-                    Button("Log Event", systemImage: "calendar.badge.plus") { sheet = .log }
-                        .help("Log a meeting or call with \(card.entry.name)")
-                    Button("Edit", systemImage: "pencil") { sheet = .edit }
-                        .help(card.contact != nil ? "Edit the contact card and what cardXchange keeps about \(card.entry.name)"
-                                                  : "Edit tags, notes, how you met and the keep-in-touch rhythm")
-                    Button("Delete Person", systemImage: "trash") { isConfirmingPersonDelete = true }
-                        .help("Delete \(card.entry.name); Recently Deleted keeps the person for 30 days")
+                    Button(String(localized: "Log Event", bundle: .module), systemImage: "calendar.badge.plus") { sheet = .log }
+                        .help(String(localized: "Log a meeting or call with \(card.entry.name)", bundle: .module))
+                    Button(String(localized: "Edit", bundle: .module), systemImage: "pencil") { sheet = .edit }
+                        .help(card.contact != nil ? String(localized: "Edit the contact card and what cardXchange keeps about \(card.entry.name)", bundle: .module)
+                                                  : String(localized: "Edit tags, notes, how you met and the keep-in-touch rhythm", bundle: .module))
+                    Button(String(localized: "Delete Person", bundle: .module), systemImage: "trash") { isConfirmingPersonDelete = true }
+                        .help(String(localized: "Delete \(card.entry.name); Recently Deleted keeps the person for 30 days", bundle: .module))
                     #if os(macOS)
                     if !card.entry.isCXOnly {
-                        Button("Open in Contacts", systemImage: "person.crop.square") { model.openInContacts() }
-                            .help("Show this card in the Contacts app")
+                        Button(String(localized: "Open in Contacts", bundle: .module), systemImage: "person.crop.square") { model.openInContacts() }
+                            .help(String(localized: "Show this card in the Contacts app", bundle: .module))
                     }
                     #else
                     if let identifier = card.entry.contactIdentifier, card.contact != nil {
-                        Button("Contact card", systemImage: "person.crop.square") { shownContact = ShownContact(id: identifier) }
+                        Button(String(localized: "Contact card", bundle: .module), systemImage: "person.crop.square") { shownContact = ShownContact(id: identifier) }
                     }
                     #endif
                 }
@@ -459,7 +452,7 @@ extension PeopleView {
                 .sheet(item: $shownContact, onDismiss: { Task { await model.reload() } }) { ContactCardSheet(identifier: $0.id) }
                 #endif
         } else {
-            ContentUnavailableView("No person selected", systemImage: "person.crop.circle")
+            ContentUnavailableView(String(localized: "No person selected", bundle: .module), systemImage: "person.crop.circle")
         }
     }
 
@@ -480,13 +473,13 @@ extension PeopleView {
                             onComplete: { id in Task { await model.completeFollowUp(id) } },
                             onAddFollowUp: { text in Task { await model.addFollowUp(text) } })
                 .toolbar {
-                    Button("Edit", systemImage: "pencil") { addsPeople = false; sheet = .editEvent }
-                        .help("Edit this event")
-                    Button("Delete", systemImage: "trash") { isConfirmingDelete = true }
-                        .help("Delete this event")
+                    Button(String(localized: "Edit", bundle: .module), systemImage: "pencil") { addsPeople = false; sheet = .editEvent }
+                        .help(String(localized: "Edit this event", bundle: .module))
+                    Button(String(localized: "Delete", bundle: .module), systemImage: "trash") { isConfirmingDelete = true }
+                        .help(String(localized: "Delete this event", bundle: .module))
                 }
         } else {
-            ContentUnavailableView("No event selected", systemImage: "calendar")
+            ContentUnavailableView(String(localized: "No event selected", bundle: .module), systemImage: "calendar")
         }
     }
 }
@@ -499,15 +492,15 @@ struct PersonRow: View {
             Text(entry.name).lineLimit(1)
             Spacer(minLength: 4)
             if entry.isCXOnly {
-                Text("cardXchange").font(.caption2.weight(.semibold)).foregroundStyle(.pink)
+                Text(verbatim: "cardXchange").font(.caption2.weight(.semibold)).foregroundStyle(.pink)
             }
             if entry.eventCount > 0 {
-                Text("\(entry.eventCount)")
+                Text(entry.eventCount, format: .number)
                     .font(.caption2.weight(.semibold).monospacedDigit())
                     .padding(.horizontal, 6).padding(.vertical, 1)
                     .background(.pink.opacity(0.18), in: Capsule())
                     .foregroundStyle(.pink)
-                    .help("Events with this person")
+                    .help(String(localized: "Events with this person", bundle: .module))
             }
         }
     }

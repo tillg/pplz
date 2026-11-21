@@ -248,10 +248,10 @@ import Testing
         // "Ben is Anna's manager": shown on Anna's card as "manager · Ben Sample", like in Contacts
         await model.connect(role: "manager", to: model.connectionCandidates[0])
         #expect(model.errorMessage == nil)
-        #expect(model.card?.connections.map(\.displayLabel) == ["manager"])
+        #expect(model.card?.connections.map { $0.label(locale: Locale(identifier: "en")) } == ["manager"])
         #expect(model.card?.connections.map(\.other.name) == ["Ben Sample"])
         #expect(try store.connections(of: ben).map(\.other.id) == [anna])
-        #expect(try store.connections(of: ben).map(\.displayLabel) == ["manager of"])
+        #expect(try store.connections(of: ben).map { $0.label(locale: Locale(identifier: "en")) } == ["manager of"])
 
         await model.disconnect(from: ben)
         #expect(model.card?.connections.isEmpty == true)

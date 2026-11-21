@@ -62,16 +62,6 @@ import Testing
         #expect(age("2030-01-01", on: "2026-11-19") == nil)
     }
 
-    @Test func birthdayIsShownWithTheAge() {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "Europe/Berlin")!
-        let today = day("2026-11-19")
-        #expect(ContactDetails(identifier: "C-4", birthday: "1980-05-17").birthdayWithAge(on: today, calendar: calendar) == "1980-05-17 · 46 years")
-        #expect(ContactDetails(identifier: "C-5", birthday: "2025-05-17").birthdayWithAge(on: today, calendar: calendar) == "2025-05-17 · 1 year")
-        #expect(ContactDetails(identifier: "C-6", birthday: "--05-17").birthdayWithAge(on: today, calendar: calendar) == "--05-17")
-        #expect(ContactDetails(identifier: "C-7").birthdayWithAge(on: today, calendar: calendar) == nil)
-    }
-
     // MARK: quick actions
 
     private let mobile = LabeledValue(label: "mobile", value: "+49 170 0000000")

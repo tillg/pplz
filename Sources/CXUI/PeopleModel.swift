@@ -53,6 +53,15 @@ public final class PeopleModel {
         case people = "People"
         case events = "Events"
         case map = "Map"
+
+        /// The name in the picker above the list.
+        var title: LocalizedStringResource {
+            switch self {
+            case .people: LocalizedStringResource("People", bundle: .cxui)
+            case .events: LocalizedStringResource("Events", bundle: .cxui)
+            case .map: LocalizedStringResource("Map", bundle: .cxui)
+            }
+        }
     }
 
     /// What the sidebar lists.
@@ -101,7 +110,7 @@ public final class PeopleModel {
         MapNotice.make(search: search, matches: PeopleSections.matching(entries, search: search).count, pins: mapPins.count)
     }
 
-    /// "1 234 of 2 000 addresses located · pausing until 14:10 · done about Sat 18:40"; `nil` if nobody has an address.
+    /// "1,234 of 2,000 addresses located · pausing until 14:10 · done about Sat 18:40"; `nil` if nobody has an address.
     /// The expected end shows only while locating runs or is paused.
     public var locateStatus: String? {
         let counts = LocatedPeople.counts(in: entries, state: geocodes)
@@ -109,7 +118,7 @@ public final class PeopleModel {
         if case .wait(let until) = geocodes.budget() { resumesAt = until }
         let doneAt = locating == nil ? nil
             : GeocodeBudget.finish(outstanding: counts.outstanding, now: .now, slotStart: geocodes.slotStart, sent: geocodes.sent)
-        return LocatedPeople.statusLine(counts, resumesAt: resumesAt, doneAt: doneAt)
+        return MapText.status(counts, resumesAt: resumesAt, doneAt: doneAt)
     }
 
     /// Shows a person's card, as when a pin is opened on the map.
@@ -183,11 +192,11 @@ public final class PeopleModel {
         let query = search.trimmingCharacters(in: .whitespaces)
         let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
         let matching = query.isEmpty ? events : events.filter { event in
-            ([event.title, event.place, event.format.displayName] + event.participants.map(\.name))
+            ([event.title, event.place, event.format.displayName, event.format.name()] + event.participants.map(\.name))
                 .contains { $0.range(of: query, options: options) != nil }
         }
         let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
+        formatter.setLocalizedDateFormatFromTemplate("MMMMy")
         var sections: [EventSection] = []
         for event in matching {
             let title = formatter.string(from: event.start)
@@ -226,6 +235,8 @@ public final class PeopleModel {
 
     private let configuration: Configuration
     private let settings: UserDefaults
+    /// The defaults domain that `settings` writes to.
+    private let settingsDomain: String
     private var store: CXStore?
     private var pendingSelection: String?
 
@@ -233,6 +244,9 @@ public final class PeopleModel {
         self.configuration = configuration
         self.pendingSelection = configuration.initialSelection
         settings = configuration.settingsSuite.flatMap(UserDefaults.init(suiteName:)) ?? .standard
+        settingsDomain = configuration.settingsSuite ?? Bundle.main.bundleIdentifier ?? ""
+        // only the app's own value: `settings` also returns the device's language list
+        language = AppLanguage(appleLanguages: settings.persistentDomain(forName: settingsDomain)?[Self.languageSetting])
         myCardKey = settings.string(forKey: Self.myCardKeySetting)
         myCardFields = settings.data(forKey: Self.myCardFieldsSetting)
             .flatMap { try? JSONDecoder().decode(MyCardFields.self, from: $0) } ?? MyCardFields()
@@ -279,7 +293,7 @@ public final class PeopleModel {
             }
             await loadMyCard()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            errorMessage = userMessage(error)
         }
     }
 
@@ -338,7 +352,7 @@ public final class PeopleModel {
             try syncContacts(event.participants.map(\.id), store)
             await reload()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            errorMessage = userMessage(error)
         }
     }
 
@@ -362,7 +376,7 @@ public final class PeopleModel {
         errorMessage = nil
         await save(person, for: entry)
         guard let message = errorMessage else { return nil }
-        return contactWasWritten ? "The contact card was saved, but what cardXchange keeps was not: \(message)" : message
+        return contactWasWritten ? String(localized: "The contact card was saved, but what cardXchange keeps was not: \(message)", bundle: .module) : message
     }
 
     private func save(_ edit: PersonEdit, for entry: PersonEntry) async {
@@ -384,7 +398,7 @@ public final class PeopleModel {
             errorMessage = nil
             await reload()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            errorMessage = userMessage(error)
         }
     }
 
@@ -493,7 +507,7 @@ public final class PeopleModel {
         guard let store, let entry = card?.entry else { return }
         await perform {
             let name = role.trimmingCharacters(in: .whitespaces)
-            guard !name.isEmpty else { throw CXError.invalid("Choose a relationship, e.g. friend or manager.") }
+            guard !name.isEmpty else { throw CXError.invalid(String(localized: "Choose a relationship, e.g. friend or manager.", bundle: .module)) }
             let label = name + " of"
             // stored as the sentence "other — role of — selected person"
             guard let to = try self.personID(entry, store), let from = try self.personID(other, store) else { return }
@@ -530,7 +544,7 @@ public final class PeopleModel {
             try work()
             errorMessage = nil
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            errorMessage = userMessage(error)
             return
         }
         await reload()
@@ -560,7 +574,7 @@ public final class PeopleModel {
             try store.completeFollowUp(id)
             await reload()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            errorMessage = userMessage(error)
         }
     }
 
@@ -597,7 +611,7 @@ public final class PeopleModel {
     /// Adds the picture on the clipboard to the selected person's photos. Not ⌘V: that is a capture.
     public func addPhotoFromClipboard() async {
         guard let image = Self.clipboardImage() else {
-            errorMessage = "There is no picture on the clipboard."
+            errorMessage = String(localized: "There is no picture on the clipboard.", bundle: .module)
             return
         }
         await addPhotos([image])
@@ -632,13 +646,14 @@ public final class PeopleModel {
                 let crops = try await FacePhoto.faceCrops(in: image)
                 if crops.count == 1 { single += crops } else { faceChoices.append(FaceChoice(entry: entry, crops: crops)) }
             } catch {
-                problems.append((error as? LocalizedError)?.errorDescription ?? "\(error)")
+                problems.append(userMessage(error))
             }
         }
         await storePhotos(single, of: entry)
         if !problems.isEmpty {
             errorMessage = images.count == 1 ? problems[0]
-                : "\(problems.count) of \(images.count) pictures were not added. " + Set(problems).sorted().joined(separator: " ")
+                : String(localized: "\(problems.count) of \(images.count) pictures were not added. \(Set(problems).sorted().joined(separator: " "))", bundle: .module,
+                         comment: "The second placeholder is the number of pictures, the third the reasons")
         }
     }
 
@@ -658,7 +673,7 @@ public final class PeopleModel {
             errorMessage = nil
             await reload()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            errorMessage = userMessage(error)
         }
     }
 
@@ -676,7 +691,7 @@ public final class PeopleModel {
             errorMessage = nil
             await reload()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            errorMessage = userMessage(error)
         }
     }
 
@@ -782,7 +797,7 @@ public final class PeopleModel {
                             .added, ContactMirror.Row(contactIdentifier: identifier, label: link.label, value: link.value), field: "url")
                     }
                 } catch {
-                    contactProblem = "Saved in cardXchange, but not in Contacts: " + ((error as? LocalizedError)?.errorDescription ?? "\(error)")
+                    contactProblem = String(localized: "Saved in cardXchange, but not in Contacts: \(userMessage(error))", bundle: .module)
                 }
             }
             await reload()
@@ -791,7 +806,7 @@ public final class PeopleModel {
             errorMessage = contactProblem
             return id
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            errorMessage = userMessage(error)
             await reload()
             return nil
         }
@@ -848,7 +863,7 @@ public final class PeopleModel {
             await select(matching: id.uuidString)
             return identifier
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            errorMessage = userMessage(error)
             return nil
         }
     }
@@ -862,7 +877,7 @@ public final class PeopleModel {
         guard let store, let entry = card?.entry else { return nil }
         let identifier = entry.contactIdentifier
         if identifier != nil, !configuration.usesContacts {
-            return fail("\(entry.name) has a contact, and cardXchange is not using Contacts.")
+            return fail(String(localized: "\(entry.name) has a contact, and cardXchange is not using Contacts.", bundle: .module))
         }
         do {
             guard let id = try personID(entry, store) else { return nil }
@@ -870,7 +885,7 @@ public final class PeopleModel {
             if let identifier {
                 copy = try await Task.detached { try SystemContacts.contactEdit(identifier: identifier) }.value
                 guard copy != nil else {
-                    return fail("The contact of \(entry.name) is not on this device. Delete the person on the device that has the contact.")
+                    return fail(String(localized: "The contact of \(entry.name) is not on this device. Delete the person on the device that has the contact.", bundle: .module))
                 }
             }
             try store.deletePerson(id, contactCopy: copy, at: .now)
@@ -884,7 +899,7 @@ public final class PeopleModel {
                 }
             }
         } catch {
-            return fail((error as? LocalizedError)?.errorDescription ?? "\(error)")
+            return fail(userMessage(error))
         }
         errorMessage = nil
         selection = nil
@@ -902,7 +917,7 @@ public final class PeopleModel {
         do {
             var identifier: String?
             if let copy = try store.contactCopy(of: id) {
-                guard configuration.usesContacts else { return fail("This person had a contact, and cardXchange is not using Contacts.") }
+                guard configuration.usesContacts else { return fail(String(localized: "This person had a contact, and cardXchange is not using Contacts.", bundle: .module)) }
                 let row = ContactMirror.Row(contactIdentifier: "", label: PersonLink.label, value: PersonLink.url(for: id))
                 let created = try await Task.detached { try SystemContacts.createContact(copy, link: row) }.value
                 try ContactsSync.journal(forStoreAt: configuration.storeURL).record(
@@ -911,7 +926,7 @@ public final class PeopleModel {
             }
             try store.restorePerson(id, contactIdentifier: identifier)
         } catch {
-            return fail((error as? LocalizedError)?.errorDescription ?? "\(error)")
+            return fail(userMessage(error))
         }
         errorMessage = nil
         await reload()
@@ -948,7 +963,7 @@ public final class PeopleModel {
         do {
             return try await Task.detached { try SystemContacts.contactEdit(identifier: identifier) }.value
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            errorMessage = userMessage(error)
             return nil
         }
     }
@@ -969,15 +984,15 @@ public final class PeopleModel {
     public func saveContactEdit(_ edit: ContactEdit, original: ContactEdit) async -> String? {
         let changes = ContactEdit.changes(from: original, to: edit)
         guard !changes.isEmpty else { return nil }
-        guard edit.hasName else { return "A contact needs a name or a company." }
+        guard edit.hasName else { return String(localized: "A contact needs a name or a company.", bundle: .module) }
         // the contact the form was loaded from, not the one selected now: the selection may have moved while the sheet was open
         let identifier = original.contactIdentifier
-        guard !identifier.isEmpty else { return "This form was not loaded from a contact." }
-        guard configuration.usesContacts else { return "cardXchange is not using Contacts." }
+        guard !identifier.isEmpty else { return String(localized: "This form was not loaded from a contact.", bundle: .module) }
+        guard configuration.usesContacts else { return String(localized: "cardXchange is not using Contacts.", bundle: .module) }
         do {
             try await Task.detached { try SystemContacts.apply(changes, toContact: identifier) }.value
         } catch {
-            return (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            return userMessage(error)
         }
         errorMessage = nil
         await reload()
@@ -986,13 +1001,13 @@ public final class PeopleModel {
 
     /// Creates a contact with these fields and shows it. Returns the reason if nothing was created, `nil` on success.
     public func createContact(_ edit: ContactEdit) async -> String? {
-        guard edit.hasName else { return "A contact needs a name or a company." }
-        guard configuration.usesContacts else { return "cardXchange is not using Contacts." }
+        guard edit.hasName else { return String(localized: "A contact needs a name or a company.", bundle: .module) }
+        guard configuration.usesContacts else { return String(localized: "cardXchange is not using Contacts.", bundle: .module) }
         let identifier: String
         do {
             identifier = try await Task.detached { try SystemContacts.createContact(edit) }.value
         } catch {
-            return (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            return userMessage(error)
         }
         errorMessage = nil
         await reload()
@@ -1025,7 +1040,22 @@ public final class PeopleModel {
             guard selection == key else { return }   // the user moved on while we were loading
             card = try store.card(for: entry, contact: details)
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            errorMessage = userMessage(error)
+        }
+    }
+
+    // MARK: Language (issue #13)
+
+    private static let languageSetting = "AppleLanguages"
+
+    /// The language chosen in Settings. It applies when the app starts again.
+    public var language: AppLanguage {
+        didSet {
+            if let codes = language.appleLanguages {
+                settings.set(codes, forKey: Self.languageSetting)
+            } else {
+                settings.removeObject(forKey: Self.languageSetting)
+            }
         }
     }
 
@@ -1101,7 +1131,7 @@ public final class PeopleModel {
         } catch {
             myContact = nil
             myPicture = nil
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            errorMessage = userMessage(error)
         }
     }
 }

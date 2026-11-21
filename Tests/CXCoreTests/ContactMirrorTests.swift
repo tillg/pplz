@@ -57,15 +57,10 @@ import Testing
         ])
     }
 
-    @Test func appleRelationshipListAndDisplay() {
+    /// How a connection reads on the card is tested in CXUI (`LocalizedTextTests`).
+    @Test func appleRelationshipList() {
         #expect(ContactMirror.appleRoles == ["mother", "father", "parent", "son", "daughter", "brother", "sister", "child",
                                              "friend", "spouse", "partner", "assistant", "manager", "other"])
-        let ben = PersonRef(id: UUID(), name: "Ben Sample")
-        // on Anna's card: stored as "Ben — manager of — Anna", shown as in Contacts: "manager · Ben"
-        #expect(ConnectionSnapshot(id: UUID(), kind: "manager of", other: ben, direction: .incoming).displayLabel == "manager")
-        #expect(ConnectionSnapshot(id: UUID(), kind: "manager of", other: ben, direction: .outgoing).displayLabel == "manager of")
-        #expect(ConnectionSnapshot(id: UUID(), kind: "introduced by", other: ben, direction: .outgoing).displayLabel == "introduced by")
-        #expect(ConnectionSnapshot(id: UUID(), kind: "introduced by", other: ben, direction: .incoming).displayLabel == "introduced by (from them)")
     }
 
     @Test func peopleWithoutContactGetNoRow() {

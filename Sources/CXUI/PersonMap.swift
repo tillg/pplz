@@ -120,7 +120,7 @@ struct PersonMap: MapRepresentable {
             view.clusteringIdentifier = "person"
             view.canShowCallout = true
             #if os(macOS)
-            view.rightCalloutAccessoryView = NSButton(title: "Open", target: nil, action: nil)
+            view.rightCalloutAccessoryView = NSButton(title: String(localized: "Open", bundle: .module), target: nil, action: nil)
             #else
             view.rightCalloutAccessoryView = UIButton(type: .detailDisclosure)
             #endif

@@ -87,19 +87,6 @@ public enum ContactMirror {
     }
 }
 
-extension ConnectionSnapshot {
-    /// How the connection reads on this person's card. A role stored as "Ben — manager of — Anna"
-    /// shows on Anna's card as in Contacts: "manager", next to Ben's name.
-    public var displayLabel: String {
-        let isRole = kind.lowercased().hasSuffix(" of")
-        switch (direction, isRole) {
-        case (.incoming, true): return String(kind.dropLast(3)).trimmed
-        case (.incoming, false): return "\(kind) (from them)"
-        case (.outgoing, _): return kind
-        }
-    }
-}
-
 /// Append-only record of everything cardXchange wrote into the address book, so that each change can be
 /// traced and so that cardXchange only ever removes rows it added itself.
 public struct ContactJournal: Sendable {

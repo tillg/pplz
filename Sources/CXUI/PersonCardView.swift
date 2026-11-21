@@ -24,13 +24,13 @@ struct PersonCardView: View {
                 header
                 if let onAddToContacts {
                     Button(action: onAddToContacts) {
-                        Label("Add to Contacts", systemImage: "person.crop.circle.badge.plus")
+                        Label(String(localized: "Add to Contacts", bundle: .module), systemImage: "person.crop.circle.badge.plus")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.large)
                     .tint(.pink)
-                    .help("Create a card in Contacts for \(card.entry.name), to enter phone, mail, address and picture")
+                    .help(String(localized: "Create a card in Contacts for \(card.entry.name), to enter phone, mail, address and picture", bundle: .module))
                 }
                 if let contact = card.contact { contactFields(contact) }
                 cxFields
@@ -83,7 +83,7 @@ struct PersonCardView: View {
                         .multilineTextAlignment(.center)
                 }
                 if card.entry.isCXOnly {
-                    Text("Only in cardXchange — no card in Contacts")
+                    Text("Only in cardXchange — no card in Contacts", bundle: .module)
                         .font(.callout).foregroundStyle(.white.opacity(0.9))
                 }
                 if let contact = card.contact, !contact.availableQuickActions.isEmpty {
@@ -113,12 +113,12 @@ struct PersonCardView: View {
 
     /// One rounded group per kind of field, each row with its action on the right — as in Contacts.
     @ViewBuilder private func contactFields(_ contact: ContactDetails) -> some View {
-        fieldGroup(contact.phones, fallbackLabel: "phone", symbol: "phone.fill", action: .call)
-        fieldGroup(contact.emails, fallbackLabel: "email", symbol: "envelope.fill", action: .mail)
-        fieldGroup(contact.addresses, fallbackLabel: "address", symbol: "mappin.and.ellipse", action: .map)
-        fieldGroup(contact.urls + contact.socialProfiles, fallbackLabel: "url", symbol: "safari.fill", action: .web)
-        if let birthday = contact.birthdayWithAge() {
-            FieldGroup { FieldRow(label: "birthday", value: birthday) }
+        fieldGroup(contact.phones, fallbackLabel: String(localized: "phone", bundle: .module, comment: "Label of a phone number without a label"), symbol: "phone.fill", action: .call)
+        fieldGroup(contact.emails, fallbackLabel: String(localized: "email", bundle: .module, comment: "Label of an email address without a label"), symbol: "envelope.fill", action: .mail)
+        fieldGroup(contact.addresses, fallbackLabel: String(localized: "address", bundle: .module, comment: "Label of a postal address without a label"), symbol: "mappin.and.ellipse", action: .map)
+        fieldGroup(contact.urls + contact.socialProfiles, fallbackLabel: String(localized: "url", bundle: .module, comment: "Label of a web address without a label"), symbol: "safari.fill", action: .web)
+        if let birthday = contact.birthdayLine() {
+            FieldGroup { FieldRow(label: String(localized: "birthday", bundle: .module), value: birthday) }
         }
     }
 
@@ -137,13 +137,13 @@ struct PersonCardView: View {
     @ViewBuilder private var cxFields: some View {
         let stored = card.stored
         let rows: [(String, String)] =
-            (card.entry.tags.isEmpty ? [] : [("tags", card.entry.tags.joined(separator: ", "))])
-            + ((stored?.howWeMet.isEmpty ?? true) ? [] : [("how we met", stored!.howWeMet)])
-            + ((stored?.notes.isEmpty ?? true) ? [] : [("notes", stored!.notes)])
-            + (stored?.keepInTouchDays.map { [("keep in touch", "every \($0) days")] } ?? [])
+            (card.entry.tags.isEmpty ? [] : [(String(localized: "tags", bundle: .module), card.entry.tags.joined(separator: ", "))])
+            + ((stored?.howWeMet.isEmpty ?? true) ? [] : [(String(localized: "how we met", bundle: .module), stored!.howWeMet)])
+            + ((stored?.notes.isEmpty ?? true) ? [] : [(String(localized: "notes", bundle: .module), stored!.notes)])
+            + (stored?.keepInTouchDays.map { [(String(localized: "keep in touch", bundle: .module), String(localized: "every \($0) days", bundle: .module))] } ?? [])
         if !rows.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                SectionTitle("cardXchange")
+                SectionTitle(verbatim: "cardXchange")
                 FieldGroup {
                     ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                         if index > 0 { Divider() }
@@ -163,19 +163,19 @@ struct PersonCardView: View {
                     HStack(spacing: 8) {
                         Button { onShowPerson(connection.other.id) } label: {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(connection.displayLabel).font(.caption).foregroundStyle(.secondary)
+                                Text(connection.label()).font(.caption).foregroundStyle(.secondary)
                                 Text(connection.other.name)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .help("Show \(connection.other.name)")
+                        .help(String(localized: "Show \(connection.other.name)", bundle: .module))
                         Button { onDisconnect(connection.other.id) } label: {
                             Image(systemName: "minus.circle").foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
-                        .help("Remove the connections with \(connection.other.name)")
+                        .help(String(localized: "Remove the connections with \(connection.other.name)", bundle: .module))
                     }
                     .padding(.vertical, 8)
                 }
@@ -188,14 +188,14 @@ struct PersonCardView: View {
                             Text(related.value)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        Text("in Contacts").font(.caption).foregroundStyle(.tertiary)
+                        Text("in Contacts", bundle: .module).font(.caption).foregroundStyle(.tertiary)
                     }
                     .padding(.vertical, 8)
                     .accessibilityElement(children: .combine)
                 }
                 if !card.connections.isEmpty || !card.relatedNamesOnlyInContacts.isEmpty { Divider() }
                 Button(action: onConnect) {
-                    Label("Add connection", systemImage: "person.badge.plus").frame(maxWidth: .infinity, alignment: .leading)
+                    Label(String(localized: "Add connection", bundle: .module), systemImage: "person.badge.plus").frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -210,7 +210,7 @@ struct PersonCardView: View {
             SectionTitle("History")
             FieldGroup {
                 Button(action: onLogEvent) {
-                    Label("Add event", systemImage: "calendar.badge.plus").frame(maxWidth: .infinity, alignment: .leading)
+                    Label(String(localized: "Add event", bundle: .module), systemImage: "calendar.badge.plus").frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -218,7 +218,7 @@ struct PersonCardView: View {
                 .padding(.vertical, 9)
             }
             if card.history.isEmpty {
-                Text("No events yet").foregroundStyle(.secondary).padding(.vertical, 4)
+                Text("No events yet", bundle: .module).foregroundStyle(.secondary).padding(.vertical, 4)
             } else {
                 Text(summary).font(.callout).foregroundStyle(.secondary)
                 FieldGroup {
@@ -233,7 +233,8 @@ struct PersonCardView: View {
 
     private var summary: String {
         guard let last = card.history.first else { return "" }
-        return "Met \(card.history.count)× · last \(last.start.formatted(date: .abbreviated, time: .omitted))"
+        return String(localized: "Met \(card.history.count)× · last \(last.start.formatted(date: .abbreviated, time: .omitted))", bundle: .module,
+                      comment: "How often the user met the person, and the date of the last event")
     }
 }
 
@@ -255,10 +256,10 @@ struct QuickActionButton: View {
 
     private var caption: String {
         switch action {
-        case .message: "message"
-        case .call: "call"
-        case .video: "video"
-        case .mail: "mail"
+        case .message: String(localized: "message", bundle: .module, comment: "Caption of a quick action button, as in Contacts")
+        case .call: String(localized: "call", bundle: .module, comment: "Caption of a quick action button, as in Contacts")
+        case .video: String(localized: "video", bundle: .module, comment: "Caption of a quick action button, as in Contacts")
+        case .mail: String(localized: "mail", bundle: .module, comment: "Caption of a quick action button, as in Contacts")
         }
     }
 
@@ -282,18 +283,20 @@ struct QuickActionButton: View {
         .accessibilityLabel(caption)
         .confirmationDialog(caption, isPresented: $choosing, titleVisibility: .visible) {
             ForEach(Array(choices.enumerated()), id: \.offset) { _, choice in
-                Button("\(choice.label)  \(choice.value)") { openURL(choice.url) }
+                Button(choice.label + "  " + choice.value) { openURL(choice.url) }
             }
         }
     }
 }
 
 struct SectionTitle: View {
-    let text: String
-    init(_ text: String) { self.text = text }
+    let text: Text
+    /// `key` is a key of CXUI's string catalog.
+    init(_ key: LocalizedStringKey) { text = Text(key, bundle: .module) }
+    init(verbatim: String) { text = Text(verbatim: verbatim) }
 
     var body: some View {
-        Text(text).font(.headline).foregroundStyle(.pink)
+        text.font(.headline).foregroundStyle(.pink)
     }
 }
 
@@ -347,7 +350,7 @@ struct EventRow: View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Image(systemName: event.format.symbol).foregroundStyle(.pink).frame(width: 22)
             VStack(alignment: .leading, spacing: 2) {
-                Text(event.title.isEmpty ? event.format.displayName : event.title)
+                Text(event.title.isEmpty ? event.format.name() : event.title)
                 if !details.isEmpty { Text(details).font(.caption).foregroundStyle(.secondary) }
             }
             Spacer(minLength: 8)
@@ -359,8 +362,8 @@ struct EventRow: View {
 
     private var details: String {
         let others = event.participants.filter { $0.id != me }.map(\.name)
-        return ([event.title.isEmpty ? nil : event.format.displayName, event.place.isEmpty ? nil : event.place,
-                 others.isEmpty ? nil : "with " + others.joined(separator: ", ")] as [String?])
+        return ([event.title.isEmpty ? nil : event.format.name(), event.place.isEmpty ? nil : event.place,
+                 others.isEmpty ? nil : String(localized: "with \(others.formatted())", bundle: .module, comment: "The other people of an event, as a list")] as [String?])
             .compactMap { $0 }.joined(separator: " · ")
     }
 }

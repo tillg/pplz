@@ -51,7 +51,7 @@ struct CaptureSheet: View {
             if model.entries.isEmpty { await model.reload() }     // opened by a share before the list was loaded
             if let imageData, let reading = await ProfileReader.read(imageData: imageData) {
                 profile = reading.profile
-                readingProblem = reading.problem
+                readingProblem = reading.problem.map(coreText)
                 isCard = reading.isCard
             }
             // the address read from the screenshot is about this person for sure; a shared link only fills the gap
@@ -87,24 +87,24 @@ struct CaptureSheet: View {
             if phase == .reading {
                 HStack(spacing: 10) {
                     ProgressView()
-                    Text("Reading the screenshot…").foregroundStyle(.secondary)
+                    Text("Reading the screenshot…", bundle: .module).foregroundStyle(.secondary)
                 }
             } else {
                 if let picture = profile.picture.flatMap(Image.init(data:)) {
                     picture.resizable().scaledToFill().frame(width: 96, height: 96).clipShape(Circle())
                         .frame(maxWidth: .infinity)
-                        .accessibilityLabel("Profile picture")
+                        .accessibilityLabel(String(localized: "Profile picture", bundle: .module))
                 }
                 #if !os(macOS)
                 if let screenshot {
-                    DisclosureGroup("Screenshot") { ZoomableImage(image: screenshot).aspectRatio(1, contentMode: .fit) }
+                    DisclosureGroup(String(localized: "Screenshot", bundle: .module)) { ZoomableImage(image: screenshot).aspectRatio(1, contentMode: .fit) }
                 }
                 #endif
                 if imageData == nil {
-                    Text("A profile link was shared. Choose whose it is, or search for the person below.").font(.footnote).foregroundStyle(.secondary)
+                    Text("A profile link was shared. Choose whose it is, or search for the person below.", bundle: .module).font(.footnote).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if let problem = readingProblem {
-                    Text("\(problem) Please fill in the fields yourself.").font(.footnote).foregroundStyle(.secondary)
+                    Text("\(problem) Please fill in the fields yourself.", bundle: .module).font(.footnote).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let error = model.errorMessage {
@@ -133,12 +133,12 @@ struct CaptureSheet: View {
     }
 
     private func who(_ proxy: ScrollViewProxy) -> some View {
-        Section("Who is this?") {
+        Section(String(localized: "Who is this?", bundle: .module)) {
             ForEach(candidates, id: \.key) { entry in
                 choiceRow(entry.key, title: entry.name, detail: detail(of: entry),
-                          label: "Existing person \(entry.name)")
+                          label: String(localized: "Existing person \(entry.name)", bundle: .module))
             }
-            choiceRow(Self.newPerson, title: "New person", detail: "", label: "New person")
+            choiceRow(Self.newPerson, title: String(localized: "New person", bundle: .module), detail: "", label: String(localized: "New person", bundle: .module))
             ForEach(searchResults, id: \.key) { entry in
                 Button { searched = entry; choice = entry.key; hasChosen = true; search = "" } label: {
                     HStack {
@@ -150,12 +150,12 @@ struct CaptureSheet: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Found person \(entry.name)")
+                .accessibilityLabel(String(localized: "Found person \(entry.name)", bundle: .module))
             }
             // below its results, so that the keyboard does not cover them
-            TextField("Search people", text: $search)
+            TextField(String(localized: "Search people", bundle: .module), text: $search)
                 .autocorrectionDisabled()
-                .accessibilityLabel("Search people")
+                .accessibilityLabel(String(localized: "Search people", bundle: .module))
                 .id("search")
                 // the results push the field down, behind the keyboard: bring it back
                 .onChange(of: searchResults.count) { Task { @MainActor in withAnimation { proxy.scrollTo("search", anchor: .bottom) } } }
@@ -164,8 +164,9 @@ struct CaptureSheet: View {
 
     /// Company, place and how often met — what tells two people of the same name apart.
     private func detail(of entry: PersonEntry) -> String {
-        let parts = [entry.context, entry.eventCount > 0 ? "met \(entry.eventCount)×" : ""].filter { !$0.isEmpty }
-        return parts.isEmpty ? (entry.isCXOnly ? "in cardXchange" : "in your contacts") : parts.joined(separator: " · ")
+        let parts = [entry.context, entry.eventCount > 0 ? String(localized: "met \(entry.eventCount)×", bundle: .module) : ""].filter { !$0.isEmpty }
+        return parts.isEmpty ? (entry.isCXOnly ? String(localized: "in cardXchange", bundle: .module) : String(localized: "in your contacts", bundle: .module))
+            : parts.joined(separator: " · ")
     }
 
     private func choiceRow(_ key: String, title: String, detail: String, label: String) -> some View {
@@ -233,13 +234,13 @@ struct CaptureSheet: View {
 
     private var event: some View {
         SheetScaffold(title: "Which event?", confirmTitle: "No event", onConfirm: {}) {
-            Text("\(savedName) is saved. Where did you meet?").foregroundStyle(.secondary)
+            Text("\(savedName) is saved. Where did you meet?", bundle: .module).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             let recent = model.recentEvents()
             if !recent.isEmpty {
                 Section {
                     ForEach(recent) { item in
-                        eventRow(title: item.title.isEmpty ? item.format.displayName : item.title, date: item.start,
+                        eventRow(title: item.title.isEmpty ? item.format.name() : item.title, date: item.start,
                                  symbol: item.format.symbol) {
                             if let savedID { await model.addPerson(savedID, toEvent: item.id) }
                         }
@@ -261,7 +262,7 @@ struct CaptureSheet: View {
                     dismiss()
                     onNewEvent()
                 } label: {
-                    Label("New event", systemImage: "calendar.badge.plus").frame(maxWidth: .infinity, alignment: .leading)
+                    Label(String(localized: "New event", bundle: .module), systemImage: "calendar.badge.plus").frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -279,11 +280,11 @@ struct CaptureSheet: View {
     private static let rowPadding: CGFloat = 0
     #endif
 
-    private func eventHeader(_ title: String) -> some View {
+    private func eventHeader(_ title: LocalizedStringKey) -> some View {
         #if os(macOS)
-        Text(title).font(.headline).padding(.top, 12).padding(.bottom, 2)
+        Text(title, bundle: .module).font(.headline).padding(.top, 12).padding(.bottom, 2)
         #else
-        Text(title)
+        Text(title, bundle: .module)
         #endif
     }
 
@@ -306,7 +307,7 @@ struct CaptureSheet: View {
         }
         .buttonStyle(.plain)
         .padding(.vertical, Self.rowPadding)
-        .accessibilityLabel("Add to \(title)")
+        .accessibilityLabel(String(localized: "Add to \(title)", bundle: .module))
     }
 
     private func loadCalendar() async {
@@ -316,7 +317,7 @@ struct CaptureSheet: View {
             let known = Set(model.events.map { "\($0.title)|\($0.start.timeIntervalSince1970)" })
             calendar = try await SystemCalendar.recentEntries().filter { !known.contains($0.key) }
         } catch {
-            calendarProblem = (error as? LocalizedError)?.errorDescription ?? "The calendar could not be read."
+            calendarProblem = (error as? LocalizedError)?.errorDescription.map(coreText) ?? String(localized: "The calendar could not be read.", bundle: .module)
         }
     }
 }

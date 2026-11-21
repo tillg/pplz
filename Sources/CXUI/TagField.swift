@@ -5,7 +5,8 @@ import SwiftUI
 /// `text` holds the chosen tags separated by commas; `pending` is what is typed but not added yet,
 /// so that the sheet can still take it along when it is saved.
 struct TagField: View {
-    let title: String
+    /// A key of CXUI's string catalog.
+    let title: LocalizedStringKey
     @Binding var text: String
     @Binding var pending: String
     let known: [String]
@@ -18,10 +19,10 @@ struct TagField: View {
 
     @ViewBuilder private var titled: some View {
         #if os(macOS)
-        LabeledContent(title) { content }
+        LabeledContent { content } label: { Text(title, bundle: .module) }
         #else
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(title, bundle: .module).font(.caption).foregroundStyle(.secondary)
             content
         }
         .accessibilityElement(children: .contain)
@@ -41,13 +42,13 @@ struct TagField: View {
                             }
                             .chip(filled: true)
                         }
-                        .accessibilityLabel("Remove tag \(name)")
+                        .accessibilityLabel(String(localized: "Remove tag \(name)", bundle: .module))
                     }
                 }
             }
-            TextField(title, text: $pending, prompt: Text("Find or create a tag"))
+            TextField(text: $pending, prompt: Text("Find or create a tag", bundle: .module)) { Text(title, bundle: .module) }
                 .labelsHidden()
-                .accessibilityLabel("Find or create a tag")
+                .accessibilityLabel(String(localized: "Find or create a tag", bundle: .module))
                 .onSubmit(add)
             let suggestions = TagInput.suggestions(known: known, chosen: text, query: pending)
             let canCreate = TagInput.canCreate(pending, known: known, chosen: text)
@@ -57,13 +58,13 @@ struct TagField: View {
                         Button { text = TagInput.adding(name, to: text, known: known); pending = "" } label: {
                             Text(name).chip(filled: false)
                         }
-                        .accessibilityLabel("Add tag \(name)")
+                        .accessibilityLabel(String(localized: "Add tag \(name)", bundle: .module))
                     }
                     if canCreate {
                         Button(action: add) {
                             HStack(spacing: 4) {
                                 Image(systemName: "plus").font(.caption2.weight(.bold))
-                                Text("Create “\(pending.trimmingCharacters(in: .whitespaces))”")
+                                Text("Create “\(pending.trimmingCharacters(in: .whitespaces))”", bundle: .module)
                             }
                             .chip(filled: false)
                         }
