@@ -34,6 +34,10 @@ public struct SettingsView: View {
                         NavigationLink("Show My Card", value: Page.myCard)
                     }
                 }
+                Section("About") {
+                    Text(verbatim: AppVersion.text(info: Bundle.main.infoDictionary))
+                        .textSelection(.enabled)
+                }
             }
             .formStyle(.grouped)
             .navigationTitle("Settings")

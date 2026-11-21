@@ -258,6 +258,10 @@ cardXchange ships with a `cardXchange` CLI on the Mac **from the start**, so tha
   - pink as the app's accent / tint colour (buttons, links, selection, cardXchange-specific sections, app icon) instead of system blue
   - the pink is Apple's **system pink** (adapts to light / dark mode and accessibility settings) **[S]** decided 2026-11-18
 
+- **Version text (issue #12):** the About area shows the version, the build number as the third number, and the build date, for example "V. 0.2.693 - 2026-11-20 14:07". **[S]** 2026-11-20
+  - The build number is the commit count of the built commit. The date is the build machine's local time. The app and its share extensions have the same version and build number. **[A]**
+  - The Mac shows the text in the standard About window, iPhone / iPad in an "About" section at the bottom of the settings. **[A]**
+
 ### 4.8 Exchange cards (issue #5)
 
 I show a QR code in cardXchange; the other person scans it and gets my contact data in their cardXchange. **[S]** 2026-11-19

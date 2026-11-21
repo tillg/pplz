@@ -16,8 +16,11 @@ settings:
   base:
     PRODUCT_BUNDLE_IDENTIFIER: me.cardxchange.app
     PRODUCT_NAME: cardXchange
-    MARKETING_VERSION: "0.1"
+    MARKETING_VERSION: "0.2"
+    # The build number and the build date (issue #12). scripts/build-app.sh and scripts/ui.sh set both:
+    # the commit count of HEAD and the local time. A build in Xcode keeps these defaults.
     CURRENT_PROJECT_VERSION: "1"
+    CX_BUILD_DATE: ""
     SWIFT_VERSION: "6.0"
     ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -54,6 +57,7 @@ targets:
         CFBundleDisplayName: cardXchange
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CXBuildDate: $(CX_BUILD_DATE)
         LSApplicationCategoryType: public.app-category.productivity
         NSContactsUsageDescription: "cardXchange shows your contacts and adds a history of your meetings and calls to each contact's notes. Your own notes stay unchanged, and cardXchange does not share them with anyone."
         NSAppleEventsUsageDescription: "cardXchange asks the Contacts app to show a person's card and to add what you record in cardXchange."
@@ -90,6 +94,7 @@ targets:
         CFBundleDisplayName: cardXchange
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CXBuildDate: $(CX_BUILD_DATE)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
@@ -125,6 +130,7 @@ targets:
         CFBundleDisplayName: cardXchange
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CXBuildDate: $(CX_BUILD_DATE)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
@@ -160,6 +166,7 @@ targets:
         CFBundleDisplayName: cardXchange
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CXBuildDate: $(CX_BUILD_DATE)
         CXAppGroup: $(TeamIdentifierPrefix)me.cardxchange.app
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services

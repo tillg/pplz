@@ -1,3 +1,5 @@
+import AppKit
+import CXCore
 import CXUI
 import SwiftUI
 
@@ -18,6 +20,15 @@ struct CardXchangeMacApp: App {
         }
         .defaultSize(width: 980, height: 660)
         .commands {
+            // the standard About window with the version text of the Settings: "V. 0.2.693 - 2026-11-20 14:07"
+            CommandGroup(replacing: .appInfo) {
+                Button("About cardXchange") {
+                    NSApplication.shared.orderFrontStandardAboutPanel(options: [
+                        .applicationVersion: AppVersion.text(info: Bundle.main.infoDictionary),
+                        .version: "",
+                    ])
+                }
+            }
             // ⌘V does the same while no text field has the focus
             CommandGroup(after: .pasteboard) {
                 Button("Paste Screenshot or Business Card") { model.offerCaptureFromClipboard() }

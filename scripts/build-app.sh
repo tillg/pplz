@@ -9,12 +9,15 @@ cd "$(dirname "$0")/../App"
 [ -f Local.xcconfig ] || { echo "Copy App/Local.xcconfig.example to App/Local.xcconfig and enter your team ID."; exit 1; }
 xcodegen generate >/dev/null
 DERIVED="../.build/xc"
+# the build number is the commit count, the build date the local time (issue #12); all targets get the same values
+BUILD="$(git rev-list --count HEAD)"
+BUILT="$(date '+%Y-%m-%d %H:%M')"
 
 case "${1:-mac}" in
 mac)
     # automatic signing: the iCloud entitlement needs a provisioning profile
     xcodebuild -project cardxchange.xcodeproj -scheme cardxchangeMac -configuration Release -derivedDataPath "$DERIVED" \
-        -allowProvisioningUpdates build | grep -E "error:|BUILD"
+        -allowProvisioningUpdates CURRENT_PROJECT_VERSION="$BUILD" CX_BUILD_DATE="$BUILT" build | grep -E "error:|BUILD"
     osascript -e 'tell application id "me.cardxchange.app" to quit' 2>/dev/null || true
     # move, don't copy: two registered copies would compete for cx:// links
     rm -rf /Applications/cardXchange.app
@@ -25,7 +28,8 @@ iphone)
     DEVICE="${2:?device name, see: xcrun devicectl list devices}"
     # build for this very device, so that Xcode registers it and puts it into the provisioning profile
     xcodebuild -project cardxchange.xcodeproj -scheme cardxchangeiOS -configuration Debug -destination "platform=iOS,name=$DEVICE" \
-        -derivedDataPath "$DERIVED" -allowProvisioningUpdates -allowProvisioningDeviceRegistration build | grep -E "error:|BUILD" | tee "$DERIVED/last-build.txt"
+        -derivedDataPath "$DERIVED" -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+        CURRENT_PROJECT_VERSION="$BUILD" CX_BUILD_DATE="$BUILT" build | grep -E "error:|BUILD" | tee "$DERIVED/last-build.txt"
     # never install a stale build after a failed one
     grep -q "BUILD SUCCEEDED" "$DERIVED/last-build.txt" || exit 1
     xcrun devicectl device install app --device "$DEVICE" \
@@ -33,7 +37,7 @@ iphone)
     ;;
 simulator)
     xcodebuild -project cardxchange.xcodeproj -scheme cardxchangeiOS -configuration Debug -destination 'generic/platform=iOS Simulator' \
-        -derivedDataPath "$DERIVED" build | grep -E "error:|BUILD"
+        -derivedDataPath "$DERIVED" CURRENT_PROJECT_VERSION="$BUILD" CX_BUILD_DATE="$BUILT" build | grep -E "error:|BUILD"
     echo "Built $DERIVED/Build/Products/Debug-iphonesimulator/cardXchange.app"
     ;;
 *)
