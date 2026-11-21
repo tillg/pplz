@@ -803,6 +803,18 @@ import Testing
         #expect(model.selectedEventID == event)
     }
 
+    @Test func aDeletedParticipantIsMarkedAsDeleted() async throws {
+        let (model, store) = try makeModel()
+        let anna = try store.createPerson(name: "Anna Example")
+        let ben = try store.createPerson(name: "Ben Sample")
+        try store.deletePerson(anna, contactCopy: nil, at: .now)
+
+        await model.reload()
+
+        #expect(model.isDeleted(anna))
+        #expect(!model.isDeleted(ben))
+    }
+
     @Test func loadingRemovesPersonsDeletedMoreThanThirtyDaysAgo() async throws {
         let (model, store) = try makeModel()
         let old = try store.createPerson(name: "Old Example")

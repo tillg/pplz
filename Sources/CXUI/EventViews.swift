@@ -35,6 +35,7 @@ struct EventListRow: View {
 /// One event: when, where, who, what was said and what is still to do.
 struct EventDetailView: View {
     let event: EventSnapshot
+    let isDeleted: (UUID) -> Bool
     let onShowPerson: (UUID) -> Void
     let onAddPeople: () -> Void
     let onComplete: (UUID) -> Void
@@ -99,17 +100,28 @@ struct EventDetailView: View {
             FieldGroup {
                 ForEach(Array(event.participants.enumerated()), id: \.element.id) { index, person in
                     if index > 0 { Divider() }
-                    Button { onShowPerson(person.id) } label: {
+                    if isDeleted(person.id) {
+                        // a deleted person has no card to show (SPEC §3.4)
                         HStack {
                             Text(person.name)
                             Spacer()
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                            Text("deleted").font(.caption)
                         }
-                        .contentShape(Rectangle())
+                        .foregroundStyle(.secondary)
                         .padding(.vertical, 9)
+                    } else {
+                        Button { onShowPerson(person.id) } label: {
+                            HStack {
+                                Text(person.name)
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                            }
+                            .contentShape(Rectangle())
+                            .padding(.vertical, 9)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Show \(person.name)")
                     }
-                    .buttonStyle(.plain)
-                    .help("Show \(person.name)")
                 }
                 if !event.participants.isEmpty { Divider() }
                 Button(action: onAddPeople) {

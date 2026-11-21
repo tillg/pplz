@@ -474,6 +474,7 @@ extension PeopleView {
     @ViewBuilder private var eventDetail: some View {
         if let event = model.selectedEvent {
             EventDetailView(event: event,
+                            isDeleted: model.isDeleted,
                             onShowPerson: { id in Task { await model.showPerson(id) } },
                             onAddPeople: { addsPeople = true; sheet = .editEvent },
                             onComplete: { id in Task { await model.completeFollowUp(id) } },

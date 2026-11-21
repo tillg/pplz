@@ -68,6 +68,11 @@ public final class PeopleModel {
     public private(set) var entries: [PersonEntry] = []
     /// The persons under "Recently Deleted", newest first (SPEC §3.4).
     public private(set) var recentlyDeleted: [DeletedPerson] = []
+
+    /// Whether this person is under "Recently Deleted"; an event shows such a participant without a link.
+    public func isDeleted(_ id: UUID) -> Bool {
+        recentlyDeleted.contains { $0.id == id }
+    }
     /// Every tag in use, offered when tagging a person or an event.
     /// False when the address book is neither read nor written (`-noContacts`).
     public var usesContacts: Bool { configuration.usesContacts }
