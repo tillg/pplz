@@ -1,0 +1,108 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSAppleEventsUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange bittet die App „Kontakte“, die Karte einer Person zu zeigen und hinzuzufügen, was du in cardXchange erfasst."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange demande à l’app Contacts d’afficher la fiche d’une personne et d’ajouter ce que vous notez dans cardXchange."
+          }
+        }
+      }
+    },
+    "NSCalendarsFullAccessUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange bietet deine aktuellen und letzten Kalendereinträge an, wenn du erfasst, wen du getroffen hast."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange propose vos événements de calendrier actuels et récents quand vous notez qui vous avez rencontré."
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange fotografiert eine Visitenkarte und liest die Kontaktdaten auf diesem Gerät aus."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange photographie une carte de visite et en lit les coordonnées sur cet appareil."
+          }
+        }
+      }
+    },
+    "NSContactsUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange zeigt deine Kontakte und ergänzt die Notizen jedes Kontakts um einen Verlauf deiner Treffen und Gespräche. Deine eigenen Notizen bleiben unverändert, und cardXchange teilt sie mit niemandem."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange affiche vos contacts et ajoute aux notes de chaque contact un historique de vos rencontres et appels. Vos propres notes restent inchangées, et cardXchange ne les partage avec personne."
+          }
+        }
+      }
+    },
+    "NSLocationUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange zeigt auf der Karte, wo du bist, neben den Menschen, die du kennst. cardXchange speichert und sendet deinen Standort nicht."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange affiche votre position sur la carte, à côté des personnes que vous connaissez. cardXchange n’enregistre ni n’envoie votre position."
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange zeigt auf der Karte, wo du bist, neben den Menschen, die du kennst. cardXchange speichert und sendet deinen Standort nicht."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange affiche votre position sur la carte, à côté des personnes que vous connaissez. cardXchange n’enregistre ni n’envoie votre position."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

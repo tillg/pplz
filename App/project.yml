@@ -6,6 +6,8 @@ options:
     macOS: "15.0"
     iOS: "18.0"
   createIntermediateGroups: true
+  # English, German and French (issue #13); the string catalogs are in Shared, ShareCommon and the CXUI package
+  developmentLanguage: en
 configFiles:
   Debug: Local.xcconfig
   Release: Local.xcconfig

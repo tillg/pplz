@@ -1,0 +1,70 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Opening cardXchange…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange wird geöffnet …"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouverture de cardXchange…"
+          }
+        }
+      }
+    },
+    "Saved. Open cardXchange to continue.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gesichert. Öffne cardXchange, um fortzufahren."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistré. Ouvrez cardXchange pour continuer."
+          }
+        }
+      }
+    },
+    "Sending to cardXchange…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird an cardXchange gesendet …"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoi à cardXchange…"
+          }
+        }
+      }
+    },
+    "cardXchange takes a screenshot of a profile or a profile link. Received:": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange nimmt ein Bildschirmfoto eines Profils oder einen Profillink. Erhalten:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cardXchange accepte une capture d’écran d’un profil ou un lien de profil. Reçu :"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

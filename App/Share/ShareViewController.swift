@@ -9,7 +9,7 @@ final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
-        label.text = "Sending to cardXchange…"
+        label.text = String(localized: "Sending to cardXchange…")
         label.textAlignment = .center
         label.numberOfLines = 0
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -26,14 +26,14 @@ final class ShareViewController: UIViewController {
         let result = await SharedItems.deliver(extensionContext?.inputItems as? [NSExtensionItem] ?? [])
         guard result.delivered > 0 else {
             label.font = .preferredFont(forTextStyle: .footnote)
-            label.text = (["cardXchange takes a screenshot of a profile or a profile link. Received:"] + result.received).joined(separator: "\n")
+            label.text = ([String(localized: "cardXchange takes a screenshot of a profile or a profile link. Received:")] + result.received).joined(separator: "\n")
             view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(close)))
             return
         }
         // iOS has no official way for a share extension to open its app; if this does nothing,
         // the user opens cardXchange themselves and finds the capture waiting.
         let opened = openApp()
-        label.text = opened ? "Opening cardXchange…" : "Saved. Open cardXchange to continue."
+        label.text = opened ? String(localized: "Opening cardXchange…") : String(localized: "Saved. Open cardXchange to continue.")
         try? await Task.sleep(for: .seconds(opened ? 0.4 : 1.6))
         close()
     }

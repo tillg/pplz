@@ -1,0 +1,41 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "About cardXchange": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Über cardXchange"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À propos de cardXchange"
+          }
+        }
+      }
+    },
+    "Paste Screenshot or Business Card": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bildschirmfoto oder Visitenkarte einsetzen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coller une capture d’écran ou une carte de visite"
+          }
+        }
+      }
+    },
+    "cardXchange": {
+      "shouldTranslate": false
+    }
+  },
+  "version": "1.0"
+}

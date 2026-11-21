@@ -3,7 +3,7 @@ import AppKit
 /// "Share → cardXchange" on the Mac, e.g. from a screenshot's preview: puts the picture or profile link
 /// into the inbox it shares with the app and opens cardXchange, which reads it and asks who it is.
 final class ShareViewController: NSViewController {
-    private let label = NSTextField(wrappingLabelWithString: "Sending to cardXchange…")
+    private let label = NSTextField(wrappingLabelWithString: String(localized: "Sending to cardXchange…"))
 
     override func loadView() {
         view = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 120))
@@ -27,7 +27,7 @@ final class ShareViewController: NSViewController {
         if result.delivered > 0, let url = URL(string: "cx://capture") {
             NSWorkspace.shared.open(url)
         } else {
-            label.stringValue = (["cardXchange takes a screenshot of a profile or a profile link. Received:"] + result.received).joined(separator: "\n")
+            label.stringValue = ([String(localized: "cardXchange takes a screenshot of a profile or a profile link. Received:")] + result.received).joined(separator: "\n")
             try? await Task.sleep(for: .seconds(6))
         }
         extensionContext?.completeRequest(returningItems: nil)
