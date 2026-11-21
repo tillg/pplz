@@ -37,6 +37,7 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
   - [15:20 — A deleted person is marked and keeps a copy of the contact; purge on each load](#run-2026-11-21-1427-5)
   - [15:21 — My Card settings are kept per device in UserDefaults](#run-2026-11-21-1427-6)
   - [15:10 — The build number is the commit count; the version shows in About and in Settings](#run-2026-11-21-1427-7)
+  - [16:56 — The apps get German and French; notes and CLI stay English; the language is chosen in Settings](#run-2026-11-21-1427-8)
 
 # 2026-11-19 11:54 — Profile capture from a screenshot, built while the user is at lunch {#run-2026-11-19-1154}
 
@@ -374,3 +375,17 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
 - **Why:** the commit count goes up with every change, needs no counter file, and gives the same number for the same commit. The App Store needs a bundle version that only goes up.
 - **Alternatives:** a counter in a file that each build increases (more commits, conflicts between devices); the date as the build number.
 - **Consequences:** two builds of the same commit have the same number. The number is now 83, not 693 as in the example.
+
+## 16:56 — The apps get German and French; notes and CLI stay English; the language is chosen in Settings {#run-2026-11-21-1427-8}
+
+- **Status:** open
+- **Context:** issue 13, new during the run: English, French and German; follow the language of the system, else English; "set language in settings". The issue does not say who translates, nor what the setting does.
+- **Question:** what is translated, by whom, and how does the setting work?
+- **Decision:**
+  - All text of the apps and the share extensions goes into String Catalogs, with English as the base. Text that is built from parts becomes whole sentences with placeholders.
+  - Claude writes the German and French texts, close to the words of Apple's Contacts and Maps.
+  - The history block in the contact notes and the command line stay English.
+  - Settings gets "Language": System, English, Deutsch, Français. The choice applies after a restart of the app.
+- **Why:** the history block is English by an earlier decision. iOS and macOS read the app language only at launch.
+- **Alternatives:** only link to the language setting of the system (iOS has one for each app; the Mac has one in System Settings); a translation service.
+- **Consequences:** the user reviews the German and French texts. Each new text needs three languages from now on.
