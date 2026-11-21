@@ -10,6 +10,7 @@ public struct PeopleView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var sheet: Sheet?
     @State private var isConfirmingDelete = false
+    @State private var isConfirmingPersonDelete = false
     /// The event edit sheet was opened through "Add people".
     @State private var addsPeople = false
     /// A screenshot that is being captured (SPEC §4.4).
@@ -44,7 +45,7 @@ public struct PeopleView: View {
     @State private var editedEntry: PersonEntry?
 
     public enum Sheet: String, Identifiable, Sendable {
-        case log, quickLog, edit, editEvent, connect, editContact, newContact
+        case log, quickLog, edit, editEvent, connect, editContact, newContact, recentlyDeleted
         public var id: String { rawValue }
     }
 
@@ -54,7 +55,7 @@ public struct PeopleView: View {
         _sheet = State(initialValue: initialSheet)
     }
 
-    /// Reads the launch options `-show log|quickLog|edit|editEvent|connect|editContact|newContact`, `-mode events|map` and `-capture <image file>`.
+    /// Reads the launch options `-show log|quickLog|edit|editEvent|connect|editContact|newContact|recentlyDeleted`, `-mode events|map` and `-capture <image file>`.
     public init(model: PeopleModel, defaults: UserDefaults) {
         self.init(model: model, initialSheet: defaults.string(forKey: "show").flatMap(Sheet.init))
         opensEvents = defaults.string(forKey: "mode") == "events"
@@ -195,6 +196,8 @@ public struct PeopleView: View {
                     #if os(macOS)
                     .frame(width: 520, height: 600)
                     #endif
+            case .recentlyDeleted:
+                RecentlyDeletedSheet(model: model)
             }
         }
         .sheet(item: Binding(get: { model.faceChoice }, set: { if $0 == nil { Task { await model.chooseFace(nil) } } })) { choice in
@@ -204,6 +207,15 @@ public struct PeopleView: View {
             Button("Delete Event", role: .destructive) { Task { await model.deleteSelectedEvent() } }
         } message: {
             Text("Its follow-ups are deleted too. This cannot be undone.")
+        }
+        .confirmationDialog("Delete \(model.card?.entry.name ?? "")?", isPresented: $isConfirmingPersonDelete) {
+            Button("Delete Person", role: .destructive) { Task { await model.deleteSelectedPerson() } }
+        } message: {
+            if model.card?.entry.isCXOnly == false {
+                Text("The contact is deleted from Contacts now. cardXchange keeps a copy without the note, and the person's events, notes, tags and photos, for 30 days under Recently Deleted.")
+            } else {
+                Text("cardXchange keeps the person's events, notes, tags and photos for 30 days under Recently Deleted.")
+            }
         }
         .tint(.pink)
         .task {
@@ -275,6 +287,7 @@ extension PeopleView {
         case .log, .connect: model.card == nil ? nil : sheet
         case .edit, .editContact: nil      // not a sheet: shown in place of the card
         case .newContact: model.usesContacts ? sheet : nil
+        case .recentlyDeleted: sheet
         case .editEvent: model.selectedEvent == nil ? nil : sheet
         case .quickLog: model.entries.isEmpty ? nil : sheet
         case nil: nil
@@ -290,11 +303,22 @@ extension PeopleView {
                     }
                 }
             }
+            if !model.recentlyDeleted.isEmpty && model.search.isEmpty {
+                Section {
+                    Button { sheet = .recentlyDeleted } label: {
+                        LabeledContent {
+                            Text("\(model.recentlyDeleted.count)")
+                        } label: {
+                            Label("Recently Deleted", systemImage: "trash")
+                        }
+                    }
+                }
+            }
         }
         .overlay {
             if model.isLoading {
                 ProgressView()
-            } else if model.sections.isEmpty {
+            } else if model.sections.isEmpty && (!model.search.isEmpty || model.recentlyDeleted.isEmpty) {
                 ContentUnavailableView(model.search.isEmpty ? "No people yet" : "No results", systemImage: "person.2")
             }
         }
@@ -403,6 +427,8 @@ extension PeopleView {
                     Button("Edit", systemImage: "pencil") { sheet = .edit }
                         .help(card.contact != nil ? "Edit the contact card and what cardXchange keeps about \(card.entry.name)"
                                                   : "Edit tags, notes, how you met and the keep-in-touch rhythm")
+                    Button("Delete Person", systemImage: "trash") { isConfirmingPersonDelete = true }
+                        .help("Delete \(card.entry.name); Recently Deleted keeps the person for 30 days")
                     #if os(macOS)
                     if !card.entry.isCXOnly {
                         Button("Open in Contacts", systemImage: "person.crop.square") { model.openInContacts() }

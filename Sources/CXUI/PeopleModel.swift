@@ -63,6 +63,8 @@ public final class PeopleModel {
     }
     private var isSelectingProgrammatically = false
     public private(set) var entries: [PersonEntry] = []
+    /// The persons under "Recently Deleted", newest first (SPEC §3.6).
+    public private(set) var recentlyDeleted: [DeletedPerson] = []
     /// Every tag in use, offered when tagging a person or an event.
     /// False when the address book is neither read nor written (`-noContacts`).
     public var usesContacts: Bool { configuration.usesContacts }
@@ -233,6 +235,10 @@ public final class PeopleModel {
             self.store = store
             let usesContacts = configuration.usesContacts
             let contacts = try await Task.detached { usesContacts ? try SystemContacts.fetchAll() : [] }.value
+            // deleted persons whose 30 days are over go for good; every device may do it, the result is the same
+            let purged = try store.purgeExpired(now: .now)
+            if !purged.persons.isEmpty { try syncAfterPurge(purged, store) }
+            recentlyDeleted = try store.deletedPersons()
             let persons = try store.persons()
             entries = PeopleDirectory.merge(contacts: contacts, persons: persons)
             #if os(macOS)
@@ -826,6 +832,86 @@ public final class PeopleModel {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "\(error)"
             return nil
         }
+    }
+
+    // MARK: Deleting
+
+    /// Deletes the selected person: the contact leaves Contacts at once, and cardXchange keeps a copy of it and
+    /// the person's data for 30 days under "Recently Deleted" (SPEC §3.6). Returns the reason if nothing was deleted, and shows it.
+    @discardableResult
+    public func deleteSelectedPerson() async -> String? {
+        guard let store, let entry = card?.entry else { return nil }
+        let identifier = entry.contactIdentifier
+        if identifier != nil, !configuration.usesContacts {
+            return fail("\(entry.name) has a contact, and cardXchange is not using Contacts.")
+        }
+        do {
+            guard let id = try personID(entry, store) else { return nil }
+            var copy: ContactEdit?
+            if let identifier {
+                copy = try await Task.detached { try SystemContacts.contactEdit(identifier: identifier) }.value
+            }
+            try store.deletePerson(id, contactCopy: copy, at: .now)
+            if let identifier, copy != nil {
+                do {
+                    try await Task.detached { try SystemContacts.deleteContact(identifier: identifier) }.value
+                } catch {
+                    // the contact is still there: the person stays in the list
+                    try store.restorePerson(id, contactIdentifier: identifier)
+                    throw error
+                }
+            }
+        } catch {
+            return fail((error as? LocalizedError)?.errorDescription ?? "\(error)")
+        }
+        errorMessage = nil
+        selection = nil
+        await reload()
+        return nil
+    }
+
+    /// Brings a deleted person back. A person who had a contact gets it again, from the copy, with the cardXchange link;
+    /// the note is not in the copy. Returns the reason if nothing was restored, and shows it.
+    @discardableResult
+    public func restore(_ id: UUID) async -> String? {
+        guard let store else { return nil }
+        do {
+            var identifier: String?
+            if let copy = try store.contactCopy(of: id) {
+                guard configuration.usesContacts else { return fail("This person had a contact, and cardXchange is not using Contacts.") }
+                let row = ContactMirror.Row(contactIdentifier: "", label: PersonLink.label, value: PersonLink.url(for: id))
+                let created = try await Task.detached { try SystemContacts.createContact(copy, link: row) }.value
+                try ContactsSync.journal(forStoreAt: configuration.storeURL).record(
+                    .added, ContactMirror.Row(contactIdentifier: created, label: row.label, value: row.value), field: "url")
+                identifier = created
+            }
+            try store.restorePerson(id, contactIdentifier: identifier)
+        } catch {
+            return fail((error as? LocalizedError)?.errorDescription ?? "\(error)")
+        }
+        errorMessage = nil
+        await reload()
+        return nil
+    }
+
+    private func fail(_ reason: String) -> String {
+        errorMessage = reason
+        return reason
+    }
+
+    /// Removes a deleted person for good, before the 30 days are over.
+    public func deleteForGood(_ id: UUID) async {
+        guard let store else { return }
+        await perform {
+            try self.syncAfterPurge(try store.purgePersons([id]), store)
+        }
+    }
+
+    /// The related names of the removed connections leave the other contacts; the history of those who shared
+    /// an event with a removed person is written again.
+    private func syncAfterPurge(_ purged: PurgeResult, _ store: CXStore) throws {
+        let rows = purged.connections.flatMap { ContactsSync.rows($0) + ContactsSync.legacyRows($0) }
+        try syncContacts(purged.otherParticipants, store, unmirror: rows)
     }
 
     // MARK: Editing and creating contacts

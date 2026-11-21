@@ -737,3 +737,79 @@ import Testing
         #expect(await model.saveContactEdit(ContactEdit(givenName: " "), original: original) == "A contact needs a name or a company.")
     }
 }
+
+/// Deleting from the card, "Recently Deleted", restoring (SPEC §3.6).
+@MainActor
+@Suite struct DeletePersonTests {
+    func makeModel(select: String? = nil) throws -> (PeopleModel, CXStore) {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("cx-ui-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("test.store")
+        let model = PeopleModel(configuration: .init(storeURL: url, usesContacts: false, initialSelection: select))
+        return (model, try CXStore(url: url))
+    }
+
+    @Test func deletingTheSelectedPersonMovesThemToRecentlyDeleted() async throws {
+        let (model, store) = try makeModel(select: "Anna Example")
+        try store.createPerson(name: "Anna Example")
+        try store.createPerson(name: "Ben Sample")
+        await model.reload()
+
+        let failure = await model.deleteSelectedPerson()
+
+        #expect(failure == nil)
+        #expect(model.entries.map(\.name) == ["Ben Sample"])
+        #expect(model.recentlyDeleted.map(\.name) == ["Anna Example"])
+        #expect(model.card == nil)
+    }
+
+    @Test func restoringBringsThePersonBackToTheList() async throws {
+        let (model, store) = try makeModel()
+        let anna = try store.createPerson(name: "Anna Example")
+        try store.deletePerson(anna, contactCopy: nil, at: .now)
+        await model.reload()
+
+        let failure = await model.restore(anna)
+
+        #expect(failure == nil)
+        #expect(model.entries.map(\.name) == ["Anna Example"])
+        #expect(model.recentlyDeleted.isEmpty)
+    }
+
+    @Test func deletingForGoodRemovesThePersonFromTheStore() async throws {
+        let (model, store) = try makeModel()
+        let anna = try store.createPerson(name: "Anna Example")
+        try store.deletePerson(anna, contactCopy: nil, at: .now)
+        await model.reload()
+
+        await model.deleteForGood(anna)
+
+        #expect(model.recentlyDeleted.isEmpty)
+        #expect(throws: CXError.self) { try store.person(anna) }
+    }
+
+    @Test func loadingRemovesPersonsDeletedMoreThanThirtyDaysAgo() async throws {
+        let (model, store) = try makeModel()
+        let old = try store.createPerson(name: "Old Example")
+        let recent = try store.createPerson(name: "Recent Example")
+        try store.deletePerson(old, contactCopy: nil, at: Date.now.addingTimeInterval(-31 * 24 * 60 * 60))
+        try store.deletePerson(recent, contactCopy: nil, at: Date.now.addingTimeInterval(-29 * 24 * 60 * 60))
+
+        await model.reload()
+
+        #expect(model.recentlyDeleted.map(\.id) == [recent])
+        #expect(try store.deletedPersons().map(\.id) == [recent])
+    }
+
+    @Test func withoutContactsAPersonWithAContactIsNotDeleted() async throws {
+        let (model, store) = try makeModel(select: "Anna Example")
+        try store.ensurePerson(for: ContactSummary(identifier: "C-1", name: "Anna Example"))
+        await model.reload()
+
+        let failure = await model.deleteSelectedPerson()
+
+        #expect(failure != nil)
+        #expect(model.entries.map(\.name) == ["Anna Example"])
+        #expect(try store.deletedPersons().isEmpty)
+    }
+}
