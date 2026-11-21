@@ -1,5 +1,5 @@
 <p align="center"><img src="assets/logo.svg" width="128" alt="cardXchange logo"></p>
-<p align="center"><img src="assets/wordmark.svg" width="360" alt="cardXchange.me"></p>
+<p align="center"><img src="assets/wordmark.svg" width="360" alt="cardXchange"></p>
 
 # cardXchange
 
