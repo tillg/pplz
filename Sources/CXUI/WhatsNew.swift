@@ -135,9 +135,13 @@ enum WhatsNew {
     }
 }
 
-/// "What’s New" in the settings: a table that sorts by a click on a column header.
-/// In a narrow place (iPhone, the Settings window on the Mac) a list with a sort menu takes the place of the table.
-struct WhatsNewView: View {
+/// "What’s New": a table that sorts by a click on a column header. On the Mac it is a window of its own;
+/// on iPhone and iPad a page of the settings. In a narrow place (iPhone) a list with a sort menu takes the place of the table.
+public struct WhatsNewView: View {
+    /// The Mac window that shows this view.
+    public static let windowID = "whats-new"
+
+
     @State private var sortOrder = WhatsNew.newestFirst
     @State private var column = WhatsNew.Column.date
     @State private var order = SortOrder.reverse
@@ -155,7 +159,9 @@ struct WhatsNewView: View {
         static let area: CGFloat = 120
     }
 
-    var body: some View {
+    public init() {}
+
+    public var body: some View {
         content
             .navigationTitle(String(localized: "What’s New", bundle: .module))
     }

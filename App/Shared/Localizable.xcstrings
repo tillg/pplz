@@ -33,6 +33,38 @@
         }
       }
     },
+    "What’s New": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neuigkeiten"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveautés"
+          }
+        }
+      }
+    },
+    "What’s New…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neuigkeiten …"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveautés…"
+          }
+        }
+      }
+    },
     "cardXchange": {
       "shouldTranslate": false
     }

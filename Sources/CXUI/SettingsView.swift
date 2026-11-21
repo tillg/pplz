@@ -7,6 +7,9 @@ public struct SettingsView: View {
     @Bindable var model: PeopleModel
     @State private var path: [Page] = []
     @Environment(\.dismiss) private var dismiss
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
 
     enum Page: Hashable {
         case chooseMe, myCard
@@ -44,7 +47,12 @@ public struct SettingsView: View {
                 Section(String(localized: "About", bundle: .module)) {
                     Text(verbatim: AppVersion.text(info: Bundle.main.infoDictionary))
                         .textSelection(.enabled)
+                    #if os(macOS)
+                    // the Settings window is too narrow for the table, so What’s New has a window of its own
+                    Button(String(localized: "What’s New", bundle: .module)) { openWindow(id: WhatsNewView.windowID) }
+                    #else
                     NavigationLink(String(localized: "What’s New", bundle: .module)) { WhatsNewView() }
+                    #endif
                 }
             }
             .formStyle(.grouped)

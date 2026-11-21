@@ -34,10 +34,28 @@ struct CardXchangeMacApp: App {
                 Button("Paste Screenshot or Business Card") { model.offerCaptureFromClipboard() }
                     .keyboardShortcut("v", modifiers: [.command, .shift])
             }
+            WhatsNewCommand()
         }
+        // issue #15: the table of the user-visible features, sortable by a click on a column header
+        Window("What’s New", id: WhatsNewView.windowID) {
+            WhatsNewView()
+                .frame(minWidth: 600, minHeight: 300)
+        }
+        .defaultSize(width: 900, height: 600)
         Settings {
             SettingsView(model: model)
                 .frame(width: 480, height: 560)
+        }
+    }
+}
+
+/// Help → What’s New… opens the What’s New window.
+private struct WhatsNewCommand: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(after: .help) {
+            Button("What’s New…") { openWindow(id: WhatsNewView.windowID) }
         }
     }
 }
