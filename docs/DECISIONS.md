@@ -326,7 +326,7 @@ pplz is the old name of cardXchange (`docs/changes/01_rename_to_cardxchange/`). 
   - The app asks for the location when the map is first shown, not at launch. The Mac gets the location entitlement in `App/project.yml`, although the Mac app is not sandboxed today.
 - **Why:** a device cannot know whether another device locates at the same time; what the other device locates syncs in and makes the next estimate earlier. An opaque box looked like a fault and hid the map.
 - **Alternatives:** guess the number of active devices; show the estimate only while locating runs.
-- **Consequences:** with two devices the time shown is too late until the next sync. The status line is built from parts and cannot be translated (older code). The capsules touch the Apple Maps logo on iPhone; the status line did this before.
+- **Consequences:** with two devices the time shown is too late until the next sync. The status line is built from parts and cannot be translated (older code). The capsules touch the Apple Maps logo on iPhone; the status line did this before. A review by a fresh subagent found that the expected end was up to one hour wrong near the end of an hour, that it showed also when nothing locates, and that a search of only spaces gave the wrong notice. All three are fixed with tests in `89b554f`, `505ddc1` and `e2b5589`. The Mac app was built, signed with the location entitlement and installed; its window was not seen, because the display was asleep.
 
 ## 15:20 — A deleted person is marked and keeps a copy of the contact; purge on each load {#run-2026-11-21-1427-5}
 
