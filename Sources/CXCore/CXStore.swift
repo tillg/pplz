@@ -319,10 +319,11 @@ public final class CXStore {
     }
 
     /// Tags in use. Spellings that differ only in case count as one tag (see `mergeDuplicateTags`).
+    /// Deleted persons are not counted (SPEC §3.4).
     public func tags() throws -> [TagSummary] {
         try tagGroups().map { group in
             TagSummary(name: group[0].name,
-                       personCount: Set(group.flatMap { $0.persons ?? [] }.map(\.uuid)).count,
+                       personCount: Set(group.flatMap { $0.persons ?? [] }.filter { $0.deletedAt == nil }.map(\.uuid)).count,
                        eventCount: Set(group.flatMap { $0.events ?? [] }.map(\.uuid)).count)
         }
         .filter { $0.personCount + $0.eventCount > 0 }

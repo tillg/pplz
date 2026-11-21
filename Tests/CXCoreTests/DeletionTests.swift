@@ -148,6 +148,21 @@ import Testing
         #expect(try store.person(withLinkedInID: "anna-example") == nil)
     }
 
+    @Test func tagCountsLeaveOutDeletedPersons() throws {
+        let (store, _) = try makeStore()
+        let anna = try store.createPerson(name: "Anna Example")
+        let ben = try store.createPerson(name: "Ben Sample")
+        try store.addTag("work", toPerson: anna)
+        try store.addTag("work", toPerson: ben)
+        try store.addTag("chess", toPerson: anna)
+
+        try store.deletePerson(anna, contactCopy: nil, at: day(2026, 11, 21))
+
+        #expect(try store.tags() == [TagSummary(name: "work", personCount: 1, eventCount: 0)])
+        try store.restorePerson(anna, contactIdentifier: nil)
+        #expect(try store.tags().map(\.name) == ["chess", "work"])
+    }
+
     @Test func theCopyOfAStoreKeepsWhatIsDeleted() throws {
         let (store, url) = try makeStore()
         let anna = try store.ensurePerson(for: ContactSummary(identifier: "C-1", name: "Anna Example"))
