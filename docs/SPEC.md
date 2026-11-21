@@ -165,6 +165,8 @@ Met 7× · last 2026-11-12
 - A person that exists only in cardXchange: the same 30 days. **[S]** 2026-11-21
 - A deleted person is not in the list, the search, the map or `cx people`. During the 30 days the person's name stays in the participants of their events. **[A]**
 - Each load of the app deletes for good the persons whose 30 days are over; every device may do it. `cx person purge --expired` does it on the command line. **[A]**
+- If the contact is not on this device (its identifier is from another device), nothing is deleted; the person is deleted on the device that has the contact. **[A]**
+- Editing an event keeps a deleted participant in it. A contact never leads to a deleted person: it gets a new person. **[A]**
 - If Contacts refuses to delete the contact, nothing is deleted and the person stays. On the Mac a contact with a note is deleted through the Contacts app (R1). **[A]**
 - Without access to Contacts (`--no-contacts`, `-noContacts`), a person with a contact is not deleted, and a person with a copy of a contact is not restored. **[A]**
 - The marker (`deletedAt`) and the copy (`contactCopy`, JSON) are two optional attributes of the person, an additive change (§8.3). **[A]**

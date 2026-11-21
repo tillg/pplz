@@ -127,6 +127,19 @@ import Testing
         #expect(try store.deletedPersons().map(\.id) == [second, first])
     }
 
+    @Test func aContactDoesNotLeadToADeletedPerson() throws {
+        let (store, _) = try makeStore()
+        let anna = try store.ensurePerson(for: ContactSummary(identifier: "C-1", name: "Anna Example"))
+        try store.deletePerson(anna, contactCopy: nil, at: day(2026, 11, 21))
+
+        let again = try store.ensurePerson(for: ContactSummary(identifier: "C-1", name: "Anna Example"))
+        let event = try store.logEvent(EventDraft(title: "Call", format: .phoneCall, start: day(2026, 11, 22),
+                                                  additionalParticipants: [.contact(ContactSummary(identifier: "C-1", name: "Anna Example"))]))
+
+        #expect(again != anna)
+        #expect(try store.event(event).participants.map(\.id) == [again])
+    }
+
     @Test func aDeletedPersonIsNotFoundByTheirLinkedInProfile() throws {
         let (store, _) = try makeStore()
         let anna = try store.createPerson(name: "Anna Example")

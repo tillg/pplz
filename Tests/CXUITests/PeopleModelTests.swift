@@ -801,6 +801,25 @@ import Testing
         #expect(try store.deletedPersons().map(\.id) == [recent])
     }
 
+    @Test func editingAnEventKeepsADeletedParticipant() async throws {
+        let (model, store) = try makeModel()
+        let anna = try store.createPerson(name: "Anna Example")
+        let ben = try store.createPerson(name: "Ben Sample")
+        let event = try store.logEvent(EventDraft(title: "Lunch", format: .liveMeeting, start: Date(timeIntervalSince1970: 1_800_000_000),
+                                                  participants: [anna, ben]))
+        try store.deletePerson(anna, contactCopy: nil, at: .now)
+        await model.reload()
+        model.mode = .events
+        model.selectedEventID = event
+        var edit = try #require(model.eventEdit)
+        edit.title = "Long lunch"
+
+        await model.save(edit, participants: model.selectedEventPeople.map(\.key))
+
+        #expect(try store.event(event).title == "Long lunch")
+        #expect(try store.event(event).participants.map(\.id) == [anna, ben])
+    }
+
     @Test func withoutContactsAPersonWithAContactIsNotDeleted() async throws {
         let (model, store) = try makeModel(select: "Anna Example")
         try store.ensurePerson(for: ContactSummary(identifier: "C-1", name: "Anna Example"))

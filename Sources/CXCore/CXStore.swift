@@ -126,7 +126,8 @@ public final class CXStore {
     public func ensurePerson(for contact: ContactSummary) throws -> UUID {
         let identifier = contact.identifier
         let existing = try context.fetch(FetchDescriptor<Person>(predicate: #Predicate { $0.localContactIdentifier == identifier }))
-        if let person = existing.min(by: { $0.createdAt < $1.createdAt }) {
+        // a deleted person never gets a contact back this way; restoring does that
+        if let person = existing.filter({ $0.deletedAt == nil }).min(by: { $0.createdAt < $1.createdAt }) {
             if person.name != contact.name, !contact.name.isEmpty {
                 person.name = contact.name
                 try context.save()
@@ -580,7 +581,7 @@ public final class CXStore {
         case .contact(let contact):
             let identifier = contact.identifier
             if let existing = try context.fetch(FetchDescriptor<Person>(predicate: #Predicate { $0.localContactIdentifier == identifier }))
-                .min(by: { $0.createdAt < $1.createdAt }) {
+                .filter({ $0.deletedAt == nil }).min(by: { $0.createdAt < $1.createdAt }) {
                 return existing
             }
             let person = Person(name: contact.name, localContactIdentifier: identifier)

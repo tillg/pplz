@@ -764,6 +764,9 @@ extension PersonCommand {
                 }
                 let id = try common.personID(entry, store)
                 let copy = try entry.contactIdentifier.flatMap(SystemContacts.contactEdit(identifier:))
+                if entry.contactIdentifier != nil, copy == nil {
+                    throw Failure("The contact of \(entry.name) is not on this Mac. Delete the person on the device that has the contact.")
+                }
                 try store.deletePerson(id, contactCopy: copy, at: .now)
                 if let identifier = entry.contactIdentifier, copy != nil {
                     do {

@@ -42,6 +42,12 @@ struct RecentlyDeletedSheet: View {
             }
         }
         .tint(.pink)
+        // the alert of the main window does not show while this sheet is open
+        .alert("cardXchange", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.dismissError() } })) {
+            Button("OK") { model.dismissError() }
+        } message: {
+            Text(model.errorMessage ?? "")
+        }
         #if os(macOS)
         .frame(width: Self.size.width, height: Self.size.height)
         #endif

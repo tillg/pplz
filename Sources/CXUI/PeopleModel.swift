@@ -427,7 +427,9 @@ public final class PeopleModel {
                 tags: edit.tags.split(separator: ",").map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty },
                 links: edit.links.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
             if !ids.isEmpty || !additional.isEmpty {
-                change.participants = ids
+                // deleted persons are not in the list, so the edit cannot show them; they stay until removed for good
+                let deleted = event.participants.map(\.id).filter { id in !self.entries.contains { $0.id == id } && !ids.contains(id) }
+                change.participants = ids + deleted
                 change.additionalParticipants = additional
             }
             try store.updateEvent(event.id, change)
@@ -850,6 +852,9 @@ public final class PeopleModel {
             var copy: ContactEdit?
             if let identifier {
                 copy = try await Task.detached { try SystemContacts.contactEdit(identifier: identifier) }.value
+                guard copy != nil else {
+                    return fail("The contact of \(entry.name) is not on this device. Delete the person on the device that has the contact.")
+                }
             }
             try store.deletePerson(id, contactCopy: copy, at: .now)
             if let identifier, copy != nil {
@@ -874,7 +879,9 @@ public final class PeopleModel {
     /// the note is not in the copy. Returns the reason if nothing was restored, and shows it.
     @discardableResult
     public func restore(_ id: UUID) async -> String? {
-        guard let store else { return nil }
+        // a second tap while the contact is being created would create it twice
+        guard let store, restoring.insert(id).inserted else { return nil }
+        defer { restoring.remove(id) }
         do {
             var identifier: String?
             if let copy = try store.contactCopy(of: id) {
@@ -893,6 +900,8 @@ public final class PeopleModel {
         await reload()
         return nil
     }
+
+    private var restoring: Set<UUID> = []
 
     private func fail(_ reason: String) -> String {
         errorMessage = reason
