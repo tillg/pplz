@@ -33,6 +33,7 @@ The default store (`~/Library/Application Support/cardxchange/cardxchange.store`
 - Launch the app for a check with `-store <temp file>` (and `-noContacts YES` where contacts are not needed).
 - Opening a store with a newer build migrates it in place. Open `Tests/CXCoreTests/Fixtures/before-photos.store` only through a copy; a test checks that the original still has the old schema.
 - An `/autonomous` run may install the app with `scripts/build-app.sh mac`, `iphone` or `all`. Prefer `all`, so that all devices have the same build number. The installed app then opens the real store and migrates it; this is accepted.
+- When an iPhone or iPad is attached, install each new version on it at once with `scripts/build-app.sh all`: after each change pushed to `main` that the app uses (not after a change of docs only). Find attached devices with `xcrun devicectl list devices`.
 - After a change to the data model, rebuild the release binary, so that an old `cx` on the PATH does not open the store.
 - `geocache.json` (the hourly geocoding budget) sits next to the default store and does not follow `CX_STORE`.
 - The repository is public: nothing from `private/` and no real person's data goes into code, fixtures, commits or docs.
