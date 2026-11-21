@@ -73,6 +73,15 @@ import Testing
         #expect(finish(650, now: at(13, 20), slot: at(13), sent: 300) == at(16, 10).addingTimeInterval(50))
         #expect(finish(10, now: at(14, 5), slot: at(13), sent: 300) == at(14, 10).addingTimeInterval(10))
     }
+
+    /// Near the end of an hour only some requests fit before it ends. The rest count against the next hour,
+    /// which is then spent after 300 and pauses until ten minutes into the hour after it.
+    @Test func requestsThatDoNotFitIntoTheHourCountAgainstTheNextHour() {
+        // 10 before 14:00, 300 from 14:00:00 to 14:04:59, the pause until 15:10, 290 from 15:10:00 to 15:14:49
+        #expect(finish(600, now: at(13, 59).addingTimeInterval(50), slot: nil, sent: 0) == at(15, 14).addingTimeInterval(50))
+        // 120 before 14:00, 280 from 14:00:00 to 14:04:39; the hour from 14:00 is not spent, so no pause
+        #expect(finish(400, now: at(13, 58), slot: nil, sent: 0) == at(14, 4).addingTimeInterval(40))
+    }
 }
 
 @Suite struct GeocodeStoreTests {

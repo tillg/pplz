@@ -109,26 +109,33 @@ public enum GeocodeBudget {
         return now < resume ? .wait(until: resume) : .send
     }
 
-    /// When `outstanding` addresses are expected to be located if this device does them all: one request every
-    /// `spacing` while the hour's budget lasts, the rest from ten minutes into each next hour. `nil` when nothing is left.
+    /// When `outstanding` addresses are expected to be located if this device does them all. `nil` when nothing is left.
+    /// It follows the locate loop hour by hour: one request every `spacing`, each counted in the clock hour it is sent in.
+    /// A request that does not fit before the hour ends counts against the next hour. Only an hour whose budget
+    /// is spent pauses until ten minutes into the hour after it (`decide`).
     /// Other devices are not counted: what they locate syncs in and makes the next estimate earlier.
     public static func finish(outstanding: Int, now: Date, slotStart: Date?, sent: Int, limit: Int = hourlyLimit,
                               spacing: TimeInterval = 1, calendar: Calendar = .current) -> Date? {
         guard outstanding > 0 else { return nil }
-        var start = now
-        var free = limit - self.sent(now: now, slotStart: slotStart, sent: sent, calendar: calendar)
+        var time = now
+        var used = self.sent(now: now, slotStart: slotStart, sent: sent, calendar: calendar)
         if case .wait(let until) = decide(now: now, slotStart: slotStart, sent: sent, limit: limit, calendar: calendar) {
-            start = until
-            free = limit
+            time = until
+            used = 0
         }
-        free = max(0, free)
-        if outstanding <= free { return start.addingTimeInterval(Double(outstanding) * spacing) }
-        let rest = outstanding - free
-        let hours = (rest + limit - 1) / limit
-        let last = rest - (hours - 1) * limit
-        let slot = Self.slotStart(of: start, calendar: calendar)
-        let lastHour = calendar.date(byAdding: .hour, value: hours, to: slot) ?? slot.addingTimeInterval(Double(hours) * 3600)
-        return lastHour.addingTimeInterval(pauseIntoNextHour + Double(last) * spacing)
+        var left = outstanding
+        while true {
+            let slot = Self.slotStart(of: time, calendar: calendar)
+            let hourEnd = calendar.date(byAdding: .hour, value: 1, to: slot) ?? slot.addingTimeInterval(3600)
+            let free = max(0, limit - used)
+            let fit = Int((hourEnd.timeIntervalSince(time) / spacing).rounded(.up))
+            let count = min(free, fit, left)
+            left -= count
+            let next = time.addingTimeInterval(Double(count) * spacing)
+            if left == 0 { return next }
+            time = count == free ? max(next, resume(after: slot, calendar: calendar)) : next
+            used = 0
+        }
     }
 }
 
