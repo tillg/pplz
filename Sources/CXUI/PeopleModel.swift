@@ -247,7 +247,6 @@ public final class PeopleModel {
         settingsDomain = configuration.settingsSuite ?? Bundle.main.bundleIdentifier ?? ""
         // only the app's own value: `settings` also returns the device's language list
         language = AppLanguage(appleLanguages: settings.persistentDomain(forName: settingsDomain)?[Self.languageSetting])
-        myCardKey = settings.string(forKey: Self.myCardKeySetting)
         myCardFields = settings.data(forKey: Self.myCardFieldsSetting)
             .flatMap { try? JSONDecoder().decode(MyCardFields.self, from: $0) } ?? MyCardFields()
     }
@@ -276,6 +275,7 @@ public final class PeopleModel {
             for adoption in adoptions { try store.setContactIdentifier(adoption.contactIdentifier, for: adoption.person) }
             if !adoptions.isEmpty { try syncContacts(adoptions.map(\.person), store) }
             #endif
+            if try await settleMe(store) { entries = PeopleDirectory.merge(contacts: contacts, persons: try store.persons()) }
             #if os(macOS)
             // tags created on two devices before they synced; only the Mac merges, so two devices never undo each other
             try store.mergeDuplicateTags()
@@ -1061,13 +1061,20 @@ public final class PeopleModel {
 
     // MARK: My card (SPEC §4.8)
 
+    /// The row the user chose before "Me" moved into the store; it is moved there once (issue #16).
     private static let myCardKeySetting = "myCardKey"
+    /// The fields stay on the device: each device can pass on other fields.
     private static let myCardFieldsSetting = "myCardFields"
+    /// The person this Mac marked as "My Card" in Contacts last. Per device, because it describes this Mac's Contacts.
+    private static let meAppliedSetting = "meAppliedToContacts"
 
-    /// The row of the person the user chose as themselves; `nil` until they choose.
-    public private(set) var myCardKey: String?
-    /// The Mac's own "My Card" in Contacts, used while the user has not chosen.
-    private var systemMeKey: String?
+    /// "Me" from the synced store; `nil` until someone is chosen or, on the Mac, Contacts has a "My Card".
+    public private(set) var mePerson: UUID? {
+        didSet {
+            // the chosen rows belong to one contact: another person starts from the default rows
+            if let oldValue, oldValue != mePerson { myCardFields.rows = nil }
+        }
+    }
     /// What the user passes on of their own contact. Every change is kept for the next launch.
     public var myCardFields: MyCardFields {
         didSet { settings.set(try? JSONEncoder().encode(myCardFields), forKey: Self.myCardFieldsSetting) }
@@ -1078,8 +1085,8 @@ public final class PeopleModel {
 
     /// The person whose card is passed on: the one the user chose, else the Mac's "My Card" in Contacts.
     public var myCardEntry: PersonEntry? {
-        guard let key = myCardKey ?? systemMeKey else { return nil }
-        return entries.first { $0.key == key }
+        guard let mePerson else { return nil }
+        return entries.first { $0.id == mePerson }
     }
 
     /// The card exactly as it is passed on.
@@ -1093,23 +1100,75 @@ public final class PeopleModel {
         set { if let myContact { myCardFields.set(rowID, included: newValue, of: myContact) } }
     }
 
-    /// Keeps `key` (a row of the people list) as the user's own person and reads its contact.
+    /// Keeps `key` (a row of the people list) as the user's own person in the store and reads its contact.
+    /// The Mac also marks the contact as "My Card" in Contacts; a change on iPhone or iPad reaches Contacts
+    /// when the Mac loads next.
     public func chooseMe(_ key: String) async {
-        // the chosen rows belong to one contact: another person starts from the default rows
-        if key != myCardEntry?.key { myCardFields.rows = nil }
-        myCardKey = key
-        settings.set(key, forKey: Self.myCardKeySetting)
-        await loadMyCard()
+        guard let store, let entry = entries.first(where: { $0.key == key }) else { return }
+        await perform {
+            guard let id = try self.personID(entry, store) else { return }
+            try store.setMePerson(id)
+            if entry.id == nil { try self.syncContacts([id], store) }   // the contact gets its link, so other devices find the person
+        }
     }
+
+    /// Brings "Me" in the store together with the old choice on this device and, on the Mac, with "My Card"
+    /// in Contacts (issue #16). Returns whether it created a person, so that the list must be merged again.
+    private func settleMe(_ store: CXStore) async throws -> Bool {
+        var created = false
+        if let key = settings.string(forKey: Self.myCardKeySetting) {
+            if try store.mePerson() == nil, let entry = entries.first(where: { $0.key == key }) {
+                if let id = try personID(entry, store) {
+                    try store.setMePerson(id)
+                    if entry.id == nil { try syncContacts([id], store); created = true }
+                }
+            }
+            if try store.mePerson() != nil { settings.removeObject(forKey: Self.myCardKeySetting) }
+        }
+        #if os(macOS)
+        if configuration.usesContacts, try await settleMyCardInContacts(store) { created = true }
+        #endif
+        mePerson = try store.mePerson()
+        return created
+    }
+
+    #if os(macOS)
+    /// Applies `MyCard.meSync` to the store and to "My Card" in Contacts. Returns whether it created a person.
+    private func settleMyCardInContacts(_ store: CXStore) async throws -> Bool {
+        let meContact = await Task.detached { try? SystemContacts.meContactIdentifier() }.value
+        let meEntry = meContact.flatMap { identifier in entries.first { $0.contactIdentifier == identifier } }
+        let stored = try store.mePerson()
+        let applied = settings.string(forKey: Self.meAppliedSetting).flatMap(UUID.init(uuidString:))
+        // a contact without a person is neither the stored nor the applied person
+        let system = meEntry.map { $0.id ?? UUID() }
+        switch MyCard.meSync(stored: stored, applied: applied, system: system) {
+        case .none:
+            if let stored { settings.set(stored.uuidString, forKey: Self.meAppliedSetting) }
+            return false
+        case .takeFromContacts:
+            guard let meEntry, let id = try personID(meEntry, store) else { return false }
+            try store.setMePerson(id)
+            settings.set(id.uuidString, forKey: Self.meAppliedSetting)
+            guard meEntry.id == nil else { return false }
+            try syncContacts([id], store)
+            return true
+        case .applyToContacts:
+            // a person without a contact on this Mac cannot be "My Card"
+            guard let stored, let identifier = entries.first(where: { $0.id == stored })?.contactIdentifier else { return false }
+            do {
+                try await Task.detached { try ContactsApp.setMyCard(identifier: identifier) }.value
+                settings.set(stored.uuidString, forKey: Self.meAppliedSetting)
+            } catch {
+                errorMessage = userMessage(error)
+            }
+            return false
+        }
+    }
+    #endif
 
     /// Reads the user's own contact and picture; a person without a contact gives only the name.
     public func loadMyCard() async {
         let usesContacts = configuration.usesContacts
-        #if os(macOS)
-        if myCardKey == nil, systemMeKey == nil, usesContacts {
-            systemMeKey = await Task.detached { try? SystemContacts.meContactIdentifier() }.value
-        }
-        #endif
         guard let entry = myCardEntry else {
             myContact = nil
             myPicture = nil

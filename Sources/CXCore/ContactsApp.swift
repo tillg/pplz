@@ -30,6 +30,16 @@ public enum ContactsApp {
         throw CXError.invalid("Could not open the contact in Contacts.")
     }
 
+    /// Marks the contact as "My Card" in Contacts (issue #16). `my card` is a property of the Contacts app that scripting can set.
+    public static func setMyCard(identifier: String) throws {
+        _ = try runScript([
+            "tell application \"Contacts\"",
+            "set my card to person id a1",
+            "save",
+            "end tell",
+        ], text: [identifier])
+    }
+
     public enum WriteResult: String, Sendable { case added, alreadyThere, removed, notThere, written, conflict }
 
     /// Runs an AppleScript with text arguments available as `a1`, `a2`, ….

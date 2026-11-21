@@ -932,4 +932,56 @@ import Testing
             #expect(model.myCardFields.rows == nil)
         }
     }
+
+    // MARK: "Me" in the synced store (issue #16)
+
+    @Test func meFromTheStoreIsShownWithoutChoosing() async throws {
+        try await withFreshSettings { settings in
+            let (model, store, _) = try makeModel(settings: settings)
+            let anna = try store.createPerson(name: "Anna Example")
+            try store.createPerson(name: "Ben Sample")
+            try store.setMePerson(anna)
+            await model.reload()
+            #expect(model.myCardEntry?.name == "Anna Example")
+            #expect(model.myCard?.contact.givenName == "Anna")
+        }
+    }
+
+    @Test func choosingMeKeepsThePersonInTheStore() async throws {
+        try await withFreshSettings { settings in
+            let (model, store, url) = try makeModel(settings: settings)
+            try store.createPerson(name: "Anna Example")
+            let ben = try store.createPerson(name: "Ben Sample")
+            await model.reload()
+            await model.chooseMe(model.entries[1].key)
+            #expect(try CXStore(url: url).mePerson() == ben)
+            #expect(UserDefaults(suiteName: settings)?.string(forKey: "myCardKey") == nil)
+        }
+    }
+
+    @Test func theChoiceOnTheDeviceMovesIntoTheStoreOnce() async throws {
+        try await withFreshSettings { settings in
+            let (model, store, url) = try makeModel(settings: settings)
+            let anna = try store.createPerson(name: "Anna Example")
+            UserDefaults(suiteName: settings)?.set(anna.uuidString, forKey: "myCardKey")   // the key of a row without a contact
+            await model.reload()
+            #expect(try CXStore(url: url).mePerson() == anna)
+            #expect(UserDefaults(suiteName: settings)?.string(forKey: "myCardKey") == nil)
+            #expect(model.myCardEntry?.name == "Anna Example")
+        }
+    }
+
+    @Test func theChoiceOnTheDeviceNeverReplacesMeInTheStore() async throws {
+        try await withFreshSettings { settings in
+            let (model, store, url) = try makeModel(settings: settings)
+            let anna = try store.createPerson(name: "Anna Example")
+            let ben = try store.createPerson(name: "Ben Sample")
+            try store.setMePerson(ben)
+            UserDefaults(suiteName: settings)?.set(anna.uuidString, forKey: "myCardKey")
+            await model.reload()
+            #expect(try CXStore(url: url).mePerson() == ben)
+            #expect(UserDefaults(suiteName: settings)?.string(forKey: "myCardKey") == nil)
+            #expect(model.myCardEntry?.name == "Ben Sample")
+        }
+    }
 }
