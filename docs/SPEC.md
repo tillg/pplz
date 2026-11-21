@@ -260,7 +260,7 @@ cardXchange ships with a `cardXchange` CLI on the Mac **from the start**, so tha
 
 - **Version text (issue #12):** the About area shows the version, the build number as the third number, and the build date, for example "V. 0.2.693 - 2026-11-20 14:07". **[S]** 2026-11-20
   - The build number is the commit count of the built commit. The date is the build machine's local time. The app and its share extensions have the same version and build number. **[A]**
-  - The Mac shows the text in the standard About window, iPhone / iPad in an "About" section at the bottom of the settings. **[A]**
+  - The text is in an "About" section at the bottom of the settings, on all devices. The Mac also shows it in the standard About window. **[A]**
 
 ### 4.8 Exchange cards (issue #5)
 
